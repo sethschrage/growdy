@@ -12,6 +12,12 @@ built out piece by piece; see open and merged PRs for current progress,
 and [`docs/decisions/`](docs/decisions) for the reasoning behind each
 structural choice.
 
+## Notable design decisions
+
+- [0001 -- Tenancy membership model](docs/decisions/0001-tenancy-membership-model.md) -- how a user resolves to a producer, isolated behind one swappable RLS helper function.
+- [0002 -- Planting location model](docs/decisions/0002-planting-location-model.md) -- a planting is either organized (plot/row/position) or unplotted (a PostGIS location), never both, never neither.
+- [0003 -- Plant type reference table](docs/decisions/0003-plant-types-reference-table.md) -- a shared, global vocabulary of plant/cultivar names where producers can propose new *entries* but never new schema *fields*. **Designed, not yet implemented** -- deferred until an actual data import.
+
 ## Stack
 
 | Concern | Choice |
