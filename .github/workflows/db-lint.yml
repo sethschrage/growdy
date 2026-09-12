@@ -19,4 +19,4 @@ jobs:
         run: supabase db start
 
       - name: Lint schema
-        run: supabase db lint --level warning --fail-on warning
+        run: supabase db lint --schema public,private --level warning --fail-on warning
