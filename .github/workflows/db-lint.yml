@@ -1,0 +1,22 @@
+name: Database lint
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack (applies migrations)
+        run: supabase db start
+
+      - name: Lint schema
+        run: supabase db lint --level warning --fail-on warning
