@@ -1,7 +1,16 @@
--- A plot_row is a numbered row within a plot (the "11" in "N11-4"). Named
+-- A plot_row is a numbered row within a plot (the "11" in "N-11-4"). Named
 -- plot_rows rather than "rows" to avoid colliding with SQL's ROW()
 -- constructor and the ROWS keyword used in window-function syntax, which
 -- would otherwise force quoting ("rows") in every query.
+--
+-- Display label format is plot-row-position, hyphen-delimited throughout
+-- ("N-11-4"), not the plot+row concatenated without a separator ("N11-4")
+-- floated earlier. Since plot names are free text, concatenating plot
+-- directly against row without a delimiter is ambiguous or unparseable
+-- once a plot name isn't exactly one character (e.g. "NW", "South Block",
+-- or a plot literally named "11"). This label is never stored -- it's
+-- computed from plots.name + plot_rows.number (+ planting.position) at
+-- read time.
 --
 -- A row always belongs to a plot -- an unplotted planting attaches
 -- directly to a parcel instead, with no row.
@@ -20,7 +29,7 @@ create table public.plot_rows (
   unique (plot_id, number)
 );
 
-comment on table public.plot_rows is 'A numbered row within a plot (the "11" in "N11-4").';
+comment on table public.plot_rows is 'A numbered row within a plot (the "11" in "N-11-4").';
 
 create index plot_rows_producer_id_idx on public.plot_rows (producer_id);
 create index plot_rows_plot_id_idx on public.plot_rows (plot_id);
