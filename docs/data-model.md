@@ -61,7 +61,7 @@ erDiagram
     }
     OBSERVATIONS {
         uuid id PK
-        uuid planting_id FK
+        uuid planting_id FK "nullable"
         uuid producer_id FK
         date observed_date "nullable"
         text note
@@ -83,7 +83,7 @@ erDiagram
     PARCELS ||--o{ PLANTING : "located in"
     PLOTS |o--o{ PLANTING : "organizes (optional)"
     PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
-    PLANTING ||--o{ OBSERVATIONS : "has"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
     PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
     PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
     PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
@@ -116,6 +116,10 @@ erDiagram
 - **`observations.status`** defaults to `pending` and only becomes
   `approved`/`rejected` after review -- see
   [0009](decisions/0009-chat-based-observation-submission.md).
+- **`observations.planting_id` is nullable** -- a note doesn't have to be
+  about one specific plant; a general one (a task done, something seen,
+  not tied to a position) is logged with no planting at all -- see
+  [0014](decisions/0014-open-ended-observations.md).
 - **`conversations`** is one row per chat session (`mode` is `submit` or
   `ask`, derived from whether the session produced a submission rather
   than fixed by an entry point the producer picked -- see

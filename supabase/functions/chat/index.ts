@@ -4,8 +4,9 @@
 // and hand back a structured description of it. It never touches the
 // database itself; the app resolves a describe_query intent against
 // planting_readable or position_status, or a submit_observation_draft
-// intent against a planting match the app looks up itself, both under
-// the signed-in user's own RLS-scoped session.
+// intent against a planting match the app looks up itself when the note
+// is about one (0014: a note doesn't have to be), both under the
+// signed-in user's own RLS-scoped session.
 //
 // Two tools live in one list here rather than in separate functions
 // (0012): the actual safety backstop was never which function could
@@ -38,15 +39,15 @@ There are five things you can help with:
 - A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
 - A planting lookup: what's planted at a specific plot, row, and position.
 - A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
-- Logging an observation: recording something about a specific plant at a specific plot, row, and position.
+- Logging an observation: recording something the producer noticed or did. This might be about one specific plant ("the vine near the busted trellis has fungus") or it might not be about any single plant at all ("I trimmed the weeds," "sprayed the whole vineyard," "saw a hawk over the north field") -- both are worth logging.
 
-Figure out which one is meant from context. Someone describing something they noticed, did, or want recorded about a plant ("I trimmed...", "this vine looks...", "saw some mildew on...") is logging an observation, not asking a question. Someone asking what's planted, where, or the status of positions is one of the four lookup types.
+Figure out which one is meant from context. Someone describing something they noticed, did, or want recorded ("I trimmed...", "this vine looks...", "saw some mildew on...") is logging an observation, not asking a question. Someone asking what's planted, where, or the status of positions is one of the four lookup types.
 
 If someone answers a parcel question with "everywhere," "anywhere," "all of them," or similar, that means they want a variety lookup, not a parcel lookup -- don't ask which parcel again.
 
-Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given. For an observation, if the person genuinely doesn't know an exact plot/row/position, don't guess at a value -- keep asking for whatever identifying detail they do have until you have all three or they say they truly can't tell you more, in which case say you're not able to log this without at least the plot, row, and position.
+Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given. For an observation, only ask for a plot/row/position if what's being described genuinely sounds like it's about one specific plant -- don't ask for those on a general note that was never about one. If it is about a specific plant but the person genuinely doesn't know an exact plot/row/position, don't guess at a value -- keep asking for whatever identifying detail they do have until you have all three, or, once it's clear they truly can't give more, just log the note without a location rather than refusing to log it at all.
 
-Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before plot, row_number, position, and a note are all known.
+Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before at least a note is known -- plot, row_number, and position are only needed when the note is actually about one specific plant.
 
 After a describe_query call, you'll get the matching data back. Answer in plain conversational language using it -- match the level of detail to how the question was actually phrased (a quick total for "how many," a fuller breakdown by parcel or plot for "where," specific varieties or nicknames if the data has them and the question invites it). Don't just restate a raw count if the data supports a more useful answer.`;
 
@@ -94,20 +95,20 @@ const DESCRIBE_QUERY_TOOL = {
 const SUBMIT_OBSERVATION_DRAFT_TOOL = {
   name: "submit_observation_draft",
   description:
-    "Submit the gathered observation details once plot, row_number, position, and note are known.",
+    "Submit the gathered observation details once a note is known. Include plot, row_number, and position only when the note is about one specific plant and those are known.",
   input_schema: {
     type: "object",
     properties: {
-      plot: { type: "string" },
-      row_number: { type: "integer" },
-      position: { type: "integer" },
+      plot: { type: "string", description: "Only if the note is about a specific plant and the plot is known." },
+      row_number: { type: "integer", description: "Only if the note is about a specific plant and the row is known." },
+      position: { type: "integer", description: "Only if the note is about a specific plant and the position is known." },
       note: { type: "string" },
       observed_date: {
         type: "string",
         description: "ISO date (YYYY-MM-DD), only if mentioned",
       },
     },
-    required: ["plot", "row_number", "position", "note"],
+    required: ["note"],
   },
 };
 
