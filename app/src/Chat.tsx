@@ -29,37 +29,41 @@ type PlantingRow = {
   removed_reason: string | null
 }
 
-function describePlanting(row: PlantingRow): string {
-  const identityParts: string[] = []
-  if (row.variety) identityParts.push(row.variety)
-  if (row.scion || row.rootstock) {
-    const graft = [row.scion && `scion ${row.scion}`, row.rootstock && `rootstock ${row.rootstock}`]
-      .filter(Boolean)
-      .join(', ')
-    identityParts.push(`(${graft})`)
-  }
-  if (row.nickname) identityParts.push(`"${row.nickname}"`)
-  const identity = identityParts.length > 0 ? identityParts.join(' ') : 'an unidentified plant'
-  const location = row.label ?? `Plot ${row.plot}, Row ${row.row_number}, Position ${row.position}`
+const MAX_DETAILED_MATCHES = 25
 
-  let answer = `${location}: ${identity}.`
-  if (row.dead_date) answer += ` Marked dead on ${row.dead_date}.`
-  if (row.removed_date) {
-    answer += ` Removed on ${row.removed_date}${row.removed_reason ? ` (${row.removed_reason})` : ''}.`
-  }
-  return answer
+function summarizePlantings(rows: PlantingRow[]) {
+  return rows.map((row) => ({
+    location: row.label ?? `Plot ${row.plot}, Row ${row.row_number}, Position ${row.position}`,
+    variety: row.variety,
+    scion: row.scion,
+    rootstock: row.rootstock,
+    nickname: row.nickname,
+    dead_date: row.dead_date,
+    removed_date: row.removed_date,
+    removed_reason: row.removed_reason,
+  }))
 }
 
-function describeStatuses(rows: { position: number; status: string }[], statusFilter?: string): string {
-  if (rows.length === 0) {
-    return statusFilter ? `No positions there are ${statusFilter}.` : `No positions found there.`
+function countBy<T>(rows: T[], key: (row: T) => string) {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const k = key(row)
+    counts.set(k, (counts.get(k) ?? 0) + 1)
   }
-  const sorted = [...rows].sort((a, b) => a.position - b.position)
-  if (statusFilter) {
-    return `${statusFilter} positions: ${sorted.map((r) => r.position).join(', ')}.`
-  }
-  return `Status by position: ${sorted.map((r) => `${r.position} (${r.status})`).join(', ')}.`
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([value, count]) => ({ value, count }))
 }
+
+// Anthropic's tool-result round trip: the assistant's original tool_use
+// turn plus a user turn carrying the answer, appended one-off onto the
+// visible history for this single follow-up call only -- the stored,
+// displayed transcript never grows these scaffolding turns, so the next
+// real message still rebuilds history from plain visible messages.
+type ToolRoundTripMessage =
+  | ChatMessage
+  | { role: 'assistant'; content: unknown }
+  | { role: 'user'; content: [{ type: 'tool_result'; tool_use_id: string; content: string }] }
 
 export function Chat({ session }: { session: Session }) {
   const [producerId, setProducerId] = useState<string | null>(null)
@@ -84,6 +88,38 @@ export function Chat({ session }: { session: Session }) {
       .single()
       .then(({ data }) => setProducerId(data?.producer_id ?? null))
   }, [session.user.id])
+
+  async function answerFromData(
+    nextMessages: ChatMessage[],
+    toolUseId: string,
+    assistantContent: unknown,
+    resultData: unknown,
+  ) {
+    const followUp: ToolRoundTripMessage[] = [
+      ...nextMessages,
+      { role: 'assistant', content: assistantContent },
+      {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: toolUseId, content: JSON.stringify(resultData) }],
+      },
+    ]
+
+    const { data, error } = await supabase.functions.invoke('chat', { body: { messages: followUp } })
+    setSending(false)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+    if (data.type === 'error') {
+      setError(data.message)
+      return
+    }
+
+    const withAssistant = [...nextMessages, { role: 'assistant' as const, content: data.text ?? '' }]
+    setMessages(withAssistant)
+    log(withAssistant)
+  }
 
   async function send(event: FormEvent) {
     event.preventDefault()
@@ -166,10 +202,9 @@ export function Chat({ session }: { session: Session }) {
         supabase.from('planting_readable').select(columns).ilike('nickname', `%${variety}%`),
       ])
 
-      setSending(false)
-
       const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error ?? byNickname.error
       if (varietyError) {
+        setSending(false)
         setError(varietyError.message)
         return
       }
@@ -189,27 +224,18 @@ export function Chat({ session }: { session: Session }) {
       }
       matches.sort((a, b) => (a.parcel + a.plot).localeCompare(b.parcel + b.plot))
 
-      const MAX_DETAILED_MATCHES = 25
-      let answer: string
-      if (matches.length === 0) {
-        answer = `Nothing matches "${variety}".`
-      } else if (matches.length > MAX_DETAILED_MATCHES) {
-        const countsByParcel = new Map<string, number>()
-        for (const m of matches) {
-          countsByParcel.set(m.parcel, (countsByParcel.get(m.parcel) ?? 0) + 1)
-        }
-        const breakdown = [...countsByParcel.entries()]
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .map(([parcel, count]) => `${parcel}: ${count}`)
-          .join('\n')
-        answer = `Found ${matches.length} plantings matching "${variety}" across ${countsByParcel.size} parcel${countsByParcel.size === 1 ? '' : 's'}:\n${breakdown}`
-      } else {
-        answer = matches.map((m) => `${m.parcel} -- ${describePlanting(m)}`).join('\n')
+      const resultData = {
+        query: variety,
+        total_matches: matches.length,
+        by_parcel: countBy(matches, (m) => m.parcel).map(({ value, count }) => ({ parcel: value, count })),
+        by_parcel_and_plot: countBy(matches, (m) => `${m.parcel} / ${m.plot}`).map(({ value, count }) => ({
+          location: value,
+          count,
+        })),
+        plantings: matches.length <= MAX_DETAILED_MATCHES ? summarizePlantings(matches) : undefined,
       }
 
-      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
-      setMessages(withAssistant)
-      log(withAssistant)
+      await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
       return
     }
 
@@ -224,21 +250,21 @@ export function Chat({ session }: { session: Session }) {
         .order('row_number')
         .order('position')
 
-      setSending(false)
-
       if (plantingError) {
+        setSending(false)
         setError(plantingError.message)
         return
       }
 
-      const answer =
-        !plantings || plantings.length === 0
-          ? `Nothing's recorded in Parcel ${parcel} yet.`
-          : plantings.map(describePlanting).join('\n')
+      const rows = plantings ?? []
+      const resultData = {
+        parcel,
+        total_matches: rows.length,
+        by_plot: countBy(rows, (r) => r.plot).map(({ value, count }) => ({ plot: value, count })),
+        plantings: rows.length <= MAX_DETAILED_MATCHES ? summarizePlantings(rows) : undefined,
+      }
 
-      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
-      setMessages(withAssistant)
-      log(withAssistant)
+      await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
       return
     }
 
@@ -283,14 +309,14 @@ export function Chat({ session }: { session: Session }) {
         return
       }
 
-      const answer =
-        !planting || planting.length === 0
-          ? `Nothing's recorded at Plot ${plot}, Row ${row_number}, Position ${position}.`
-          : describePlanting(planting[0])
+      const resultData = {
+        plot,
+        row_number,
+        position,
+        planting: planting && planting.length > 0 ? summarizePlantings(planting)[0] : null,
+      }
 
-      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
-      setMessages(withAssistant)
-      log(withAssistant)
+      await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
       return
     }
 
@@ -305,12 +331,16 @@ export function Chat({ session }: { session: Session }) {
       return
     }
 
-    const withAssistant = [
-      ...nextMessages,
-      { role: 'assistant' as const, content: describeStatuses(statuses ?? [], status) },
-    ]
-    setMessages(withAssistant)
-    log(withAssistant)
+    const resultData = {
+      plot,
+      row_number,
+      status_filter: status ?? null,
+      positions: (statuses ?? [])
+        .map((s) => ({ position: s.position, status: s.status }))
+        .sort((a, b) => a.position - b.position),
+    }
+
+    await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
   }
 
   async function confirmSubmit() {
