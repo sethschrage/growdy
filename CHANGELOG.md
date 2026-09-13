@@ -1,8 +1,9 @@
 # Changelog
 
-All notable changes to this project are documented here. Format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning
-follows [Semantic Versioning](https://semver.org/).
+All notable changes to this project are documented here, one entry per
+release. Each entry opens with the theme -- why that batch of changes
+happened -- then describes what changed in prose, not a categorized
+list. Versioning follows [Semantic Versioning](https://semver.org/).
 
 Releases are cut in batches, once a group of merged PRs adds up to a real
 milestone -- not one release per PR. See [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -12,42 +13,29 @@ for the full process.
 
 ## [0.2.0] - 2026-09-13
 
-Plant identity, observations, lifecycle tracking, and two derived views on
-top of the v0.1.0 hierarchy.
+This milestone exists because of a test import -- running real vineyard
+data through the schema surfaced exactly what it was still missing, and
+this batch of changes is a direct response to that.
 
-### Added
+Grafted plants needed two separate identities, not one free-text
+`species` field, so `plant_types` (#9, #11, #12; supersedes
+`docs/decisions/0003`, see `0004`) became a shared vocabulary of
+varieties, scions, and rootstocks that `planting` now references
+directly. Field notes needed a home, so `observations` (#13; `0005`)
+gives every planting an append-only, dated note. A plant dying and a
+plant being physically removed turned out to be two different moments,
+not one, so `planting` gained `dead_date` and `removed_reason` (#14;
+`0006`), and a `position_status` view derives planted/blocked/open per
+position from that instead of storing it redundantly (#16). `plot_rows`
+picked up `length_meters` and `spacing_meters` for real row geometry
+(#15), and `planting_readable` (#18) resolves every foreign key to its
+name for browsing without manual joins -- the full shape of it all is now
+diagrammed in `docs/data-model.md` (#17).
 
-- `plant_types` -- a shared, global vocabulary of variety/scion/rootstock
-  names; `planting.species` (free text) replaced with `variety_id`,
-  `scion_variety_id`, and `rootstock_variety_id` FKs, supporting both
-  own-rooted and grafted plants (#9, #11, #12 -- `docs/decisions/0004`,
-  supersedes `0003`)
-- `observations` -- append-only, dated notes linked to a planting, with an
-  optional `photo_metadata` field (#13 -- `docs/decisions/0005`)
-- `planting.dead_date` and `removed_reason` -- a plant dying and a plant
-  being physically removed are now distinct events (#14 --
-  `docs/decisions/0006`)
-- `plot_rows.length_meters` and `spacing_meters` -- physical row layout
-  (#15)
-- `position_status` view -- per-position planted/blocked/open status,
-  computed rather than stored (#16 -- `docs/decisions/0006`)
-- `planting_readable` view -- every FK on `planting` resolved to its name,
-  plus a computed plot-row-position label, for browsing without manual
-  joins (#18)
-- `docs/data-model.md` -- a full Mermaid ER diagram of the schema (#17)
-
-### Changed
-
-- An uncertain or hedged plant identity fact (e.g. an unconfirmed scion or
-  rootstock) is now stored as null in its FK column, never a best guess --
-  the guess itself lives in `nickname` or an observation instead (#19 --
-  `docs/decisions/0007`)
-
-### Fixed
-
-- `auth_rls_initplan` performance warning on the two `profiles` RLS
-  policies -- `auth.uid()` wrapped as `(select auth.uid())` so Postgres
-  evaluates it once per query instead of once per row (#20)
+The import also forced a hard rule: an uncertain identity -- an
+unconfirmed scion, a hedged rootstock -- stays null rather than becoming
+a stored guess (#19; `0007`). A routine performance pass separately fixed
+an `auth_rls_initplan` warning on the `profiles` RLS policies (#20).
 
 ## [0.1.0] - 2026-09-12
 
