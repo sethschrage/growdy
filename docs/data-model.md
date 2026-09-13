@@ -116,9 +116,12 @@ erDiagram
 - **`observations.status`** defaults to `pending` and only becomes
   `approved`/`rejected` after review -- see
   [0009](decisions/0009-chat-based-observation-submission.md).
-- **`conversations`** is one row per chat session in either mode (`mode`
-  is `submit` or `ask`), holding the full message transcript -- see
-  [0011](decisions/0011-conversation-history.md). `observations.conversation_id`
+- **`conversations`** is one row per chat session (`mode` is `submit` or
+  `ask`, derived from whether the session produced a submission rather
+  than fixed by an entry point the producer picked -- see
+  [0012](decisions/0012-unified-chat-agent.md)), holding the full
+  message transcript -- see [0011](decisions/0011-conversation-history.md).
+  `observations.conversation_id`
   points back to the session a submission came from, when it came from
   the chat-based submission flow rather than a direct import; review
   follows that link to see the full exchange instead of a transcript
