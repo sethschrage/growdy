@@ -33,6 +33,10 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
 - Migrations live in `supabase/migrations/` and are applied to the linked
   Supabase project only after their PR merges -- never before, and never
   directly against production outside of a migration file.
+- After applying a migration, check Supabase's security and performance
+  advisors for anything new -- a schema change is the most likely place
+  a fresh finding shows up, and it's easy to miss since `execute_sql`
+  and other elevated-access checks won't surface it.
 
 ## Edge Functions
 
@@ -85,7 +89,9 @@ add up to a real milestone, at which point:
    actually shipped in the batch -- not just the CHANGELOG entry. A
    fast-moving batch of PRs reliably leaves the higher-level docs
    describing an earlier version of the project than the one about to
-   be tagged; catch that here; don't let it accumulate.
+   be tagged; catch that here; don't let it accumulate. Check Supabase's
+   security and performance advisors too, so a finding doesn't sit
+   unnoticed across a release.
 2. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): a short
    theme -- why this batch of changes happened -- followed by prose
    describing what changed, not a categorized bullet list.
