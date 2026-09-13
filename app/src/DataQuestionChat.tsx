@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow, PixelCloud } from './icons'
+import { PixelArrow, PixelCloud, PixelThumbDown, PixelThumbUp } from './icons'
 import { useConversationLog } from './useConversationLog'
-
-type ChatMessage = { role: 'user' | 'assistant'; content: string }
+import type { ChatMessage } from './chatTypes'
 
 type PlantingRow = {
   label: string | null
@@ -234,6 +233,16 @@ export function DataQuestionChat({ session }: { session: Session }) {
     log(withAssistant)
   }
 
+  function setFeedback(index: number, feedback: 'up' | 'down') {
+    setMessages((prev) => {
+      const updated = prev.map((m, i) =>
+        i === index ? { ...m, feedback: m.feedback === feedback ? undefined : feedback } : m,
+      )
+      log(updated)
+      return updated
+    })
+  }
+
   return (
     <div className="chat">
       <PixelCloud width={80} top="6%" left="10%" duration="9s" />
@@ -242,9 +251,31 @@ export function DataQuestionChat({ session }: { session: Session }) {
       <div className="star" style={{ top: '10%', left: '82%', animationDelay: '1s' }} />
       <div className="chat-messages">
         {messages.map((m, i) => (
-          <p key={i} className={`chat-message chat-message-${m.role}`}>
-            {m.content}
-          </p>
+          <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
+            <p className={`chat-message chat-message-${m.role}`}>{m.content}</p>
+            {m.role === 'assistant' && (
+              <div className="feedback-row">
+                <button
+                  type="button"
+                  className={`feedback-button${m.feedback === 'up' ? ' feedback-button--selected' : ''}`}
+                  aria-label="Good response"
+                  aria-pressed={m.feedback === 'up'}
+                  onClick={() => setFeedback(i, 'up')}
+                >
+                  <PixelThumbUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={`feedback-button feedback-button--down${m.feedback === 'down' ? ' feedback-button--selected' : ''}`}
+                  aria-label="Bad response"
+                  aria-pressed={m.feedback === 'down'}
+                  onClick={() => setFeedback(i, 'down')}
+                >
+                  <PixelThumbDown size={14} />
+                </button>
+              </div>
+            )}
+          </div>
         ))}
         {error && <p className="error">{error}</p>}
       </div>
