@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
-import { PixelBurger, PixelCloud, PixelSprout } from './icons'
+import { DataQuestionChat } from './DataQuestionChat'
+import { PixelBurger, PixelCloud, PixelExit, PixelLeaf, PixelPlus, PixelQuestion, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -57,11 +58,15 @@ function LoginForm() {
 
 function AccountMenu({
   email,
+  mode,
   onNewChat,
+  onToggleMode,
   onSignOut,
 }: {
   email: string
+  mode: 'submit' | 'ask'
   onNewChat: () => void
+  onToggleMode: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -82,32 +87,46 @@ function AccountMenu({
     <div className="app-menu" ref={ref}>
       <button
         type="button"
-        className="app-menu-toggle"
+        className={`app-menu-toggle${open ? ' app-menu-toggle--open' : ''}`}
         aria-label="Menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <PixelBurger size={26} />
+        <PixelBurger size={30} />
       </button>
       {open && (
-        <div className="app-menu-content">
-          <p>{email}</p>
+        <div className="app-menu-content" role="menu" aria-label={`Account menu for ${email}`}>
           <button
             type="button"
+            className="menu-icon-button"
+            aria-label="New chat"
             onClick={() => {
               onNewChat()
               setOpen(false)
             }}
           >
-            New chat
+            <PixelPlus size={18} />
           </button>
           <button
             type="button"
+            className="menu-icon-button"
+            aria-label={mode === 'submit' ? 'Ask a question' : 'Log an observation'}
+            onClick={() => {
+              onToggleMode()
+              setOpen(false)
+            }}
+          >
+            {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelLeaf size={18} />}
+          </button>
+          <button
+            type="button"
+            className="menu-icon-button menu-icon-button--muted"
+            aria-label="Sign out"
             onClick={() => {
               onSignOut()
               setOpen(false)
             }}
           >
-            Sign out
+            <PixelExit size={18} />
           </button>
         </div>
       )}
@@ -117,20 +136,32 @@ function AccountMenu({
 
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
+  const [mode, setMode] = useState<'submit' | 'ask'>('submit')
 
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-icon" role="img" aria-label="growdy">
-          <PixelSprout size={44} />
-        </span>
+        <div className="app-header-left">
+          <span className="app-icon" role="img" aria-label="growdy">
+            <PixelSprout size={44} />
+          </span>
+        </div>
         <AccountMenu
           email={session.user.email ?? ''}
+          mode={mode}
           onNewChat={() => setChatKey((k) => k + 1)}
+          onToggleMode={() => {
+            setMode((m) => (m === 'submit' ? 'ask' : 'submit'))
+            setChatKey((k) => k + 1)
+          }}
           onSignOut={() => supabase.auth.signOut()}
         />
       </header>
-      <ObservationChat key={chatKey} session={session} />
+      {mode === 'submit' ? (
+        <ObservationChat key={chatKey} session={session} />
+      ) : (
+        <DataQuestionChat key={chatKey} session={session} />
+      )}
     </div>
   )
 }
