@@ -11,6 +11,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-haiku-4-5-20251001";
 
+// Temporary diagnostic (docs/decisions/0009 debugging) -- logs whether
+// the secret is present and its length, never the value itself. Remove
+// once the "invalid x-api-key" issue is resolved.
+console.log(
+  `ANTHROPIC_API_KEY present: ${!!ANTHROPIC_API_KEY}, length: ${ANTHROPIC_API_KEY?.length ?? 0}`,
+);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
