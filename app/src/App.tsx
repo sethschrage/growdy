@@ -104,7 +104,7 @@ function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelCompose size={20} />
+            <PixelCompose size={22} />
           </button>
           <button
             type="button"
