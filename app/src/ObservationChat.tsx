@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { PixelArrow } from './icons'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -170,8 +171,8 @@ export function ObservationChat({ session }: { session: Session }) {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe what you observed..."
           />
-          <button type="submit" disabled={sending}>
-            Send
+          <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
+            <PixelArrow />
           </button>
         </form>
       )}

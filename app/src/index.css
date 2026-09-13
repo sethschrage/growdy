@@ -15,6 +15,8 @@
   --leaf-dark: #3f6b29;
   --berry: #c1440e;
   --cream: #fff8ea;
+  --soil: #3d2b1a;
+  --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
   font: 16px/1.5 'Pixelify Sans', system-ui, sans-serif;
 }
 
@@ -45,7 +47,7 @@ body {
   width: 100%;
   padding: 24px 16px;
   text-align: center;
-  background: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
+  background: var(--sky);
 }
 
 .login-content {
@@ -201,6 +203,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--sky);
 }
 
 .chat-submitted {
@@ -266,12 +269,19 @@ body {
   flex-direction: row;
   gap: 8px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  background: var(--panel);
-  border-top: 3px solid var(--wood);
+  background: var(--soil);
+  border-top: 4px solid var(--leaf);
 }
 
 .chat-input input {
   flex: 1;
+}
+
+.icon-button {
+  padding: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 form {
