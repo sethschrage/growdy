@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow } from './icons'
+import { PixelArrow, PixelCloud } from './icons'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -155,6 +155,10 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
 
   return (
     <div className="chat">
+      <PixelCloud width={80} top="6%" left="10%" duration="9s" />
+      <PixelCloud width={64} top="14%" left="66%" duration="7s" />
+      <div className="star" style={{ top: '4%', left: '40%', animationDelay: '0s' }} />
+      <div className="star" style={{ top: '10%', left: '82%', animationDelay: '1s' }} />
       <div className="chat-messages">
         {messages.map((m, i) => (
           <p key={i} className={`chat-message chat-message-${m.role}`}>

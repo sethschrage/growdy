@@ -58,9 +58,15 @@ function LoginForm() {
 
 function AccountMenu({
   email,
+  mode,
+  onNewChat,
+  onToggleMode,
   onSignOut,
 }: {
   email: string
+  mode: 'submit' | 'ask'
+  onNewChat: () => void
+  onToggleMode: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -85,11 +91,35 @@ function AccountMenu({
         aria-label="Menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <PixelBurger size={26} />
+        <PixelBurger size={30} />
       </button>
       {open && (
         <div className="app-menu-content">
           <p>{email}</p>
+          <button
+            type="button"
+            onClick={() => {
+              onNewChat()
+              setOpen(false)
+            }}
+          >
+            <span className="menu-button-content">
+              <PixelPlus size={16} />
+              New chat
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onToggleMode()
+              setOpen(false)
+            }}
+          >
+            <span className="menu-button-content">
+              {mode === 'submit' ? <PixelQuestion size={16} /> : <PixelLeaf size={16} />}
+              {mode === 'submit' ? 'Ask a question' : 'Log an observation'}
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -105,72 +135,39 @@ function AccountMenu({
   )
 }
 
-function ChatOptions({
-  mode,
-  onNewChat,
-  onAsk,
-  onLog,
-}: {
-  mode: 'submit' | 'ask'
-  onNewChat: () => void
-  onAsk: () => void
-  onLog: () => void
-}) {
-  return (
-    <div className="chat-options">
-      <button type="button" className="icon-button" aria-label="New chat" onClick={onNewChat}>
-        <PixelPlus size={16} />
-      </button>
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="Ask a question"
-        aria-pressed={mode === 'ask'}
-        onClick={onAsk}
-      >
-        <PixelQuestion size={16} />
-      </button>
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="Log an observation"
-        aria-pressed={mode === 'submit'}
-        onClick={onLog}
-      >
-        <PixelLeaf size={16} />
-      </button>
-    </div>
-  )
-}
-
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
   const [mode, setMode] = useState<'submit' | 'ask'>('submit')
 
-  function switchMode(next: 'submit' | 'ask') {
-    setMode(next)
-    setChatKey((k) => k + 1)
-  }
-
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-icon" role="img" aria-label="growdy">
-          <PixelSprout size={44} />
-        </span>
-        <AccountMenu email={session.user.email ?? ''} onSignOut={() => supabase.auth.signOut()} />
+        <div className="app-header-left">
+          <span className="app-icon" role="img" aria-label="growdy">
+            <PixelSprout size={44} />
+          </span>
+          {mode === 'ask' && (
+            <span className="mode-badge" role="img" aria-label="Ask mode">
+              <PixelQuestion size={20} />
+            </span>
+          )}
+        </div>
+        <AccountMenu
+          email={session.user.email ?? ''}
+          mode={mode}
+          onNewChat={() => setChatKey((k) => k + 1)}
+          onToggleMode={() => {
+            setMode((m) => (m === 'submit' ? 'ask' : 'submit'))
+            setChatKey((k) => k + 1)
+          }}
+          onSignOut={() => supabase.auth.signOut()}
+        />
       </header>
       {mode === 'submit' ? (
         <ObservationChat key={chatKey} session={session} />
       ) : (
         <DataQuestionChat key={chatKey} session={session} />
       )}
-      <ChatOptions
-        mode={mode}
-        onNewChat={() => setChatKey((k) => k + 1)}
-        onAsk={() => switchMode('ask')}
-        onLog={() => switchMode('submit')}
-      />
     </div>
   )
 }
