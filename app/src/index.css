@@ -296,6 +296,29 @@ body {
   box-shadow: none;
 }
 
+.chat-options {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  width: calc(100% - 24px);
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px;
+  background: var(--soil);
+  border: 3px solid var(--leaf);
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.chat-options .icon-button[aria-pressed='true'] {
+  background: var(--leaf-dark);
+}
+
 form {
   display: flex;
   flex-direction: column;

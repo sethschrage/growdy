@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
-import { PixelBurger, PixelCloud, PixelSprout } from './icons'
+import { DataQuestionChat } from './DataQuestionChat'
+import { PixelBurger, PixelCloud, PixelLeaf, PixelPlus, PixelQuestion, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -57,11 +58,9 @@ function LoginForm() {
 
 function AccountMenu({
   email,
-  onNewChat,
   onSignOut,
 }: {
   email: string
-  onNewChat: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -94,15 +93,6 @@ function AccountMenu({
           <button
             type="button"
             onClick={() => {
-              onNewChat()
-              setOpen(false)
-            }}
-          >
-            New chat
-          </button>
-          <button
-            type="button"
-            onClick={() => {
               onSignOut()
               setOpen(false)
             }}
@@ -115,8 +105,52 @@ function AccountMenu({
   )
 }
 
+function ChatOptions({
+  mode,
+  onNewChat,
+  onAsk,
+  onLog,
+}: {
+  mode: 'submit' | 'ask'
+  onNewChat: () => void
+  onAsk: () => void
+  onLog: () => void
+}) {
+  return (
+    <div className="chat-options">
+      <button type="button" className="icon-button" aria-label="New chat" onClick={onNewChat}>
+        <PixelPlus size={16} />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Ask a question"
+        aria-pressed={mode === 'ask'}
+        onClick={onAsk}
+      >
+        <PixelQuestion size={16} />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Log an observation"
+        aria-pressed={mode === 'submit'}
+        onClick={onLog}
+      >
+        <PixelLeaf size={16} />
+      </button>
+    </div>
+  )
+}
+
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
+  const [mode, setMode] = useState<'submit' | 'ask'>('submit')
+
+  function switchMode(next: 'submit' | 'ask') {
+    setMode(next)
+    setChatKey((k) => k + 1)
+  }
 
   return (
     <div className="app-shell">
@@ -124,13 +158,19 @@ function SignedIn({ session }: { session: Session }) {
         <span className="app-icon" role="img" aria-label="growdy">
           <PixelSprout size={44} />
         </span>
-        <AccountMenu
-          email={session.user.email ?? ''}
-          onNewChat={() => setChatKey((k) => k + 1)}
-          onSignOut={() => supabase.auth.signOut()}
-        />
+        <AccountMenu email={session.user.email ?? ''} onSignOut={() => supabase.auth.signOut()} />
       </header>
-      <ObservationChat key={chatKey} session={session} />
+      {mode === 'submit' ? (
+        <ObservationChat key={chatKey} session={session} />
+      ) : (
+        <DataQuestionChat key={chatKey} session={session} />
+      )}
+      <ChatOptions
+        mode={mode}
+        onNewChat={() => setChatKey((k) => k + 1)}
+        onAsk={() => switchMode('ask')}
+        onLog={() => switchMode('submit')}
+      />
     </div>
   )
 }
