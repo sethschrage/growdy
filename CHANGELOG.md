@@ -1,9 +1,11 @@
 # Changelog
 
 All notable changes to this project are documented here, one entry per
-release. Each entry opens with the theme -- why that batch of changes
-happened -- then describes what changed in prose, not a categorized
-list. Versioning follows [Semantic Versioning](https://semver.org/).
+release. Each entry leads with the theme -- why that batch of changes
+happened -- and keeps that why in view through every paragraph, not
+just the opening line: the what supports the why, it isn't the point
+of the sentence on its own. Prose, not a categorized list. Versioning
+follows [Semantic Versioning](https://semver.org/).
 
 Releases are cut in batches, once a group of merged PRs adds up to a real
 milestone -- not one release per PR. See [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -19,20 +21,27 @@ identity built around the same "gamified, satisfying to use" goal that
 motivated the chat-based submission design in the first place -- the
 better the experience, the better the data.
 
-The signed-in view now behaves like an actual chat app rather than a form
-with a scrollbar: a "New chat" control, a minimized account menu tucked
-behind a small icon, and a composer that stays genuinely fixed to the
-bottom of the screen instead of relying on flexbox to reach an edge
-mobile browsers don't reliably respect (#37). The sign-in screen itself
-gained the official Google button and true centering (#38).
+Getting there meant treating the signed-in view as a real chat app
+instead of a form that happened to scroll: a conversation someone might
+reopen needed a way to start over ("New chat"), account controls needed
+to stop competing with the conversation for space (tucked behind a small
+menu icon instead of always visible), and the composer needed to
+actually stay put regardless of what a mobile browser's address bar or
+on-screen keyboard was doing -- flexbox and `100dvh` alone don't reliably
+reach the true edge of the screen once either of those kicks in, so the
+composer is now genuinely fixed to the viewport instead (#37). The
+sign-in screen needed the same rigor: centered content and Google's own
+branded button instead of a generic one, since that's what a real
+sign-in screen is expected to look like (#38).
 
-On top of that, the whole app was restyled around a cozy farming-game
-identity instead of a generic dark tech-app look: a warm wood/parchment
-palette, a pixel-style font, a small set of hand-drawn pixel icons (a
-sprout used as the favicon and app icon, a pixel arrow for Send, a pixel
-burger for the menu), and a sky/soil background split on the chat screen
-itself -- sky above where the conversation happens, soil below where an
-observation gets "planted" (#39).
+On top of that, the whole visual identity got rebuilt around why this
+app collects data at all: a field worker is more likely to actually log
+an observation, and log it with enough detail to be useful, if the app
+feels worth opening rather than a generic dark utility -- so it's now a
+cozy farming-game aesthetic instead: warm wood and parchment, a
+pixel-style font and icon set, and a chat screen split between open sky,
+where the conversation happens, and soil, where an observation gets
+"planted" (#39).
 
 Building the theme also led to a real, if unrelated, finding:
 `planting_readable` and `position_status` both defaulted to `SECURITY

@@ -92,9 +92,12 @@ add up to a real milestone, at which point:
    be tagged; catch that here; don't let it accumulate. Check Supabase's
    security and performance advisors too, so a finding doesn't sit
    unnoticed across a release.
-2. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): a short
-   theme -- why this batch of changes happened -- followed by prose
-   describing what changed, not a categorized bullet list.
+2. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): prose
+   that leads with the theme -- why this batch of changes happened --
+   and keeps that why running through every paragraph, not just the
+   opening line. A paragraph that only lists what changed, without
+   saying why it mattered or why that choice was made, needs another
+   pass. Not a categorized bullet list.
 3. A matching git tag and GitHub Release are published.
 
 See `CHANGELOG.md` for the actual history.
