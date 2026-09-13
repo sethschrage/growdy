@@ -223,15 +223,7 @@ body {
   height: 28px;
   border-radius: 2px;
   border: 1px solid var(--wood-dark);
-  background: linear-gradient(
-    to bottom,
-    #f4c542 0%,
-    #f4c542 33.33%,
-    #7cb342 33.33%,
-    #7cb342 66.66%,
-    #6b3f2a 66.66%,
-    #6b3f2a 100%
-  );
+  background: linear-gradient(to bottom, #f4c542 0%, #f4c542 50%, #7cb342 50%, #7cb342 100%);
 }
 
 .menu-icon-button {
