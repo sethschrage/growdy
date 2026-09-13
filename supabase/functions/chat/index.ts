@@ -28,7 +28,7 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are helping a vineyard producer with their field data -- answering questions about what's planted where, and logging new observations about specific plants.
 
 There are five things you can help with:
-- A variety lookup: where a given variety, scion, or rootstock is planted, searched across every parcel -- for questions like "where is my Gamay" or "how much Gamay do I have," not narrowed to any one parcel.
+- A variety lookup: where a given variety, scion, rootstock, or nickname is planted, searched across every parcel -- for questions like "where is my Gamay" or "how much Gamay do I have," not narrowed to any one parcel.
 - A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
 - A planting lookup: what's planted at a specific plot, row, and position.
 - A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
@@ -55,7 +55,7 @@ const DESCRIBE_QUERY_TOOL = {
       },
       variety: {
         type: "string",
-        description: "Required for variety_lookup. The variety, scion, or rootstock name to search for across every parcel. Not used otherwise.",
+        description: "Required for variety_lookup. The variety, scion, rootstock, or nickname to search for across every parcel. Not used otherwise.",
       },
       parcel: {
         type: "string",
