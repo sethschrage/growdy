@@ -3,18 +3,23 @@
 A database for capturing information about plants in a parcel of land over
 time -- what's planted, where, when, and what's observed about it.
 
-Most interaction still happens directly against the database. A small
-app (see `app/`) is being built alongside it, but only as a
-research tool -- to find out what field use and other producers actually
-need before building more of either the schema or the app. See
-[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md).
+Most interaction still happens directly against the database, but a
+real app now exists alongside it (see `app/`): producers sign in with
+Google and can submit field observations through an AI-guided chat
+instead of a form. It's still a research tool, not a finished product
+-- built to find out what field use and other producers actually need
+before building more of either the schema or the app. See
+[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) and
+[`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md).
 
 ## Status
 
-Early. The core hierarchy (producer/parcel/plot/row/planting) is being
-built out piece by piece; see open and merged PRs for current progress,
-and [`docs/decisions/`](docs/decisions) for the reasoning behind each
-structural choice.
+Early. The core hierarchy (producer/parcel/plot/row/planting) is in
+place, and a companion app now exists for submitting field
+observations through Google-authenticated, AI-guided chat rather than
+direct SQL. See open and merged PRs for current progress, and
+[`docs/decisions/`](docs/decisions) for the reasoning behind each
+structural and app choice.
 
 ## Data model
 
@@ -41,6 +46,9 @@ table and how they relate.
 | File storage | Supabase Storage |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
 | Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
+| Auth | Google Sign-In via Supabase Auth -- Testing status, explicit test-user allow-list |
+| Server-side logic | Supabase Edge Functions, in `supabase/functions/` -- the only place a secret (like an API key) ever lives |
+| AI | Anthropic Claude (Haiku) -- see [`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md) |
 
 ## Development
 
