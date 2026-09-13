@@ -1,6 +1,6 @@
 # 0013. The model composes the answer to a describe_query, not a client template
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
