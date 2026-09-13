@@ -11,6 +11,38 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-13
+
+This milestone turns the app from functional into something people would
+actually want to open: a real mobile chat layout, then a full visual
+identity built around the same "gamified, satisfying to use" goal that
+motivated the chat-based submission design in the first place -- the
+better the experience, the better the data.
+
+The signed-in view now behaves like an actual chat app rather than a form
+with a scrollbar: a "New chat" control, a minimized account menu tucked
+behind a small icon, and a composer that stays genuinely fixed to the
+bottom of the screen instead of relying on flexbox to reach an edge
+mobile browsers don't reliably respect (#37). The sign-in screen itself
+gained the official Google button and true centering (#38).
+
+On top of that, the whole app was restyled around a cozy farming-game
+identity instead of a generic dark tech-app look: a warm wood/parchment
+palette, a pixel-style font, a small set of hand-drawn pixel icons (a
+sprout used as the favicon and app icon, a pixel arrow for Send, a pixel
+burger for the menu), and a sky/soil background split on the chat screen
+itself -- sky above where the conversation happens, soil below where an
+observation gets "planted" (#39).
+
+Building the theme also led to a real, if unrelated, finding:
+`planting_readable` and `position_status` both defaulted to `SECURITY
+DEFINER`, meaning they evaluated row-level security using the view
+owner's privileges rather than the querying user's -- fixed by switching
+both to `security_invoker` (#40). Since that fix only got caught because
+someone happened to check Supabase's advisors, checking them is now an
+explicit step after every migration and before every release, not
+something left to chance (#41).
+
 ## [0.3.0] - 2026-09-13
 
 This milestone is the app's real beginning: producers can now sign in
