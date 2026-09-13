@@ -1,6 +1,6 @@
 # 0014. An observation can stand on its own, without a planting
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
