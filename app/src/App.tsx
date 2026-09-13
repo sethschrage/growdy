@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
 import { DataQuestionChat } from './DataQuestionChat'
-import { PixelBurger, PixelCloud, PixelExit, PixelPencil, PixelPlus, PixelQuestion, PixelSprout } from './icons'
+import { PixelBurger, PixelCloud, PixelCompose, PixelExit, PixelPlus, PixelQuestion, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +104,7 @@ function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelPencil size={18} />
+            <PixelCompose size={20} />
           </button>
           <button
             type="button"
