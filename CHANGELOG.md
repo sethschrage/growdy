@@ -13,6 +13,64 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-13
+
+This milestone is the arc from two separate chat screens to one real
+conversation: producers could already log an observation through chat
+(`0009`); this batch adds asking a question the same way, remembers
+every session either kind of exchange happens in, and then, once both
+had existed side by side long enough to feel like an artificial choice,
+merges them into a single agent that figures out which one you mean.
+
+Read-only Q&A (`docs/decisions/0010`, #45) started narrow on purpose --
+a producer could ask what's at one specific plot/row/position, or which
+positions in one row are open, and nothing broader, the same "prove the
+pattern before generalizing it" discipline this project has followed
+since its first migration. Real use outgrew that scope almost
+immediately, in exactly the order it was likely to: a question about a
+whole parcel came first (#53), then a question about a variety searched
+across every parcel a producer has (#56), and finally -- caught only
+because a real answer came back wrong -- a variety search that never
+checked the free-text `nickname` field, missing over two thousand real
+matches that lived there and nowhere else (#64). Each addition is one
+new named query type and a client-side resolver, never a change to how
+much the model itself is trusted to do -- exactly the shape `0010`
+designed for.
+
+Neither chat mode left anything behind for a producer to look back at,
+so `conversations` (`docs/decisions/0011`, #55) gives every session --
+asked or logged -- a row of its own, browsable from a slide-out history
+drawer that widened and grew per-message thumbs up/down feedback once
+it existed to look at (#57). That, in turn, exposed a real duplication:
+a submitted observation's transcript was being stored twice, once on
+its own row and once on its parent conversation. `observations` now
+points at its `conversations` row instead of carrying a second copy
+(#60) -- which, in turn, is why the security advisors got checked
+after that migration but the performance ones didn't: the new foreign
+key had no covering index until this release's own pre-tag advisor
+check caught it.
+
+With both modes proven out and a shared history behind them, choosing
+"Ask a question" or "Log an observation" up front stopped being a real
+decision a producer needed to make -- so `observation-chat` and
+`data-qa` became one Edge Function and one prompt, deciding per turn
+which tool applies (`docs/decisions/0012`, #62). The account menu lost
+a button it no longer needed.
+
+The rest of this batch closes the gap between "works" and "feels like a
+real app to open": the sign-in screen and chat now respect an iPhone's
+notch and home indicator properly (#46), the account menu became a
+horizontal strip that slides out from the hamburger icon instead of a
+plain dropdown, built from the same pixel-art burger geometry rather
+than new shapes drawn to match its colors (#59, #63), and the "New
+chat" icon went through several real rounds of iteration -- a pencil,
+then a box with a plus, then a chat bubble -- settling on a plain
+square with its corner broken by a plus badge once a diagonal pencil
+turned out to blur into an unrecognizable blob at actual button size
+(#47-#52). Thumbs up/down feedback got the same treatment once the
+thumb glyphs themselves turned out not to read at 14px, replaced with a
+solid check and X (#63).
+
 ## [0.4.0] - 2026-09-13
 
 This milestone turns the app from functional into something people would

@@ -5,19 +5,22 @@ time -- what's planted, where, when, and what's observed about it.
 
 Most interaction still happens directly against the database, but a
 real app now exists alongside it (see `app/`): producers sign in with
-Google and can submit field observations through an AI-guided chat
-instead of a form. It's still a research tool, not a finished product
--- built to find out what field use and other producers actually need
+Google and use one AI-guided chat to both ask questions about what's
+planted where and log field observations, instead of a form or direct
+SQL for either. It's still a research tool, not a finished product --
+built to find out what field use and other producers actually need
 before building more of either the schema or the app. See
-[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) and
-[`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md).
+[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md),
+[`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md),
+and [`docs/decisions/0012`](docs/decisions/0012-unified-chat-agent.md).
 
 ## Status
 
 Early. The core hierarchy (producer/parcel/plot/row/planting) is in
-place, and a companion app now exists for submitting field
-observations through Google-authenticated, AI-guided chat rather than
-direct SQL. See open and merged PRs for current progress, and
+place, and a companion app now exists with one chat for both asking
+questions and logging field observations, Google-authenticated,
+AI-guided throughout, plus a browsable history of every past
+conversation. See open and merged PRs for current progress, and
 [`docs/decisions/`](docs/decisions) for the reasoning behind each
 structural and app choice.
 
