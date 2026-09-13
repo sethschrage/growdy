@@ -46,27 +46,35 @@ something left to chance (#41).
 ## [0.3.0] - 2026-09-13
 
 This milestone is the app's real beginning: producers can now sign in
-and submit field observations through an AI-guided conversation
-instead of a form -- and building it immediately proved the point of
-building it at all, surfacing a permissions gap that had been sitting
-invisible in the schema since the very first migration.
+and describe field observations in their own words through an
+AI-guided conversation, instead of filling out a form. That's a
+deliberate choice, not just a UX preference -- real field language
+surfaces gaps in the schema a form would hide, the same role the
+original spreadsheet imports played back when this project started
+(`plant_types.kind`, the dead/removed distinction). Chat just makes
+that an ongoing source of evidence instead of a one-time event.
+Building it immediately proved the point twice over: the very first
+end-to-end test surfaced a permissions gap that had been sitting
+invisible in the schema since day one.
 
 The app (`app/`) exists now, and it's real, not a placeholder: an
 authenticated client using Google Sign-In, restricted to explicit test
 users while the underlying Google Cloud app stays in Testing status
-(docs/decisions/0008, #23, #24, #25). Once signed in, a producer can
-describe an observation to a chat interface in their own words --
-"the plant near the busted trellis has fungus" -- and a Supabase Edge
-Function holding the Claude API key gathers whatever's missing through
-conversation, resolves the description against `planting_readable`,
-and shows a plain confirmation before inserting anything at all
-(docs/decisions/0009, #26, #27, #29, #30). Nothing becomes confirmed
-data without a separate human review step afterward, enforced by the
-database itself rather than app convention -- a submission can only
-ever land as `pending`.
+(docs/decisions/0008, #23, #24, #25). A producer describes what they
+saw -- "the plant near the busted trellis has fungus" -- and a
+Supabase Edge Function holding the Claude API key gathers whatever's
+missing through conversation and resolves it against
+`planting_readable`, but nothing is inserted without a plain
+confirmation first, and even then a submission can only ever land as
+`pending`, enforced by the database itself rather than app convention.
+The raw transcript is kept alongside the resolved fields for the same
+reason the chat exists at all: reviewing it judges whether the AI
+understood correctly, and, over time, tunes the schema against how
+people actually describe what they see (docs/decisions/0009, #26,
+#27, #29, #30).
 
-The first real end-to-end test of that flow surfaced something bigger
-than a bug: every table in the schema, plus the two derived views,
+The permissions gap that first test surfaced turned out to be bigger
+than expected: every table in the schema, plus the two derived views,
 had row-level security policies that were entirely correct but never
 actually reachable by a real signed-in user. A base `grant` Postgres
 checks before row-level security is even evaluated had been missing
