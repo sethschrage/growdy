@@ -50,6 +50,24 @@ dead/removed distinction). Discarding the transcript after resolving it
 into an `observations` row would throw away exactly the information that
 teaches us what the schema still doesn't account for.
 
+Review itself happens the same way every import into this database
+always has: in a chat with Claude, not a dedicated screen. Pending
+observations are queried directly (`select * from observations where
+status = 'pending'`), reviewed one at a time -- approved, rejected, or
+edited -- and the change applied straight to the row. The `status`
+column already is the queue; there's nothing else to build to "see" it.
+A GitHub-tracked review log was considered and rejected for the same
+reason a living doc doesn't fit here: pending observations are live,
+constantly-changing rows, not static content, and a doc kept in sync by
+hand would just become a second source of truth that drifts from the
+real one.
+
+This is enforced at the database level, not just by app convention: the
+insert policy's `with check (status = 'pending')` means a submission
+cannot land as anything but pending no matter what the client sends --
+there is no path from a chat conversation straight into confirmed data
+without a separate, explicit review step in between.
+
 Photo attachment is deliberately deferred to a later iteration. Text-only
 first, to prove the conversation/resolution/review loop before adding
 upload handling and multimodal parsing on top of it.
