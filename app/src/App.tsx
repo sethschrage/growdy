@@ -3,6 +3,76 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
 
+const SPROUT_LEAF_CELLS = [
+  [6, 2],
+  [5, 3],
+  [6, 3],
+  [7, 3],
+  [2, 4],
+  [1, 5],
+  [2, 5],
+  [3, 5],
+  [4, 5],
+  [2, 6],
+] as const
+
+const SPROUT_STEM_CELLS = [
+  [5, 4],
+  [5, 5],
+  [5, 6],
+  [5, 7],
+  [5, 8],
+] as const
+
+function PixelSprout({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
+      {SPROUT_LEAF_CELLS.map(([x, y]) => (
+        <rect key={`leaf-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#5b8c3e" />
+      ))}
+      {SPROUT_STEM_CELLS.map(([x, y]) => (
+        <rect key={`stem-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#3f6b29" />
+      ))}
+    </svg>
+  )
+}
+
+const CLOUD_ROWS = [
+  [5, 0, 4],
+  [3, 1, 8],
+  [1, 2, 12],
+  [1, 3, 12],
+  [3, 4, 8],
+] as const
+
+function PixelCloud({
+  width,
+  top,
+  left,
+  duration,
+}: {
+  width: number
+  top: string
+  left: string
+  duration: string
+}) {
+  return (
+    <svg
+      className="cloud"
+      width={width}
+      height={(width / 14) * 5}
+      viewBox="0 0 14 5"
+      shapeRendering="crispEdges"
+      style={{ top, left, animationDuration: duration }}
+      aria-hidden="true"
+    >
+      {CLOUD_ROWS.map(([x, y, w], i) => (
+        <rect key={i} x={x} y={y} width={w} height={1} fill="#fff8ea" />
+      ))}
+    </svg>
+  )
+}
+
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
 
@@ -14,9 +84,19 @@ function LoginForm() {
 
   return (
     <div className="login-screen">
-      <h1>growdy</h1>
-      {error && <p className="error">{error}</p>}
-      <button type="button" className="google-signin-button" onClick={handleGoogleSignIn}>
+      <PixelCloud width={90} top="8%" left="8%" duration="9s" />
+      <PixelCloud width={70} top="16%" left="62%" duration="7s" />
+      <PixelCloud width={110} top="78%" left="18%" duration="10s" />
+      <PixelCloud width={80} top="85%" left="65%" duration="8s" />
+      <div className="star" style={{ top: '6%', left: '30%', animationDelay: '0s' }} />
+      <div className="star" style={{ top: '10%', left: '75%', animationDelay: '0.5s' }} />
+      <div className="star" style={{ top: '4%', left: '55%', animationDelay: '1s' }} />
+      <div className="star" style={{ top: '14%', left: '15%', animationDelay: '1.5s' }} />
+      <div className="login-content">
+        <PixelSprout size={56} />
+        <h1>growdy</h1>
+        {error && <p className="error">{error}</p>}
+        <button type="button" className="google-signin-button" onClick={handleGoogleSignIn}>
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
           <path
             fill="#4285F4"
@@ -35,8 +115,9 @@ function LoginForm() {
             d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.4259 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.9641 7.29C4.6718 5.1627 6.6564 3.5795 9 3.5795z"
           />
         </svg>
-        Sign in with Google
-      </button>
+          Sign in with Google
+        </button>
+      </div>
     </div>
   )
 }
@@ -107,7 +188,9 @@ function SignedIn({ session }: { session: Session }) {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>growdy</h1>
+        <span className="app-icon" role="img" aria-label="growdy">
+          <PixelSprout size={24} />
+        </span>
         <AccountMenu
           email={session.user.email ?? ''}
           onNewChat={() => setChatKey((k) => k + 1)}
