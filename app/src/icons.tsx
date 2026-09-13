@@ -225,26 +225,38 @@ export function PixelExit({ size = 18 }: { size?: number }) {
   )
 }
 
-const PENCIL_CELLS = [
-  [6, 0],
-  [5, 1],
-  [6, 1],
-  [4, 2],
-  [5, 2],
-  [3, 3],
-  [4, 3],
-  [2, 4],
-  [3, 4],
+const COMPOSE_CELLS = [
+  [0, 0],
+  [1, 0],
+  [2, 0],
+  [3, 0],
+  [4, 0],
+  [5, 0],
+  [0, 5],
   [1, 5],
   [2, 5],
-  [0, 6],
-  [1, 6],
+  [3, 5],
+  [4, 5],
+  [5, 5],
+  [0, 1],
+  [0, 2],
+  [0, 3],
+  [0, 4],
+  [5, 1],
+  [5, 2],
+  [5, 3],
+  [5, 4],
+  [7, 6],
+  [6, 7],
+  [7, 7],
+  [8, 7],
+  [7, 8],
 ] as const
 
-export function PixelPencil({ size = 18 }: { size?: number }) {
+export function PixelCompose({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {PENCIL_CELLS.map(([x, y]) => (
+    <svg width={size} height={size} viewBox="0 0 9 9" shapeRendering="crispEdges" aria-hidden="true">
+      {COMPOSE_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
     </svg>
