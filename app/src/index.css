@@ -246,6 +246,7 @@ body {
   padding: 8px 12px;
   border-radius: 16px;
   max-width: 80%;
+  white-space: pre-line;
 }
 
 .chat-message-user {
