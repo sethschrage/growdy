@@ -42,6 +42,7 @@ table and how they relate.
 - [0010 -- Read-only Q&A chat resolves against known views](docs/decisions/0010-read-only-qa-chat.md) -- answering a question reuses the same "AI drafts intent, client resolves and executes" split as observation submission, never a generated query.
 - [0011 -- Conversation history is a new table, written by the client](docs/decisions/0011-conversation-history.md) -- browsing past chats needs a session-level record neither existing table provides; the client writes it after every message, not an Edge Function.
 - [0012 -- One chat agent with a growing tool list](docs/decisions/0012-unified-chat-agent.md) -- merges the two chat modes into one Edge Function and tool list; the actual safety backstop was always the confirm-before-write step and the database's pending-only insert policy, not which function held which tool.
+- [0013 -- The model composes the answer, not a client template](docs/decisions/0013-model-composed-query-answers.md) -- the client still resolves every question the same safe, fixed way, but now sends the result back to the model to write the actual answer, so it reflects how the question was asked instead of a one-size-fits-all template.
 
 ## Stack
 

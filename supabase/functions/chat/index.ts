@@ -14,6 +14,12 @@
 // neither of which changes here. Every response names which tool fired
 // (`tool`) so the client can tell a query intent from a submission
 // draft without needing two endpoints to infer it from.
+//
+// For describe_query, the client resolves the data and sends it back
+// here as a tool_result on the same conversation (assistant_content and
+// tool_use_id round-trip for exactly that), so the reply the producer
+// reads is the model's own composed text over real data -- not a canned
+// string template that can't adapt to how the question was phrased.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -40,7 +46,9 @@ If someone answers a parcel question with "everywhere," "anywhere," "all of them
 
 Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given. For an observation, if the person genuinely doesn't know an exact plot/row/position, don't guess at a value -- keep asking for whatever identifying detail they do have until you have all three or they say they truly can't tell you more, in which case say you're not able to log this without at least the plot, row, and position.
 
-Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before plot, row_number, position, and a note are all known.`;
+Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before plot, row_number, position, and a note are all known.
+
+After a describe_query call, you'll get the matching data back. Answer in plain conversational language using it -- match the level of detail to how the question was actually phrased (a quick total for "how many," a fuller breakdown by parcel or plot for "where," specific varieties or nicknames if the data has them and the question invites it). Don't just restate a raw count if the data supports a more useful answer.`;
 
 const DESCRIBE_QUERY_TOOL = {
   name: "describe_query",
@@ -140,9 +148,16 @@ Deno.serve(async (req: Request) => {
     const toolUse = data.content?.find((block: { type: string }) => block.type === "tool_use");
 
     if (toolUse) {
-      return new Response(JSON.stringify({ type: "ready", tool: toolUse.name, ...toolUse.input }), {
-        headers: { ...corsHeaders, "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          type: "ready",
+          tool: toolUse.name,
+          tool_use_id: toolUse.id,
+          assistant_content: data.content,
+          ...toolUse.input,
+        }),
+        { headers: { ...corsHeaders, "content-type": "application/json" } },
+      );
     }
 
     const text =
