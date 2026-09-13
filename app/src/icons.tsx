@@ -23,7 +23,7 @@ export function PixelSprout({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
       {SPROUT_LEAF_CELLS.map(([x, y]) => (
-        <rect key={`leaf-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#5b8c3e" />
+        <rect key={`leaf-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#6a9c40" />
       ))}
       {SPROUT_STEM_CELLS.map(([x, y]) => (
         <rect key={`stem-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#3f6b29" />
@@ -97,13 +97,21 @@ export function PixelArrow({ size = 16 }: { size?: number }) {
   )
 }
 
-const HAMBURGER_BARS = [0, 3, 6] as const
+const BURGER_ROWS = [
+  { y: 0, x: 2, w: 6, fill: '#e8a33d' },
+  { y: 1, x: 0, w: 10, fill: '#e8a33d' },
+  { y: 2, x: 0, w: 10, fill: '#7cb342' },
+  { y: 3, x: 0, w: 10, fill: '#f4c542' },
+  { y: 4, x: 0, w: 10, fill: '#6b3f2a' },
+  { y: 5, x: 0, w: 10, fill: '#e8a33d' },
+  { y: 6, x: 1, w: 8, fill: '#e8a33d' },
+] as const
 
-export function PixelHamburger({ size = 20 }: { size?: number }) {
+export function PixelBurger({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={(size * 7) / 10} viewBox="0 0 10 7" shapeRendering="crispEdges" aria-hidden="true">
-      {HAMBURGER_BARS.map((y) => (
-        <rect key={y} x={0} y={y} width={10} height={1} fill="currentColor" />
+      {BURGER_ROWS.map(({ y, x, w, fill }) => (
+        <rect key={y} x={x} y={y} width={w} height={1} fill={fill} />
       ))}
     </svg>
   )

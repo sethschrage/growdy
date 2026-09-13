@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
-import { PixelCloud, PixelHamburger, PixelSprout } from './icons'
+import { PixelBurger, PixelCloud, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +24,9 @@ function LoginForm() {
       <div className="star" style={{ top: '4%', left: '55%', animationDelay: '1s' }} />
       <div className="star" style={{ top: '14%', left: '15%', animationDelay: '1.5s' }} />
       <div className="login-content">
-        <PixelSprout size={56} />
+        <span className="app-icon" role="img" aria-label="growdy">
+          <PixelSprout size={56} />
+        </span>
         <h1>growdy</h1>
         {error && <p className="error">{error}</p>}
         <button type="button" className="google-signin-button" onClick={handleGoogleSignIn}>
@@ -84,7 +86,7 @@ function AccountMenu({
         aria-label="Menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <PixelHamburger size={30} />
+        <PixelBurger size={26} />
       </button>
       {open && (
         <div className="app-menu-content">
@@ -120,7 +122,7 @@ function SignedIn({ session }: { session: Session }) {
     <div className="app-shell">
       <header className="app-header">
         <span className="app-icon" role="img" aria-label="growdy">
-          <PixelSprout size={36} />
+          <PixelSprout size={44} />
         </span>
         <AccountMenu
           email={session.user.email ?? ''}
