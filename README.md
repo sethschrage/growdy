@@ -3,7 +3,11 @@
 A database for capturing information about plants in a parcel of land over
 time -- what's planted, where, when, and what's observed about it.
 
-There's no front-end. Interaction happens directly against the database.
+Most interaction still happens directly against the database. A small
+app (see `app/`) is being built alongside it, but only as a
+research tool -- to find out what field use and other producers actually
+need before building more of either the schema or the app. See
+[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md).
 
 ## Status
 
@@ -25,6 +29,7 @@ table and how they relate.
 - [0005 -- Observations table](docs/decisions/0005-observations-table.md) -- append-only, dated notes linked to a planting; free text now, structured fields only once a pattern proves worth promoting.
 - [0006 -- Planting lifecycle and position status](docs/decisions/0006-planting-lifecycle-and-position-status.md) -- why dead and removed are different events, and why per-position status is a database view rather than external code.
 - [0007 -- Uncertain values stay null](docs/decisions/0007-uncertain-values-stay-null.md) -- a hedged/unconfirmed identity fact stays null in its structured column; the guess lives in `nickname` or an observation instead, never asserted as fact.
+- [0008 -- App as a research tool](docs/decisions/0008-app-as-research-tool.md) -- the app exists to validate what field use and other producers actually need, not to be a finished product; it gets built up the same evidence-driven way the schema has been.
 
 ## Stack
 
@@ -34,6 +39,7 @@ table and how they relate.
 | Spatial | PostGIS |
 | File storage | Supabase Storage |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
+| Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
 
 ## Development
 
