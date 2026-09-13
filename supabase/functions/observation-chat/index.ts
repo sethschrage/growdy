@@ -75,6 +75,7 @@ Deno.serve(async (req: Request) => {
 
     if (!anthropicResponse.ok) {
       const message = await anthropicResponse.text();
+      console.error(`Anthropic API error (${anthropicResponse.status}): ${message}`);
       return new Response(JSON.stringify({ type: "error", message }), {
         status: 502,
         headers: { ...corsHeaders, "content-type": "application/json" },
@@ -97,6 +98,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {
+    console.error(`observation-chat crashed: ${err}`);
     return new Response(JSON.stringify({ type: "error", message: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" },
