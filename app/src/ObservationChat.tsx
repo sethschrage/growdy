@@ -65,12 +65,17 @@ export function ObservationChat({ session }: { session: Session }) {
     }
 
     const { plot, row_number, position, note, observed_date } = data
-    const { data: found } = await supabase
+    const { data: found, error: lookupError } = await supabase
       .from('planting_readable')
       .select('id, label')
       .ilike('plot', plot)
       .eq('row_number', row_number)
       .eq('position', position)
+
+    if (lookupError) {
+      setError(lookupError.message)
+      return
+    }
 
     if (!found || found.length !== 1) {
       setMessages((m) => [
