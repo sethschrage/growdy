@@ -159,15 +159,16 @@ export function Chat({ session }: { session: Session }) {
     if (query_type === 'variety_lookup') {
       const columns =
         'id, parcel, label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason'
-      const [byVariety, byScion, byRootstock] = await Promise.all([
+      const [byVariety, byScion, byRootstock, byNickname] = await Promise.all([
         supabase.from('planting_readable').select(columns).ilike('variety', `%${variety}%`),
         supabase.from('planting_readable').select(columns).ilike('scion', `%${variety}%`),
         supabase.from('planting_readable').select(columns).ilike('rootstock', `%${variety}%`),
+        supabase.from('planting_readable').select(columns).ilike('nickname', `%${variety}%`),
       ])
 
       setSending(false)
 
-      const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error
+      const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error ?? byNickname.error
       if (varietyError) {
         setError(varietyError.message)
         return
@@ -175,7 +176,12 @@ export function Chat({ session }: { session: Session }) {
 
       const seen = new Set<string>()
       const matches: (PlantingRow & { id: string; parcel: string })[] = []
-      for (const row of [...(byVariety.data ?? []), ...(byScion.data ?? []), ...(byRootstock.data ?? [])]) {
+      for (const row of [
+        ...(byVariety.data ?? []),
+        ...(byScion.data ?? []),
+        ...(byRootstock.data ?? []),
+        ...(byNickname.data ?? []),
+      ]) {
         if (!seen.has(row.id)) {
           seen.add(row.id)
           matches.push(row)
@@ -183,10 +189,23 @@ export function Chat({ session }: { session: Session }) {
       }
       matches.sort((a, b) => (a.parcel + a.plot).localeCompare(b.parcel + b.plot))
 
-      const answer =
-        matches.length === 0
-          ? `Nothing matches "${variety}".`
-          : matches.map((m) => `${m.parcel} -- ${describePlanting(m)}`).join('\n')
+      const MAX_DETAILED_MATCHES = 25
+      let answer: string
+      if (matches.length === 0) {
+        answer = `Nothing matches "${variety}".`
+      } else if (matches.length > MAX_DETAILED_MATCHES) {
+        const countsByParcel = new Map<string, number>()
+        for (const m of matches) {
+          countsByParcel.set(m.parcel, (countsByParcel.get(m.parcel) ?? 0) + 1)
+        }
+        const breakdown = [...countsByParcel.entries()]
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([parcel, count]) => `${parcel}: ${count}`)
+          .join('\n')
+        answer = `Found ${matches.length} plantings matching "${variety}" across ${countsByParcel.size} parcel${countsByParcel.size === 1 ? '' : 's'}:\n${breakdown}`
+      } else {
+        answer = matches.map((m) => `${m.parcel} -- ${describePlanting(m)}`).join('\n')
+      }
 
       const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
       setMessages(withAssistant)
