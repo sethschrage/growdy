@@ -87,7 +87,7 @@ function AccountMenu({
     <div className="app-menu" ref={ref}>
       <button
         type="button"
-        className="app-menu-toggle"
+        className={`app-menu-toggle${open ? ' app-menu-toggle--open' : ''}`}
         aria-label="Menu"
         onClick={() => setOpen((v) => !v)}
       >
