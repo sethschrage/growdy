@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow, PixelCloud, PixelThumbDown, PixelThumbUp } from './icons'
+import { PixelArrow, PixelCheck, PixelCloud, PixelX } from './icons'
 import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
 
@@ -356,7 +356,7 @@ export function Chat({ session }: { session: Session }) {
                     aria-pressed={m.feedback === 'up'}
                     onClick={() => setFeedback(i, 'up')}
                   >
-                    <PixelThumbUp size={14} />
+                    <PixelCheck size={14} />
                   </button>
                   <button
                     type="button"
@@ -365,7 +365,7 @@ export function Chat({ session }: { session: Session }) {
                     aria-pressed={m.feedback === 'down'}
                     onClick={() => setFeedback(i, 'down')}
                   >
-                    <PixelThumbDown size={14} />
+                    <PixelX size={14} />
                   </button>
                 </div>
               )}
