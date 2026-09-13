@@ -14,6 +14,7 @@
   --leaf: #5b8c3e;
   --leaf-dark: #3f6b29;
   --berry: #c1440e;
+  --berry-dark: #8a3009;
   --cream: #fff8ea;
   --soil: #3d2b1a;
   --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
@@ -211,19 +212,13 @@ body {
 }
 
 .menu-bun {
-  width: 14px;
+  width: 20px;
   height: 28px;
-  border-radius: 8px;
-  background: #e8a33d;
-  border: 2px solid var(--wood-dark);
 }
 
 .menu-topping {
-  width: 8px;
+  width: 6px;
   height: 28px;
-  border-radius: 2px;
-  border: 1px solid var(--wood-dark);
-  background: linear-gradient(to bottom, #f4c542 0%, #f4c542 50%, #7cb342 50%, #7cb342 100%);
 }
 
 .menu-icon-button {
@@ -249,12 +244,12 @@ body {
   }
 
   .menu-bun {
-    width: 10px;
+    width: 15px;
     height: 22px;
   }
 
   .menu-topping {
-    width: 6px;
+    width: 4px;
     height: 22px;
   }
 
@@ -334,31 +329,39 @@ body {
 }
 
 .feedback-button {
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 2px;
-  font-weight: 400;
-  color: var(--wood);
-  opacity: 0.5;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--leaf);
+  border-color: var(--leaf-dark);
+  box-shadow: 0 2px 0 var(--leaf-dark);
+  opacity: 0.4;
 }
 
 .feedback-button:hover {
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .feedback-button:active {
-  box-shadow: none;
-  transform: none;
+  box-shadow: 0 0 0 var(--leaf-dark);
 }
 
 .feedback-button--selected {
   opacity: 1;
-  color: var(--leaf-dark);
 }
 
-.feedback-button--down.feedback-button--selected {
-  color: var(--berry);
+.feedback-button--down {
+  background: var(--berry);
+  border-color: var(--berry-dark);
+  box-shadow: 0 2px 0 var(--berry-dark);
+}
+
+.feedback-button--down:active {
+  box-shadow: 0 0 0 var(--berry-dark);
 }
 
 .chat-confirm {

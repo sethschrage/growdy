@@ -3,7 +3,16 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
 import { HistoryDrawer } from './HistoryDrawer'
-import { PixelBurger, PixelCloud, PixelCompose, PixelExit, PixelHistory, PixelSprout } from './icons'
+import {
+  PixelBunSlice,
+  PixelBurger,
+  PixelCloud,
+  PixelCompose,
+  PixelExit,
+  PixelHistory,
+  PixelSprout,
+  PixelToppingSlice,
+} from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -93,8 +102,8 @@ function AccountMenu({
       </button>
       {open && (
         <div className="app-menu-bar" role="menu" aria-label={`Account menu for ${email}`}>
-          <span className="menu-bun" aria-hidden="true" />
-          <span className="menu-topping" aria-hidden="true" />
+          <PixelBunSlice className="menu-bun" />
+          <PixelToppingSlice className="menu-topping" />
           <button
             type="button"
             className="menu-icon-button"
@@ -106,7 +115,7 @@ function AccountMenu({
           >
             <PixelCompose size={22} />
           </button>
-          <span className="menu-topping" aria-hidden="true" />
+          <PixelToppingSlice className="menu-topping" />
           <button
             type="button"
             className="menu-icon-button"
@@ -118,7 +127,7 @@ function AccountMenu({
           >
             <PixelHistory size={18} />
           </button>
-          <span className="menu-topping" aria-hidden="true" />
+          <PixelToppingSlice className="menu-topping" />
           <button
             type="button"
             className="menu-icon-button"
@@ -130,7 +139,7 @@ function AccountMenu({
           >
             <PixelExit size={18} />
           </button>
-          <span className="menu-bun" aria-hidden="true" />
+          <PixelBunSlice className="menu-bun" />
         </div>
       )}
     </div>

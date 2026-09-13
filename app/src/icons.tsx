@@ -117,6 +117,34 @@ export function PixelBurger({ size = 20 }: { size?: number }) {
   )
 }
 
+// These two reuse BURGER_ROWS's own geometry rather than drawing new
+// shapes -- each row becomes a column (row index -> new x, row's x/width
+// span -> new y-range), turning the closed icon's horizontal layers into
+// vertical ones for the open menu bar.
+const BUN_ROW_COLOR = BURGER_ROWS[0].fill
+
+export function PixelBunSlice({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 7 10" shapeRendering="crispEdges" aria-hidden="true">
+      {BURGER_ROWS.map(({ y, x, w }) => (
+        <rect key={y} x={y} y={x} width={1} height={w} fill={BUN_ROW_COLOR} />
+      ))}
+    </svg>
+  )
+}
+
+const TOPPING_ROWS = BURGER_ROWS.filter((row) => row.y === 2 || row.y === 3)
+
+export function PixelToppingSlice({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 2 10" shapeRendering="crispEdges" aria-hidden="true">
+      {TOPPING_ROWS.map(({ y, x, w, fill }) => (
+        <rect key={y} x={y - 2} y={x} width={1} height={w} fill={fill} />
+      ))}
+    </svg>
+  )
+}
+
 const EXIT_CELLS = [
   [0, 0],
   [1, 0],
@@ -231,51 +259,50 @@ export function PixelHistory({ size = 18 }: { size?: number }) {
   )
 }
 
-const THUMB_UP_CELLS = [
-  [2, 0],
-  [3, 0],
-  [1, 1],
-  [2, 1],
-  [1, 2],
-  [2, 2],
-  [2, 3],
-  [3, 3],
-  [4, 3],
-  [5, 3],
+const CHECK_CELLS = [
+  [0, 3],
   [1, 4],
-  [2, 4],
-  [3, 4],
-  [4, 4],
-  [5, 4],
   [1, 5],
-  [2, 5],
-  [3, 5],
-  [4, 5],
-  [5, 5],
-  [1, 6],
   [2, 6],
-  [3, 6],
-  [4, 6],
-  [5, 6],
+  [3, 5],
+  [3, 4],
+  [4, 3],
+  [5, 2],
+  [5, 1],
+  [6, 0],
 ] as const
 
-export function PixelThumbUp({ size = 14 }: { size?: number }) {
+export function PixelCheck({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {THUMB_UP_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      {CHECK_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#fff" />
       ))}
     </svg>
   )
 }
 
-const THUMB_DOWN_CELLS = THUMB_UP_CELLS.map(([x, y]) => [x, 6 - y] as const)
+const X_CELLS = [
+  [0, 0],
+  [1, 1],
+  [2, 2],
+  [3, 3],
+  [4, 4],
+  [5, 5],
+  [6, 6],
+  [6, 0],
+  [5, 1],
+  [4, 2],
+  [2, 4],
+  [1, 5],
+  [0, 6],
+] as const
 
-export function PixelThumbDown({ size = 14 }: { size?: number }) {
+export function PixelX({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {THUMB_DOWN_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      {X_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#fff" />
       ))}
     </svg>
   )
