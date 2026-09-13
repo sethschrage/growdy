@@ -9,7 +9,11 @@ legible to someone reading it later.
 
 1. Create a feature branch (`feat/...`, `fix/...`, `docs/...`).
 2. Make the change (a migration, a doc, whatever the branch is for).
-3. Push the branch and open a pull request describing what changed and why.
+3. Push the branch and open a pull request describing what changed and
+   why. If the PR touches any doc (README, an ADR, this file, the data
+   model, the CHANGELOG), link every one of them directly in the
+   description -- not just one -- so each is a single click to review
+   instead of a diff to hunt through.
 4. CI runs automatically (see below). Review the diff.
 5. Merge via the PR (squash merge -- see "Merge strategy").
 6. **Only after merge**, apply any migration or deploy any Edge Function
