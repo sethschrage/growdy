@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { PixelArrow, PixelCloud } from './icons'
+import { useConversationLog } from './useConversationLog'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -51,11 +52,12 @@ function describeStatuses(rows: { position: number; status: string }[], statusFi
   return `Status by position: ${sorted.map((r) => `${r.position} (${r.status})`).join(', ')}.`
 }
 
-export function DataQuestionChat({ session: _session }: { session: Session }) {
+export function DataQuestionChat({ session }: { session: Session }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { log } = useConversationLog(session, 'ask')
 
   async function send(event: FormEvent) {
     event.preventDefault()
@@ -63,6 +65,7 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
 
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: input }]
     setMessages(nextMessages)
+    log(nextMessages)
     setInput('')
     setSending(true)
     setError(null)
@@ -85,7 +88,9 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
 
     if (data.type === 'question') {
       setSending(false)
-      setMessages((m) => [...m, { role: 'assistant', content: data.text }])
+      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: data.text }]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
@@ -105,13 +110,15 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
     }
 
     if (!rowsMatch || rowsMatch.length !== 1) {
-      setMessages((m) => [
-        ...m,
+      const withAssistant = [
+        ...nextMessages,
         {
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `I couldn't find exactly one row matching Plot ${plot}, Row ${row_number} -- can you double check?`,
         },
-      ])
+      ]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
@@ -135,7 +142,9 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
           ? `Nothing's recorded at Plot ${plot}, Row ${row_number}, Position ${position}.`
           : describePlanting(planting[0])
 
-      setMessages((m) => [...m, { role: 'assistant', content: answer }])
+      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
@@ -150,7 +159,12 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
       return
     }
 
-    setMessages((m) => [...m, { role: 'assistant', content: describeStatuses(statuses ?? [], status) }])
+    const withAssistant = [
+      ...nextMessages,
+      { role: 'assistant' as const, content: describeStatuses(statuses ?? [], status) },
+    ]
+    setMessages(withAssistant)
+    log(withAssistant)
   }
 
   return (

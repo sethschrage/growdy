@@ -277,3 +277,36 @@ export function PixelCompose({ size = 22 }: { size?: number }) {
     </svg>
   )
 }
+
+const HISTORY_CELLS = [
+  [2, 0],
+  [3, 0],
+  [4, 0],
+  [1, 1],
+  [5, 1],
+  [0, 2],
+  [6, 2],
+  [0, 3],
+  [6, 3],
+  [0, 4],
+  [6, 4],
+  [1, 5],
+  [5, 5],
+  [2, 6],
+  [3, 6],
+  [4, 6],
+  [3, 1],
+  [3, 2],
+  [3, 3],
+  [4, 3],
+] as const
+
+export function PixelHistory({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {HISTORY_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
