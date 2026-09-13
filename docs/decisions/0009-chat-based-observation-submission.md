@@ -38,9 +38,17 @@ genuinely doesn't know, leaves the submission flagged as unresolved for
 manual review rather than picking a probable match.
 
 The raw conversation transcript is stored alongside the resolved fields,
-not discarded. Review needs to judge whether the AI's interpretation was
-actually correct, not just whether the resulting note reads sensibly --
-that requires seeing what was actually said.
+not discarded, for two reasons. First, review needs to judge whether the
+AI's interpretation was actually correct, not just whether the resulting
+note reads sensibly -- that requires seeing what was actually said.
+Second, and more fundamentally: reviewing real transcripts over time is
+how the schema keeps getting tuned against real usage. Every submission
+is a data point about how someone actually describes a planting, an
+event, an ambiguity -- the same kind of evidence the original imports
+provided (which is what revealed the need for `plant_types.kind`, or the
+dead/removed distinction). Discarding the transcript after resolving it
+into an `observations` row would throw away exactly the information that
+teaches us what the schema still doesn't account for.
 
 Photo attachment is deliberately deferred to a later iteration. Text-only
 first, to prove the conversation/resolution/review loop before adding
@@ -55,6 +63,11 @@ upload handling and multimodal parsing on top of it.
 - Surfacing real schema gaps and awkward phrasing is the intended
   outcome here, not a bug -- per `0008`'s evidence-driven approach to
   building the app.
+- Manual review of every submission is doing double duty: it's quality
+  control before data counts as confirmed, and it's the mechanism for
+  learning what real use cases and phrasing patterns actually look like
+  -- knowledge that should keep tuning the schema over time, not just
+  get read once and forgotten.
 - A review process needs access to both the transcript and the resolved
   fields; showing only the final note would lose the ability to judge
   whether the AI got it right.
