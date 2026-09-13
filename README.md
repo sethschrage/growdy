@@ -37,6 +37,7 @@ table and how they relate.
 - [0008 -- App as a research tool](docs/decisions/0008-app-as-research-tool.md) -- the app exists to validate what field use and other producers actually need, not to be a finished product; it gets built up the same evidence-driven way the schema has been.
 - [0009 -- Chat-based observation submission](docs/decisions/0009-chat-based-observation-submission.md) -- submission is an open-ended chat, not a form, so real field language can surface schema gaps a form would hide; every submission is reviewed before it counts as confirmed data.
 - [0010 -- Read-only Q&A chat resolves against known views](docs/decisions/0010-read-only-qa-chat.md) -- answering a question reuses the same "AI drafts intent, client resolves and executes" split as observation submission, never a generated query.
+- [0011 -- Conversation history is a new table, written by the client](docs/decisions/0011-conversation-history.md) -- browsing past chats needs a session-level record neither existing table provides; the client writes it after every message, not an Edge Function.
 
 ## Stack
 
