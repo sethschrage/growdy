@@ -1,6 +1,23 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
-  color-scheme: light dark;
-  font: 16px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  --wood: #8b5a2b;
+  --wood-dark: #5c3a1a;
+  --parchment: #fbe8c0;
+  --panel: #f6d998;
+  --ink: #4a2f1c;
+  --leaf: #5b8c3e;
+  --leaf-dark: #3f6b29;
+  --berry: #c1440e;
+  --cream: #fff8ea;
+  --soil: #3d2b1a;
+  --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
+  font: 16px/1.5 'Pixelify Sans', system-ui, sans-serif;
 }
 
 html,
@@ -11,6 +28,8 @@ body,
 
 body {
   margin: 0;
+  background: var(--sky);
+  color: var(--ink);
 }
 
 #root {
@@ -19,16 +38,70 @@ body {
 }
 
 .login-screen {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  width: 100%;
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--sky);
+}
+
+.login-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 20px;
-  height: 100dvh;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 24px 16px;
-  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.cloud {
+  position: absolute;
+  z-index: 0;
+  animation-name: drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(24px);
+  }
+}
+
+.star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--cream);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.login-screen h1 {
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 42px;
+  margin: 0;
+  color: var(--wood-dark);
+  text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.5);
 }
 
 .google-signin-button {
@@ -45,6 +118,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .google-signin-button:hover {
@@ -53,13 +127,17 @@ body {
     0 1px 3px 1px rgba(60, 64, 67, 0.15);
 }
 
+.google-signin-button:active {
+  transform: none;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  max-width: 480px;
   width: 100%;
-  margin: 0 auto;
+  background: var(--sky);
 }
 
 .app-header {
@@ -67,12 +145,11 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
 }
 
-.app-header h1 {
-  font-size: 18px;
-  margin: 0;
+.app-icon {
+  display: flex;
+  align-items: center;
 }
 
 .app-menu {
@@ -86,29 +163,35 @@ body {
   font-size: 20px;
   line-height: 1;
   padding: 4px 8px;
+  box-shadow: none;
+}
+
+.app-menu-toggle:active {
+  box-shadow: none;
 }
 
 .app-menu-content {
   position: absolute;
   right: 0;
   top: 100%;
-  margin-top: 4px;
-  background: canvas;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  border-radius: 8px;
+  margin-top: 8px;
+  background: var(--panel);
+  border: 3px solid var(--wood);
+  border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 200px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
   z-index: 1;
 }
 
 .app-menu-content p {
   margin: 0 0 4px;
   font-size: 13px;
-  opacity: 0.7;
+  color: var(--wood-dark);
+  opacity: 0.85;
   word-break: break-all;
 }
 
@@ -123,8 +206,13 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 12px;
+  gap: 16px;
   padding: 24px;
+}
+
+.chat-submitted p {
+  font-size: 18px;
+  color: var(--wood-dark);
 }
 
 .chat-messages {
@@ -132,6 +220,7 @@ body {
   min-height: 0;
   overflow-y: auto;
   padding: 16px;
+  padding-bottom: 90px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -146,18 +235,22 @@ body {
 
 .chat-message-user {
   align-self: flex-end;
-  background: #2f7d4f;
-  color: white;
+  background: var(--leaf);
+  color: var(--cream);
+  border: 2px solid var(--leaf-dark);
 }
 
 .chat-message-assistant {
   align-self: flex-start;
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--panel);
+  color: var(--ink);
+  border: 2px solid var(--wood);
 }
 
 .chat-confirm {
   align-self: stretch;
-  border: 1px solid rgba(128, 128, 128, 0.3);
+  background: var(--panel);
+  border: 3px solid var(--wood);
   border-radius: 12px;
   padding: 12px;
 }
@@ -169,15 +262,38 @@ body {
 }
 
 .chat-input {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: calc(100% - 24px);
+  max-width: 440px;
+  margin: 0 auto;
   display: flex;
   flex-direction: row;
   gap: 8px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  padding: 10px;
+  background: var(--soil);
+  border: 3px solid var(--leaf);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .chat-input input {
   flex: 1;
+}
+
+.icon-button {
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  box-shadow: none;
+}
+
+.icon-button:active {
+  box-shadow: none;
 }
 
 form {
@@ -195,15 +311,60 @@ label {
 
 input {
   font: inherit;
-  padding: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+input:focus {
+  outline: 3px solid var(--leaf);
+  outline-offset: 1px;
 }
 
 button {
   font: inherit;
-  padding: 8px;
+  font-weight: 700;
   cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 3px solid var(--leaf-dark);
+  background: var(--leaf);
+  color: var(--cream);
+  box-shadow: 0 4px 0 var(--leaf-dark);
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
+}
+
+button:hover {
+  filter: brightness(1.06);
+}
+
+button:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--leaf-dark);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chat-confirm-actions button:last-child,
+.app-menu-content button:last-of-type {
+  background: var(--wood);
+  border-color: var(--wood-dark);
+  box-shadow: 0 4px 0 var(--wood-dark);
+}
+
+.chat-confirm-actions button:last-child:active,
+.app-menu-content button:last-of-type:active {
+  box-shadow: 0 0 0 var(--wood-dark);
 }
 
 .error {
-  color: #c0392b;
+  color: var(--berry);
+  font-weight: 700;
 }
