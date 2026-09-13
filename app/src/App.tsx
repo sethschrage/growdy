@@ -106,7 +106,9 @@ function AccountMenu({
         <PixelBurger size={30} />
       </button>
       {open && (
-        <div className="app-menu-content" role="menu" aria-label={`Account menu for ${email}`}>
+        <div className="app-menu-bar" role="menu" aria-label={`Account menu for ${email}`}>
+          <span className="menu-bun" aria-hidden="true" />
+          <span className="menu-topping" aria-hidden="true" />
           <button
             type="button"
             className="menu-icon-button"
@@ -118,6 +120,7 @@ function AccountMenu({
           >
             <PixelCompose size={22} />
           </button>
+          <span className="menu-topping" aria-hidden="true" />
           <button
             type="button"
             className="menu-icon-button"
@@ -129,6 +132,7 @@ function AccountMenu({
           >
             {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelPlus size={18} />}
           </button>
+          <span className="menu-topping" aria-hidden="true" />
           <button
             type="button"
             className="menu-icon-button"
@@ -140,9 +144,10 @@ function AccountMenu({
           >
             <PixelHistory size={18} />
           </button>
+          <span className="menu-topping" aria-hidden="true" />
           <button
             type="button"
-            className="menu-icon-button menu-icon-button--muted"
+            className="menu-icon-button"
             aria-label="Sign out"
             onClick={() => {
               onSignOut()
@@ -151,6 +156,7 @@ function AccountMenu({
           >
             <PixelExit size={18} />
           </button>
+          <span className="menu-bun" aria-hidden="true" />
         </div>
       )}
     </div>
