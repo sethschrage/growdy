@@ -67,7 +67,13 @@ erDiagram
         text note
         text photo_metadata "nullable"
         text status
-        jsonb transcript "nullable"
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
     }
 
     PRODUCERS ||--o{ PROFILES : "has members"
@@ -82,6 +88,8 @@ erDiagram
     PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
     PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
     PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
 ```
 
 ## Reading this diagram
@@ -106,9 +114,14 @@ erDiagram
   aren't shown above since they have no stored columns of their own;
   they're derived reads over `planting` and related tables.
 - **`observations.status`** defaults to `pending` and only becomes
-  `approved`/`rejected` after review; `transcript` holds the raw chat
-  exchange a submission came from, when it came from the chat-based
-  submission flow rather than a direct import -- see
+  `approved`/`rejected` after review -- see
   [0009](decisions/0009-chat-based-observation-submission.md).
+- **`conversations`** is one row per chat session in either mode (`mode`
+  is `submit` or `ask`), holding the full message transcript -- see
+  [0011](decisions/0011-conversation-history.md). `observations.conversation_id`
+  points back to the session a submission came from, when it came from
+  the chat-based submission flow rather than a direct import; review
+  follows that link to see the full exchange instead of a transcript
+  duplicated onto the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.

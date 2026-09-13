@@ -46,5 +46,5 @@ export function useConversationLog(session: Session, mode: 'submit' | 'ask') {
     started.current = false
   }
 
-  return { log, reset }
+  return { log, reset, conversationId }
 }
