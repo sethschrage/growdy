@@ -238,7 +238,15 @@ body {
   padding-bottom: 90px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.chat-messages-inner {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  width: 100%;
+  max-width: 640px;
 }
 
 .chat-message-wrap {
