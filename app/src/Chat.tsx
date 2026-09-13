@@ -6,9 +6,9 @@ import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
 
 type Draft = {
-  plot: string
-  row_number: number
-  position: number
+  plot: string | null
+  row_number: number | null
+  position: number | null
   note: string
   observed_date: string | null
 }
@@ -158,6 +158,14 @@ export function Chat({ session }: { session: Session }) {
 
     if (data.tool === 'submit_observation_draft') {
       const { plot, row_number, position, note, observed_date } = data
+
+      if (plot == null || row_number == null || position == null) {
+        setSending(false)
+        setDraft({ plot: null, row_number: null, position: null, note, observed_date: observed_date ?? null })
+        setMatch(null)
+        return
+      }
+
       const { data: found, error: lookupError } = await supabase
         .from('planting_readable')
         .select('id, label')
@@ -344,10 +352,10 @@ export function Chat({ session }: { session: Session }) {
   }
 
   async function confirmSubmit() {
-    if (!draft || !match || !producerId) return
+    if (!draft || !producerId) return
     setSending(true)
     const { error } = await supabase.from('observations').insert({
-      planting_id: match.id,
+      planting_id: match?.id ?? null,
       producer_id: producerId,
       note: draft.note,
       observed_date: draft.observed_date,
@@ -421,12 +429,18 @@ export function Chat({ session }: { session: Session }) {
             </div>
           ))}
           {error && <p className="error">{error}</p>}
-          {draft && match && (
+          {draft && (
             <div className="chat-confirm">
               <p>
-                Log this on{' '}
-                {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
-                {' '}"{draft.note}"?
+                {match || draft.plot ? (
+                  <>
+                    Log this on{' '}
+                    {match?.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
+                    {' '}"{draft.note}"?
+                  </>
+                ) : (
+                  <>Log this: "{draft.note}"?</>
+                )}
               </p>
               <div className="chat-confirm-actions">
                 <button type="button" onClick={confirmSubmit} disabled={sending}>
