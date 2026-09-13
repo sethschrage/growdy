@@ -1,6 +1,15 @@
 :root {
-  color-scheme: light dark;
-  font: 16px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  --wood: #8b5a2b;
+  --wood-dark: #5c3a1a;
+  --parchment: #fbe8c0;
+  --panel: #f6d998;
+  --ink: #4a2f1c;
+  --leaf: #5b8c3e;
+  --leaf-dark: #3f6b29;
+  --berry: #c1440e;
+  --cream: #fff8ea;
+  font: 16px/1.5 'Pixelify Sans', system-ui, sans-serif;
 }
 
 html,
@@ -11,6 +20,8 @@ body,
 
 body {
   margin: 0;
+  background: var(--parchment);
+  color: var(--ink);
 }
 
 #root {
@@ -31,6 +42,24 @@ body {
   text-align: center;
 }
 
+.login-screen h1,
+.app-header h1 {
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.login-screen h1::before,
+.app-header h1::before {
+  content: '🌱 ';
+}
+
+.login-screen h1 {
+  font-size: 42px;
+  margin: 0;
+  color: var(--wood-dark);
+  text-shadow: 2px 2px 0 var(--panel);
+}
+
 .google-signin-button {
   display: inline-flex;
   align-items: center;
@@ -45,12 +74,18 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .google-signin-button:hover {
   box-shadow:
     0 1px 2px 0 rgba(60, 64, 67, 0.3),
     0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.google-signin-button:active {
+  transform: none;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
 }
 
 .app-shell {
@@ -67,12 +102,15 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  background: var(--wood);
+  border-bottom: 3px solid var(--wood-dark);
 }
 
 .app-header h1 {
   font-size: 18px;
   margin: 0;
+  color: var(--cream);
+  text-shadow: none;
 }
 
 .app-menu {
@@ -86,29 +124,35 @@ body {
   font-size: 20px;
   line-height: 1;
   padding: 4px 8px;
+  box-shadow: none;
+}
+
+.app-menu-toggle:active {
+  box-shadow: none;
 }
 
 .app-menu-content {
   position: absolute;
   right: 0;
   top: 100%;
-  margin-top: 4px;
-  background: canvas;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  border-radius: 8px;
+  margin-top: 8px;
+  background: var(--panel);
+  border: 3px solid var(--wood);
+  border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 200px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
   z-index: 1;
 }
 
 .app-menu-content p {
   margin: 0 0 4px;
   font-size: 13px;
-  opacity: 0.7;
+  color: var(--wood-dark);
+  opacity: 0.85;
   word-break: break-all;
 }
 
@@ -123,8 +167,13 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 12px;
+  gap: 16px;
   padding: 24px;
+}
+
+.chat-submitted p {
+  font-size: 18px;
+  color: var(--wood-dark);
 }
 
 .chat-messages {
@@ -146,18 +195,22 @@ body {
 
 .chat-message-user {
   align-self: flex-end;
-  background: #2f7d4f;
-  color: white;
+  background: var(--leaf);
+  color: var(--cream);
+  border: 2px solid var(--leaf-dark);
 }
 
 .chat-message-assistant {
   align-self: flex-start;
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--panel);
+  color: var(--ink);
+  border: 2px solid var(--wood);
 }
 
 .chat-confirm {
   align-self: stretch;
-  border: 1px solid rgba(128, 128, 128, 0.3);
+  background: var(--panel);
+  border: 3px solid var(--wood);
   border-radius: 12px;
   padding: 12px;
 }
@@ -173,7 +226,8 @@ body {
   flex-direction: row;
   gap: 8px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  background: var(--panel);
+  border-top: 3px solid var(--wood);
 }
 
 .chat-input input {
@@ -195,15 +249,60 @@ label {
 
 input {
   font: inherit;
-  padding: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+input:focus {
+  outline: 3px solid var(--leaf);
+  outline-offset: 1px;
 }
 
 button {
   font: inherit;
-  padding: 8px;
+  font-weight: 700;
   cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 3px solid var(--leaf-dark);
+  background: var(--leaf);
+  color: var(--cream);
+  box-shadow: 0 4px 0 var(--leaf-dark);
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
+}
+
+button:hover {
+  filter: brightness(1.06);
+}
+
+button:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--leaf-dark);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chat-confirm-actions button:last-child,
+.app-menu-content button:last-of-type {
+  background: var(--wood);
+  border-color: var(--wood-dark);
+  box-shadow: 0 4px 0 var(--wood-dark);
+}
+
+.chat-confirm-actions button:last-child:active,
+.app-menu-content button:last-of-type:active {
+  box-shadow: 0 0 0 var(--wood-dark);
 }
 
 .error {
-  color: #c0392b;
+  color: var(--berry);
+  font-weight: 700;
 }
