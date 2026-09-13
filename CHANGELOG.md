@@ -10,6 +10,45 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-13
+
+Plant identity, observations, lifecycle tracking, and two derived views on
+top of the v0.1.0 hierarchy.
+
+### Added
+
+- `plant_types` -- a shared, global vocabulary of variety/scion/rootstock
+  names; `planting.species` (free text) replaced with `variety_id`,
+  `scion_variety_id`, and `rootstock_variety_id` FKs, supporting both
+  own-rooted and grafted plants (#9, #11, #12 -- `docs/decisions/0004`,
+  supersedes `0003`)
+- `observations` -- append-only, dated notes linked to a planting, with an
+  optional `photo_metadata` field (#13 -- `docs/decisions/0005`)
+- `planting.dead_date` and `removed_reason` -- a plant dying and a plant
+  being physically removed are now distinct events (#14 --
+  `docs/decisions/0006`)
+- `plot_rows.length_meters` and `spacing_meters` -- physical row layout
+  (#15)
+- `position_status` view -- per-position planted/blocked/open status,
+  computed rather than stored (#16 -- `docs/decisions/0006`)
+- `planting_readable` view -- every FK on `planting` resolved to its name,
+  plus a computed plot-row-position label, for browsing without manual
+  joins (#18)
+- `docs/data-model.md` -- a full Mermaid ER diagram of the schema (#17)
+
+### Changed
+
+- An uncertain or hedged plant identity fact (e.g. an unconfirmed scion or
+  rootstock) is now stored as null in its FK column, never a best guess --
+  the guess itself lives in `nickname` or an observation instead (#19 --
+  `docs/decisions/0007`)
+
+### Fixed
+
+- `auth_rls_initplan` performance warning on the two `profiles` RLS
+  policies -- `auth.uid()` wrapped as `(select auth.uid())` so Postgres
+  evaluates it once per query instead of once per row (#20)
+
 ## [0.1.0] - 2026-09-12
 
 The full tenancy + land hierarchy: `producer` -> `parcel` -> `plot` ->
