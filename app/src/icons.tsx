@@ -225,37 +225,26 @@ export function PixelExit({ size = 18 }: { size?: number }) {
   )
 }
 
-const NEW_CHAT_CELLS = [
-  [0, 0],
-  [1, 0],
-  [2, 0],
-  [3, 0],
-  [4, 0],
-  [5, 0],
+const PENCIL_CELLS = [
   [6, 0],
+  [5, 1],
+  [6, 1],
+  [4, 2],
+  [5, 2],
+  [3, 3],
+  [4, 3],
+  [2, 4],
+  [3, 4],
+  [1, 5],
+  [2, 5],
   [0, 6],
   [1, 6],
-  [2, 6],
-  [3, 6],
-  [4, 6],
-  [5, 6],
-  [6, 6],
-  [0, 1],
-  [0, 2],
-  [0, 3],
-  [0, 4],
-  [0, 5],
-  [6, 1],
-  [6, 2],
-  [6, 3],
-  [6, 4],
-  [6, 5],
 ] as const
 
-export function PixelNewChat({ size = 18 }: { size?: number }) {
+export function PixelPencil({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {NEW_CHAT_CELLS.map(([x, y]) => (
+      {PENCIL_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
     </svg>
