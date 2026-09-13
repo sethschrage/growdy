@@ -226,36 +226,54 @@ export function PixelExit({ size = 18 }: { size?: number }) {
 }
 
 const COMPOSE_CELLS = [
-  [0, 0],
-  [1, 0],
-  [2, 0],
-  [3, 0],
-  [4, 0],
-  [5, 0],
-  [0, 5],
-  [1, 5],
-  [2, 5],
-  [3, 5],
-  [4, 5],
-  [5, 5],
-  [0, 1],
-  [0, 2],
-  [0, 3],
-  [0, 4],
-  [5, 1],
-  [5, 2],
-  [5, 3],
+  // chat bubble outline, open at top-right where the badge takes over
+  [1, 4],
+  [2, 4],
+  [3, 4],
+  [4, 4],
   [5, 4],
+  [0, 5],
+  [0, 6],
+  [0, 7],
+  [0, 8],
+  [0, 9],
+  [1, 10],
+  [2, 10],
+  [3, 10],
+  [4, 10],
+  [5, 10],
+  [6, 10],
   [7, 6],
-  [6, 7],
   [7, 7],
-  [8, 7],
   [7, 8],
+  [7, 9],
+  // tail
+  [1, 11],
+  [0, 12],
+  // plus-in-circle badge breaking the top-right corner
+  [6, 0],
+  [7, 0],
+  [8, 0],
+  [5, 1],
+  [9, 1],
+  [4, 2],
+  [10, 2],
+  [4, 3],
+  [10, 3],
+  [10, 4],
+  [5, 5],
+  [9, 5],
+  [6, 6],
+  [7, 2],
+  [6, 3],
+  [7, 3],
+  [8, 3],
+  [7, 4],
 ] as const
 
-export function PixelCompose({ size = 20 }: { size?: number }) {
+export function PixelCompose({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 9 9" shapeRendering="crispEdges" aria-hidden="true">
+    <svg width={size} height={(size * 13) / 11} viewBox="0 0 11 13" shapeRendering="crispEdges" aria-hidden="true">
       {COMPOSE_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
