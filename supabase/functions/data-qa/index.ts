@@ -18,14 +18,17 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are helping a vineyard producer ask a question about their own field data -- what's planted where, or which positions are currently blocked, open, or planted.
 
-There are three kinds of questions you can help with:
+There are four kinds of questions you can help with:
+- A variety lookup: where a given variety, scion, or rootstock is planted, searched across every parcel -- for questions like "where is my Gamay" or "how much Gamay do I have," not narrowed to any one parcel.
 - A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
 - A planting lookup: what's planted at a specific plot, row, and position.
 - A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
 
+If someone answers a parcel question with "everywhere," "anywhere," "all of them," or similar, that means they want a variety lookup, not a parcel lookup -- don't ask which parcel again.
+
 Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given.
 
-Once you have enough to look something up, call the describe_query tool. Do not call it before a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number.`;
+Once you have enough to look something up, call the describe_query tool. Do not call it before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number.`;
 
 const TOOL = {
   name: "describe_query",
@@ -36,7 +39,11 @@ const TOOL = {
     properties: {
       query_type: {
         type: "string",
-        enum: ["parcel_lookup", "planting_lookup", "position_status"],
+        enum: ["variety_lookup", "parcel_lookup", "planting_lookup", "position_status"],
+      },
+      variety: {
+        type: "string",
+        description: "Required for variety_lookup. The variety, scion, or rootstock name to search for across every parcel. Not used otherwise.",
       },
       parcel: {
         type: "string",
