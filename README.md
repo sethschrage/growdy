@@ -30,6 +30,7 @@ table and how they relate.
 - [0006 -- Planting lifecycle and position status](docs/decisions/0006-planting-lifecycle-and-position-status.md) -- why dead and removed are different events, and why per-position status is a database view rather than external code.
 - [0007 -- Uncertain values stay null](docs/decisions/0007-uncertain-values-stay-null.md) -- a hedged/unconfirmed identity fact stays null in its structured column; the guess lives in `nickname` or an observation instead, never asserted as fact.
 - [0008 -- App as a research tool](docs/decisions/0008-app-as-research-tool.md) -- the app exists to validate what field use and other producers actually need, not to be a finished product; it gets built up the same evidence-driven way the schema has been.
+- [0009 -- Chat-based observation submission](docs/decisions/0009-chat-based-observation-submission.md) -- submission is an open-ended chat, not a form, so real field language can surface schema gaps a form would hide; every submission is reviewed before it counts as confirmed data.
 
 ## Stack
 
