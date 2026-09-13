@@ -11,6 +11,37 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-13
+
+This milestone is the app's real beginning: producers can now sign in
+and submit field observations through an AI-guided conversation
+instead of a form -- and building it immediately proved the point of
+building it at all, surfacing a permissions gap that had been sitting
+invisible in the schema since the very first migration.
+
+The app (`app/`) exists now, and it's real, not a placeholder: an
+authenticated client using Google Sign-In, restricted to explicit test
+users while the underlying Google Cloud app stays in Testing status
+(docs/decisions/0008, #23, #24, #25). Once signed in, a producer can
+describe an observation to a chat interface in their own words --
+"the plant near the busted trellis has fungus" -- and a Supabase Edge
+Function holding the Claude API key gathers whatever's missing through
+conversation, resolves the description against `planting_readable`,
+and shows a plain confirmation before inserting anything at all
+(docs/decisions/0009, #26, #27, #29, #30). Nothing becomes confirmed
+data without a separate human review step afterward, enforced by the
+database itself rather than app convention -- a submission can only
+ever land as `pending`.
+
+The first real end-to-end test of that flow surfaced something bigger
+than a bug: every table in the schema, plus the two derived views,
+had row-level security policies that were entirely correct but never
+actually reachable by a real signed-in user. A base `grant` Postgres
+checks before row-level security is even evaluated had been missing
+since day one, invisible because every prior check in this project ran
+through an elevated connection that bypasses it (#32, #33). Fixed now
+-- exactly the kind of gap the app exists to surface.
+
 ## [0.2.0] - 2026-09-13
 
 This milestone exists because of a test import -- running real vineyard
