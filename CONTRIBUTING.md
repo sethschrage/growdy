@@ -12,8 +12,9 @@ legible to someone reading it later.
 3. Push the branch and open a pull request describing what changed and why.
 4. CI runs automatically (see below). Review the diff.
 5. Merge via the PR (squash merge -- see "Merge strategy").
-6. **Only after merge**, apply any migration to the live Supabase project.
-   The database is never ahead of what's actually merged into `main`.
+6. **Only after merge**, apply any migration or deploy any Edge Function
+   to the live Supabase project. The database (and its server-side
+   functions) are never ahead of what's actually merged into `main`.
 
 `main` is protected: pull requests are required, direct pushes (including
 by admins) are blocked, and force-pushes/branch deletion are disabled.
@@ -28,6 +29,18 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
 - Migrations live in `supabase/migrations/` and are applied to the linked
   Supabase project only after their PR merges -- never before, and never
   directly against production outside of a migration file.
+
+## Edge Functions
+
+- Live in `supabase/functions/<name>/index.ts`, one function per
+  directory.
+- Same discipline as migrations: written and reviewed in a PR first,
+  deployed to the live Supabase project only after merge -- never
+  before, and never edited directly on the live project outside of a
+  reviewed change to the file in this repo.
+- Any secret a function needs (an API key, for example) is set
+  directly in Supabase's Edge Function secrets, never committed to the
+  repo, never passed through a migration.
 
 ## CI
 
@@ -64,9 +77,14 @@ diary of every WIP commit.
 Versions are not cut per PR. Several PRs accumulate on `main` until they
 add up to a real milestone, at which point:
 
-1. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): a short
+1. Check `README.md`, this file, and `docs/data-model.md` against what
+   actually shipped in the batch -- not just the CHANGELOG entry. A
+   fast-moving batch of PRs reliably leaves the higher-level docs
+   describing an earlier version of the project than the one about to
+   be tagged; catch that here; don't let it accumulate.
+2. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): a short
    theme -- why this batch of changes happened -- followed by prose
    describing what changed, not a categorized bullet list.
-2. A matching git tag and GitHub Release are published.
+3. A matching git tag and GitHub Release are published.
 
 See `CHANGELOG.md` for the actual history.
