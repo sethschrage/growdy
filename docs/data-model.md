@@ -66,6 +66,8 @@ erDiagram
         date observed_date "nullable"
         text note
         text photo_metadata "nullable"
+        text status
+        jsonb transcript "nullable"
     }
 
     PRODUCERS ||--o{ PROFILES : "has members"
@@ -99,9 +101,14 @@ erDiagram
   [0001](decisions/0001-tenancy-membership-model.md). Those redundant
   `producer_id` columns exist on every table but aren't drawn as separate
   relationship lines here, to keep the diagram legible.
-- **`position_status`** (a view, not a table -- see
-  [0006](decisions/0006-planting-lifecycle-and-position-status.md)) isn't
-  shown above since it has no stored columns of its own; it's a derived
-  read over `planting`.
+- **`position_status`** and **`planting_readable`** (views, not tables --
+  see [0006](decisions/0006-planting-lifecycle-and-position-status.md))
+  aren't shown above since they have no stored columns of their own;
+  they're derived reads over `planting` and related tables.
+- **`observations.status`** defaults to `pending` and only becomes
+  `approved`/`rejected` after review; `transcript` holds the raw chat
+  exchange a submission came from, when it came from the chat-based
+  submission flow rather than a direct import -- see
+  [0009](decisions/0009-chat-based-observation-submission.md).
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
