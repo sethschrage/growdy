@@ -64,9 +64,9 @@ diary of every WIP commit.
 Versions are not cut per PR. Several PRs accumulate on `main` until they
 add up to a real milestone, at which point:
 
-1. A version section is added to [`CHANGELOG.md`](CHANGELOG.md)
-   ([Keep a Changelog](https://keepachangelog.com/) format), summarizing
-   what that batch of PRs added/changed/fixed.
+1. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): a short
+   theme -- why this batch of changes happened -- followed by prose
+   describing what changed, not a categorized bullet list.
 2. A matching git tag and GitHub Release are published.
 
 See `CHANGELOG.md` for the actual history.
