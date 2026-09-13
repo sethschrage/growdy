@@ -186,16 +186,44 @@ body {
   box-shadow: none;
 }
 
-.app-menu-content {
+.app-menu-bar {
   position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 10px;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   z-index: 1;
+  transform-origin: right center;
+  animation: menu-bar-open 0.2s ease;
+}
+
+@keyframes menu-bar-open {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scaleX(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1);
+  }
+}
+
+.menu-bun {
+  width: 14px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e8a33d;
+  border: 2px solid var(--wood-dark);
+}
+
+.menu-topping {
+  width: 8px;
+  height: 28px;
+  border-radius: 2px;
+  border: 1px solid var(--wood-dark);
+  background: linear-gradient(to bottom, #f4c542 0%, #f4c542 50%, #7cb342 50%, #7cb342 100%);
 }
 
 .menu-icon-button {
@@ -206,6 +234,34 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--wood);
+  border-color: var(--wood-dark);
+  box-shadow: 0 4px 0 var(--wood-dark);
+}
+
+.menu-icon-button:active {
+  box-shadow: 0 0 0 var(--wood-dark);
+}
+
+@media (max-width: 400px) {
+  .app-menu-bar {
+    gap: 5px;
+  }
+
+  .menu-bun {
+    width: 10px;
+    height: 22px;
+  }
+
+  .menu-topping {
+    width: 6px;
+    height: 22px;
+  }
+
+  .menu-icon-button {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 .chat {
@@ -423,15 +479,13 @@ button:disabled {
   cursor: default;
 }
 
-.chat-confirm-actions button:last-child,
-.menu-icon-button--muted {
+.chat-confirm-actions button:last-child {
   background: var(--wood);
   border-color: var(--wood-dark);
   box-shadow: 0 4px 0 var(--wood-dark);
 }
 
-.chat-confirm-actions button:last-child:active,
-.menu-icon-button--muted:active {
+.chat-confirm-actions button:last-child:active {
   box-shadow: 0 0 0 var(--wood-dark);
 }
 
