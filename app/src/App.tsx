@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { ObservationChat } from './ObservationChat'
-import { DataQuestionChat } from './DataQuestionChat'
+import { Chat } from './Chat'
 import { HistoryDrawer } from './HistoryDrawer'
-import {
-  PixelBurger,
-  PixelCloud,
-  PixelCompose,
-  PixelExit,
-  PixelHistory,
-  PixelPlus,
-  PixelQuestion,
-  PixelSprout,
-} from './icons'
+import { PixelBurger, PixelCloud, PixelCompose, PixelExit, PixelHistory, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -68,16 +58,12 @@ function LoginForm() {
 
 function AccountMenu({
   email,
-  mode,
   onNewChat,
-  onToggleMode,
   onOpenHistory,
   onSignOut,
 }: {
   email: string
-  mode: 'submit' | 'ask'
   onNewChat: () => void
-  onToggleMode: () => void
   onOpenHistory: () => void
   onSignOut: () => void
 }) {
@@ -124,18 +110,6 @@ function AccountMenu({
           <button
             type="button"
             className="menu-icon-button"
-            aria-label={mode === 'submit' ? 'Ask a question' : 'Log an observation'}
-            onClick={() => {
-              onToggleMode()
-              setOpen(false)
-            }}
-          >
-            {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelPlus size={18} />}
-          </button>
-          <span className="menu-topping" aria-hidden="true" />
-          <button
-            type="button"
-            className="menu-icon-button"
             aria-label="History"
             onClick={() => {
               onOpenHistory()
@@ -165,7 +139,6 @@ function AccountMenu({
 
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
-  const [mode, setMode] = useState<'submit' | 'ask'>('submit')
   const [historyOpen, setHistoryOpen] = useState(false)
 
   return (
@@ -178,21 +151,12 @@ function SignedIn({ session }: { session: Session }) {
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
-          mode={mode}
           onNewChat={() => setChatKey((k) => k + 1)}
-          onToggleMode={() => {
-            setMode((m) => (m === 'submit' ? 'ask' : 'submit'))
-            setChatKey((k) => k + 1)
-          }}
           onOpenHistory={() => setHistoryOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
         />
       </header>
-      {mode === 'submit' ? (
-        <ObservationChat key={chatKey} session={session} />
-      ) : (
-        <DataQuestionChat key={chatKey} session={session} />
-      )}
+      <Chat key={chatKey} session={session} />
       {historyOpen && <HistoryDrawer session={session} onClose={() => setHistoryOpen(false)} />}
     </div>
   )
