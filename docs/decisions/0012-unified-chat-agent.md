@@ -1,6 +1,6 @@
 # 0012. One chat agent with a growing tool list, not one Edge Function per capability
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
