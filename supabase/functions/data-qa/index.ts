@@ -18,13 +18,14 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are helping a vineyard producer ask a question about their own field data -- what's planted where, or which positions are currently blocked, open, or planted.
 
-There are two kinds of questions you can help with:
+There are three kinds of questions you can help with:
+- A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
 - A planting lookup: what's planted at a specific plot, row, and position.
 - A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
 
 Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given.
 
-Once you have enough to look something up, call the describe_query tool. Do not call it before a planting lookup has plot, row_number, and position, or before a position status question has at least plot and row_number.`;
+Once you have enough to look something up, call the describe_query tool. Do not call it before a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number.`;
 
 const TOOL = {
   name: "describe_query",
@@ -35,10 +36,20 @@ const TOOL = {
     properties: {
       query_type: {
         type: "string",
-        enum: ["planting_lookup", "position_status"],
+        enum: ["parcel_lookup", "planting_lookup", "position_status"],
       },
-      plot: { type: "string" },
-      row_number: { type: "integer" },
+      parcel: {
+        type: "string",
+        description: "Required for parcel_lookup. Not used otherwise.",
+      },
+      plot: {
+        type: "string",
+        description: "Required for planting_lookup and position_status. Not used for parcel_lookup.",
+      },
+      row_number: {
+        type: "integer",
+        description: "Required for planting_lookup and position_status. Not used for parcel_lookup.",
+      },
       position: {
         type: "integer",
         description: "Only for planting_lookup",
@@ -49,7 +60,7 @@ const TOOL = {
         description: "Only for position_status, if a specific status was asked about",
       },
     },
-    required: ["query_type", "plot", "row_number"],
+    required: ["query_type"],
   },
 };
 

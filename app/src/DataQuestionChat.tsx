@@ -89,7 +89,34 @@ export function DataQuestionChat({ session: _session }: { session: Session }) {
       return
     }
 
-    const { query_type, plot, row_number, position, status } = data
+    const { query_type, parcel, plot, row_number, position, status } = data
+
+    if (query_type === 'parcel_lookup') {
+      const { data: plantings, error: plantingError } = await supabase
+        .from('planting_readable')
+        .select(
+          'label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason',
+        )
+        .ilike('parcel', parcel)
+        .order('plot')
+        .order('row_number')
+        .order('position')
+
+      setSending(false)
+
+      if (plantingError) {
+        setError(plantingError.message)
+        return
+      }
+
+      const answer =
+        !plantings || plantings.length === 0
+          ? `Nothing's recorded in Parcel ${parcel} yet.`
+          : plantings.map(describePlanting).join('\n')
+
+      setMessages((m) => [...m, { role: 'assistant', content: answer }])
+      return
+    }
 
     const { data: rowsMatch, error: rowError } = await supabase
       .from('plot_rows')
