@@ -37,6 +37,31 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   advisors for anything new -- a schema change is the most likely place
   a fresh finding shows up, and it's easy to miss since `execute_sql`
   and other elevated-access checks won't surface it.
+- A migration that would destroy real data (`drop column`, `drop table`)
+  renames instead of dropping outright -- `alter table x rename column y
+  to y_deprecated`, say -- with the actual drop left for its own later
+  migration once there's been time to notice if something still needed
+  it. The data stays physically present and recoverable in between,
+  without any backup infrastructure. This only applies when there's
+  something to protect: a drop confirmed empty at migration time (stated
+  in the migration's own comment, the way both existing column drops
+  already do) can just drop -- there's nothing at risk.
+
+## Working directly against the live database
+
+Verification and testing sometimes means running SQL directly against
+the live project outside of a migration -- checking real row counts,
+tracing a bug against real data, reconciling a migration version. That's
+normal here (see `docs/decisions/0008`), but unlike a migration it skips
+PR review entirely, so a mistake has nothing catching it beforehand.
+
+Before any such SQL that writes (not just reads), take a manual snapshot
+first -- [`supabase db dump`](https://supabase.com/docs/reference/cli/supabase-db-dump)
+or `pg_dump` against the project's connection string, saved locally,
+never committed to the repo. This project is on Supabase's Free plan,
+which keeps no backups of its own, so there's nothing else to fall back
+on. A read-only check doesn't need one; anything that inserts, updates,
+or deletes real data does.
 
 ## Edge Functions
 
