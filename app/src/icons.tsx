@@ -226,7 +226,7 @@ export function PixelExit({ size = 18 }: { size?: number }) {
 }
 
 const COMPOSE_CELLS = [
-  // chat bubble outline, open at top-right where the badge takes over
+  // square outline, open at top-right where the badge takes over
   [1, 4],
   [2, 4],
   [3, 4],
@@ -247,9 +247,6 @@ const COMPOSE_CELLS = [
   [7, 7],
   [7, 8],
   [7, 9],
-  // tail
-  [1, 11],
-  [0, 12],
   // plus-in-circle badge breaking the top-right corner
   [6, 0],
   [7, 0],
@@ -273,7 +270,7 @@ const COMPOSE_CELLS = [
 
 export function PixelCompose({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={(size * 13) / 11} viewBox="0 0 11 13" shapeRendering="crispEdges" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 11 11" shapeRendering="crispEdges" aria-hidden="true">
       {COMPOSE_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
