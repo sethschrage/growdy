@@ -24,7 +24,7 @@ export function ObservationChat({ session }: { session: Session }) {
   const [match, setMatch] = useState<PlantingMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const { log, reset: resetConversation } = useConversationLog(session, 'submit')
+  const { log, reset: resetConversation, conversationId } = useConversationLog(session, 'submit')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -113,7 +113,7 @@ export function ObservationChat({ session }: { session: Session }) {
       note: draft.note,
       observed_date: draft.observed_date,
       status: 'pending',
-      transcript: messages,
+      conversation_id: conversationId.current,
     })
     setSending(false)
     if (error) {
