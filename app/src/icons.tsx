@@ -196,3 +196,31 @@ export function PixelLeaf({ size = 18 }: { size?: number }) {
     </svg>
   )
 }
+
+const EXIT_CELLS = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [0, 2],
+  [0, 3],
+  [0, 4],
+  [0, 5],
+  [0, 6],
+  [1, 6],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [4, 2],
+  [4, 4],
+  [5, 3],
+] as const
+
+export function PixelExit({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {EXIT_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}

@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
 import { DataQuestionChat } from './DataQuestionChat'
-import { PixelBurger, PixelCloud, PixelLeaf, PixelPlus, PixelQuestion, PixelSprout } from './icons'
+import { PixelBurger, PixelCloud, PixelExit, PixelLeaf, PixelPlus, PixelQuestion, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -94,40 +94,39 @@ function AccountMenu({
         <PixelBurger size={30} />
       </button>
       {open && (
-        <div className="app-menu-content">
-          <p>{email}</p>
+        <div className="app-menu-content" role="menu" aria-label={`Account menu for ${email}`}>
           <button
             type="button"
+            className="menu-icon-button"
+            aria-label="New chat"
             onClick={() => {
               onNewChat()
               setOpen(false)
             }}
           >
-            <span className="menu-button-content">
-              <PixelPlus size={18} />
-              New chat
-            </span>
+            <PixelPlus size={18} />
           </button>
           <button
             type="button"
+            className="menu-icon-button"
+            aria-label={mode === 'submit' ? 'Ask a question' : 'Log an observation'}
             onClick={() => {
               onToggleMode()
               setOpen(false)
             }}
           >
-            <span className="menu-button-content">
-              {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelLeaf size={18} />}
-              {mode === 'submit' ? 'Ask a question' : 'Log an observation'}
-            </span>
+            {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelLeaf size={18} />}
           </button>
           <button
             type="button"
+            className="menu-icon-button menu-icon-button--muted"
+            aria-label="Sign out"
             onClick={() => {
               onSignOut()
               setOpen(false)
             }}
           >
-            Sign out
+            <PixelExit size={18} />
           </button>
         </div>
       )}

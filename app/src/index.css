@@ -180,39 +180,22 @@ body {
   position: absolute;
   right: 0;
   top: 100%;
-  margin-top: 8px;
-  background: var(--panel);
-  border: 3px solid var(--wood);
-  border-radius: 10px;
-  padding: 12px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 240px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  align-items: center;
+  gap: 10px;
   z-index: 1;
 }
 
-.app-menu-content p {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: var(--wood-dark);
-  opacity: 0.85;
-  word-break: break-all;
-}
-
-.app-menu-content button {
-  white-space: nowrap;
-}
-
-.menu-button-content {
-  display: inline-flex;
+.menu-icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.menu-button-content svg {
-  flex-shrink: 0;
+  justify-content: center;
 }
 
 .chat {
@@ -375,14 +358,14 @@ button:disabled {
 }
 
 .chat-confirm-actions button:last-child,
-.app-menu-content button:last-of-type {
+.menu-icon-button--muted {
   background: var(--wood);
   border-color: var(--wood-dark);
   box-shadow: 0 4px 0 var(--wood-dark);
 }
 
 .chat-confirm-actions button:last-child:active,
-.app-menu-content button:last-of-type:active {
+.menu-icon-button--muted:active {
   box-shadow: 0 0 0 var(--wood-dark);
 }
 
