@@ -1,48 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 
 function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    setSubmitting(true)
+  async function handleGoogleSignIn() {
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
     if (error) setError(error.message)
-    setSubmitting(false)
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <div>
       <h1>Growdy</h1>
-      <label>
-        Email
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </label>
-      <label>
-        Password
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </label>
       {error && <p className="error">{error}</p>}
-      <button type="submit" disabled={submitting}>
-        {submitting ? 'Signing in...' : 'Sign in'}
+      <button type="button" onClick={handleGoogleSignIn}>
+        Sign in with Google
       </button>
-    </form>
+    </div>
   )
 }
 
