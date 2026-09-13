@@ -33,6 +33,15 @@ rather than a separate repo, hosted free on a static host (Vercel or
 Netlify -- not yet decided). It talks directly to Supabase's existing
 REST API, Auth, and Storage; no server of its own.
 
+**The layer between the app and the database stays deliberately thin.**
+No ORM, no bespoke API re-shaping tables into a different data model --
+the app queries Supabase's tables/views directly through its client
+library, the same tables and views anything else querying this database
+would use. The point of this app is to keep testing the database, the
+same way the real imports have been; an abstraction layer in between
+would let the app quietly work around a schema problem instead of
+surfacing it.
+
 ## Consequences
 
 - Expect the app to change often and be treated as disposable/exploratory
@@ -42,6 +51,10 @@ REST API, Auth, and Storage; no server of its own.
 - It still touches real producer data, so it isn't exempt from the
   project's actual safety rules -- Supabase Auth and RLS scope every
   request the app makes, the same as any other client would.
+- A schema gap or awkward query surfacing as an awkward app screen is
+  the intended outcome of keeping the layer thin, not a bug to fix by
+  adding logic in the app -- it's the same signal an awkward import
+  gives, just from a different direction.
 - Keeping it in this repo means app changes go through the same
   branch/PR/CI workflow as schema changes, and the app's own decisions
   (auth flow, first screens, what "safely ask questions" means) get their
