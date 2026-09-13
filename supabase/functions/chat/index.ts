@@ -1,10 +1,19 @@
-// The read-only counterpart to observation-chat (docs/decisions/0010):
-// holds the Anthropic API key so it never reaches the client. Its job
-// is narrow on purpose -- extract which question is being asked and
-// hand back a structured description of it. It never touches the
-// database itself, and has no tool that could lead to a write; the
-// app resolves the described query against planting_readable or
-// position_status under the signed-in user's own RLS-scoped session.
+// The one server-side piece in this project (docs/decisions/0009, 0010,
+// 0012): holds the Anthropic API key so it never reaches the client. Its
+// job is narrow on purpose -- figure out what's being asked or logged,
+// and hand back a structured description of it. It never touches the
+// database itself; the app resolves a describe_query intent against
+// planting_readable or position_status, or a submit_observation_draft
+// intent against a planting match the app looks up itself, both under
+// the signed-in user's own RLS-scoped session.
+//
+// Two tools live in one list here rather than in separate functions
+// (0012): the actual safety backstop was never which function could
+// reach which tool -- it's the client's confirm-before-write step and
+// the database's insert policy requiring status = 'pending' (0009),
+// neither of which changes here. Every response names which tool fired
+// (`tool`) so the client can tell a query intent from a submission
+// draft without needing two endpoints to infer it from.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -16,21 +25,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are helping a vineyard producer ask a question about their own field data -- what's planted where, or which positions are currently blocked, open, or planted.
+const SYSTEM_PROMPT = `You are helping a vineyard producer with their field data -- answering questions about what's planted where, and logging new observations about specific plants.
 
-There are four kinds of questions you can help with:
+There are five things you can help with:
 - A variety lookup: where a given variety, scion, or rootstock is planted, searched across every parcel -- for questions like "where is my Gamay" or "how much Gamay do I have," not narrowed to any one parcel.
 - A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
 - A planting lookup: what's planted at a specific plot, row, and position.
 - A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
+- Logging an observation: recording something about a specific plant at a specific plot, row, and position.
+
+Figure out which one is meant from context. Someone describing something they noticed, did, or want recorded about a plant ("I trimmed...", "this vine looks...", "saw some mildew on...") is logging an observation, not asking a question. Someone asking what's planted, where, or the status of positions is one of the four lookup types.
 
 If someone answers a parcel question with "everywhere," "anywhere," "all of them," or similar, that means they want a variety lookup, not a parcel lookup -- don't ask which parcel again.
 
-Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given.
+Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given. For an observation, if the person genuinely doesn't know an exact plot/row/position, don't guess at a value -- keep asking for whatever identifying detail they do have until you have all three or they say they truly can't tell you more, in which case say you're not able to log this without at least the plot, row, and position.
 
-Once you have enough to look something up, call the describe_query tool. Do not call it before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number.`;
+Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before plot, row_number, position, and a note are all known.`;
 
-const TOOL = {
+const DESCRIBE_QUERY_TOOL = {
   name: "describe_query",
   description:
     "Describe the data question being asked so the app can look it up. Never used to look up anything yourself -- only to describe what should be looked up.",
@@ -71,6 +83,26 @@ const TOOL = {
   },
 };
 
+const SUBMIT_OBSERVATION_DRAFT_TOOL = {
+  name: "submit_observation_draft",
+  description:
+    "Submit the gathered observation details once plot, row_number, position, and note are known.",
+  input_schema: {
+    type: "object",
+    properties: {
+      plot: { type: "string" },
+      row_number: { type: "integer" },
+      position: { type: "integer" },
+      note: { type: "string" },
+      observed_date: {
+        type: "string",
+        description: "ISO date (YYYY-MM-DD), only if mentioned",
+      },
+    },
+    required: ["plot", "row_number", "position", "note"],
+  },
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -90,7 +122,7 @@ Deno.serve(async (req: Request) => {
         model: MODEL,
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        tools: [TOOL],
+        tools: [DESCRIBE_QUERY_TOOL, SUBMIT_OBSERVATION_DRAFT_TOOL],
         messages,
       }),
     });
@@ -108,7 +140,7 @@ Deno.serve(async (req: Request) => {
     const toolUse = data.content?.find((block: { type: string }) => block.type === "tool_use");
 
     if (toolUse) {
-      return new Response(JSON.stringify({ type: "ready", ...toolUse.input }), {
+      return new Response(JSON.stringify({ type: "ready", tool: toolUse.name, ...toolUse.input }), {
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }
@@ -120,7 +152,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {
-    console.error(`data-qa crashed: ${err}`);
+    console.error(`chat crashed: ${err}`);
     return new Response(JSON.stringify({ type: "error", message: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" },

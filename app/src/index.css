@@ -273,19 +273,6 @@ body {
   flex-direction: column;
 }
 
-.chat-submitted {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 16px;
-  padding: 24px;
-}
-
-.chat-submitted p {
-  font-size: 18px;
-  color: var(--wood-dark);
-}
-
 .chat-messages {
   flex: 1;
   min-height: 0;

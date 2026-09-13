@@ -6,11 +6,19 @@ import type { ChatMessage } from './chatTypes'
 // One row per chat session (docs/decisions/0011): the client generates
 // the id and upserts the full transcript after each message, so a
 // conversation only ever shows up in history at whatever it last got
-// logged as -- no server-side involvement, not even from data-qa.
-export function useConversationLog(session: Session, mode: 'submit' | 'ask') {
+// logged as -- no server-side involvement, not even from the chat
+// Edge Function.
+//
+// mode isn't fixed at creation (docs/decisions/0012): a single session
+// can both answer questions and produce a submission, so it's derived
+// from what actually happened -- 'submit' once markSubmission() has
+// been called, 'ask' otherwise -- rather than which entry point the
+// session started from.
+export function useConversationLog(session: Session) {
   const [producerId, setProducerId] = useState<string | null>(null)
   const conversationId = useRef(crypto.randomUUID())
   const started = useRef(false)
+  const hasSubmission = useRef(false)
 
   useEffect(() => {
     supabase
@@ -23,6 +31,7 @@ export function useConversationLog(session: Session, mode: 'submit' | 'ask') {
 
   async function log(transcript: ChatMessage[]) {
     if (!producerId || transcript.length === 0) return
+    const mode = hasSubmission.current ? 'submit' : 'ask'
 
     if (!started.current) {
       started.current = true
@@ -37,14 +46,13 @@ export function useConversationLog(session: Session, mode: 'submit' | 'ask') {
 
     await supabase
       .from('conversations')
-      .update({ transcript, updated_at: new Date().toISOString() })
+      .update({ mode, transcript, updated_at: new Date().toISOString() })
       .eq('id', conversationId.current)
   }
 
-  function reset() {
-    conversationId.current = crypto.randomUUID()
-    started.current = false
+  function markSubmission() {
+    hasSubmission.current = true
   }
 
-  return { log, reset, conversationId }
+  return { log, conversationId, markSubmission }
 }

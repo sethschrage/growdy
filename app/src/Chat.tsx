@@ -5,6 +5,16 @@ import { PixelArrow, PixelCloud, PixelThumbDown, PixelThumbUp } from './icons'
 import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
 
+type Draft = {
+  plot: string
+  row_number: number
+  position: number
+  note: string
+  observed_date: string | null
+}
+
+type PlantingMatch = { id: string; label: string | null }
+
 type PlantingRow = {
   label: string | null
   plot: string
@@ -51,17 +61,29 @@ function describeStatuses(rows: { position: number; status: string }[], statusFi
   return `Status by position: ${sorted.map((r) => `${r.position} (${r.status})`).join(', ')}.`
 }
 
-export function DataQuestionChat({ session }: { session: Session }) {
+export function Chat({ session }: { session: Session }) {
+  const [producerId, setProducerId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [match, setMatch] = useState<PlantingMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { log } = useConversationLog(session, 'ask')
+  const { log, conversationId, markSubmission } = useConversationLog(session)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, draft])
+
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('producer_id')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => setProducerId(data?.producer_id ?? null))
+  }, [session.user.id])
 
   async function send(event: FormEvent) {
     event.preventDefault()
@@ -74,7 +96,7 @@ export function DataQuestionChat({ session }: { session: Session }) {
     setSending(true)
     setError(null)
 
-    const { data, error } = await supabase.functions.invoke('data-qa', {
+    const { data, error } = await supabase.functions.invoke('chat', {
       body: { messages: nextMessages },
     })
 
@@ -95,6 +117,40 @@ export function DataQuestionChat({ session }: { session: Session }) {
       const withAssistant = [...nextMessages, { role: 'assistant' as const, content: data.text }]
       setMessages(withAssistant)
       log(withAssistant)
+      return
+    }
+
+    if (data.tool === 'submit_observation_draft') {
+      const { plot, row_number, position, note, observed_date } = data
+      const { data: found, error: lookupError } = await supabase
+        .from('planting_readable')
+        .select('id, label')
+        .ilike('plot', plot)
+        .eq('row_number', row_number)
+        .eq('position', position)
+
+      setSending(false)
+
+      if (lookupError) {
+        setError(lookupError.message)
+        return
+      }
+
+      if (!found || found.length !== 1) {
+        const withAssistant = [
+          ...nextMessages,
+          {
+            role: 'assistant' as const,
+            content: `I couldn't find exactly one planting matching Plot ${plot}, Row ${row_number}, Position ${position} -- can you double check?`,
+          },
+        ]
+        setMessages(withAssistant)
+        log(withAssistant)
+        return
+      }
+
+      setDraft({ plot, row_number, position, note, observed_date: observed_date ?? null })
+      setMatch(found[0])
       return
     }
 
@@ -238,6 +294,38 @@ export function DataQuestionChat({ session }: { session: Session }) {
     log(withAssistant)
   }
 
+  async function confirmSubmit() {
+    if (!draft || !match || !producerId) return
+    setSending(true)
+    const { error } = await supabase.from('observations').insert({
+      planting_id: match.id,
+      producer_id: producerId,
+      note: draft.note,
+      observed_date: draft.observed_date,
+      status: 'pending',
+      conversation_id: conversationId.current,
+    })
+    setSending(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    markSubmission()
+    setDraft(null)
+    setMatch(null)
+    const withConfirmation = [
+      ...messages,
+      { role: 'assistant' as const, content: 'Submitted for review. Thank you.' },
+    ]
+    setMessages(withConfirmation)
+    log(withConfirmation)
+  }
+
+  function cancelDraft() {
+    setDraft(null)
+    setMatch(null)
+  }
+
   function setFeedback(index: number, feedback: 'up' | 'down') {
     setMessages((prev) => {
       const updated = prev.map((m, i) =>
@@ -284,19 +372,38 @@ export function DataQuestionChat({ session }: { session: Session }) {
             </div>
           ))}
           {error && <p className="error">{error}</p>}
+          {draft && match && (
+            <div className="chat-confirm">
+              <p>
+                Log this on{' '}
+                {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
+                {' '}"{draft.note}"?
+              </p>
+              <div className="chat-confirm-actions">
+                <button type="button" onClick={confirmSubmit} disabled={sending}>
+                  Confirm
+                </button>
+                <button type="button" onClick={cancelDraft}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
-      <form className="chat-input" onSubmit={send}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your data..."
-        />
-        <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
-          <PixelArrow size={18} />
-        </button>
-      </form>
+      {!draft && (
+        <form className="chat-input" onSubmit={send}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question or log what you observed..."
+          />
+          <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
+            <PixelArrow size={18} />
+          </button>
+        </form>
+      )}
     </div>
   )
 }
