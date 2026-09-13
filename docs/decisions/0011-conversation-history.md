@@ -1,6 +1,6 @@
 # 0011. Conversation history is a new table, written by the client after every message
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 

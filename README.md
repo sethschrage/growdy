@@ -38,6 +38,7 @@ table and how they relate.
 - [0009 -- Chat-based observation submission](docs/decisions/0009-chat-based-observation-submission.md) -- submission is an open-ended chat, not a form, so real field language can surface schema gaps a form would hide; every submission is reviewed before it counts as confirmed data.
 - [0010 -- Read-only Q&A chat resolves against known views](docs/decisions/0010-read-only-qa-chat.md) -- answering a question reuses the same "AI drafts intent, client resolves and executes" split as observation submission, never a generated query.
 - [0011 -- Conversation history is a new table, written by the client](docs/decisions/0011-conversation-history.md) -- browsing past chats needs a session-level record neither existing table provides; the client writes it after every message, not an Edge Function.
+- [0012 -- One chat agent with a growing tool list](docs/decisions/0012-unified-chat-agent.md) -- merges the two chat modes into one Edge Function and tool list; the actual safety backstop was always the confirm-before-write step and the database's pending-only insert policy, not which function held which tool.
 
 ## Stack
 
