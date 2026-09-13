@@ -104,7 +104,7 @@ function AccountMenu({
             }}
           >
             <span className="menu-button-content">
-              <PixelPlus size={16} />
+              <PixelPlus size={18} />
               New chat
             </span>
           </button>
@@ -116,7 +116,7 @@ function AccountMenu({
             }}
           >
             <span className="menu-button-content">
-              {mode === 'submit' ? <PixelQuestion size={16} /> : <PixelLeaf size={16} />}
+              {mode === 'submit' ? <PixelQuestion size={13} /> : <PixelLeaf size={18} />}
               {mode === 'submit' ? 'Ask a question' : 'Log an observation'}
             </span>
           </button>
@@ -146,11 +146,6 @@ function SignedIn({ session }: { session: Session }) {
           <span className="app-icon" role="img" aria-label="growdy">
             <PixelSprout size={44} />
           </span>
-          {mode === 'ask' && (
-            <span className="mode-badge" role="img" aria-label="Ask mode">
-              <PixelQuestion size={20} />
-            </span>
-          )}
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
