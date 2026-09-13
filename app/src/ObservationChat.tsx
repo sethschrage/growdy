@@ -116,33 +116,55 @@ export function ObservationChat({ session }: { session: Session }) {
     setMatch(null)
   }
 
+  function resetChat() {
+    setMessages([])
+    setInput('')
+    setDraft(null)
+    setMatch(null)
+    setError(null)
+    setSubmitted(false)
+  }
+
   if (submitted) {
-    return <p>Submitted for review. Thank you.</p>
+    return (
+      <div className="chat chat-submitted">
+        <p>Submitted for review. Thank you.</p>
+        <button type="button" onClick={resetChat}>
+          Log another
+        </button>
+      </div>
+    )
   }
 
   return (
-    <div>
-      {messages.map((m, i) => (
-        <p key={i}>
-          <strong>{m.role === 'user' ? 'You' : 'Growdy'}:</strong> {m.content}
-        </p>
-      ))}
-      {error && <p className="error">{error}</p>}
-      {draft && match ? (
-        <div>
-          <p>
-            Log this on {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
-            {' '}"{draft.note}"?
+    <div className="chat">
+      <div className="chat-messages">
+        {messages.map((m, i) => (
+          <p key={i} className={`chat-message chat-message-${m.role}`}>
+            {m.content}
           </p>
-          <button type="button" onClick={confirmSubmit} disabled={sending}>
-            Confirm
-          </button>
-          <button type="button" onClick={cancelDraft}>
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={send}>
+        ))}
+        {error && <p className="error">{error}</p>}
+        {draft && match && (
+          <div className="chat-confirm">
+            <p>
+              Log this on{' '}
+              {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
+              {' '}"{draft.note}"?
+            </p>
+            <div className="chat-confirm-actions">
+              <button type="button" onClick={confirmSubmit} disabled={sending}>
+                Confirm
+              </button>
+              <button type="button" onClick={cancelDraft}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      {!draft && (
+        <form className="chat-input" onSubmit={send}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
