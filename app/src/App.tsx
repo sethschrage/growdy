@@ -3,7 +3,17 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
 import { DataQuestionChat } from './DataQuestionChat'
-import { PixelBurger, PixelCloud, PixelCompose, PixelExit, PixelPlus, PixelQuestion, PixelSprout } from './icons'
+import { HistoryDrawer } from './HistoryDrawer'
+import {
+  PixelBurger,
+  PixelCloud,
+  PixelCompose,
+  PixelExit,
+  PixelHistory,
+  PixelPlus,
+  PixelQuestion,
+  PixelSprout,
+} from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -61,12 +71,14 @@ function AccountMenu({
   mode,
   onNewChat,
   onToggleMode,
+  onOpenHistory,
   onSignOut,
 }: {
   email: string
   mode: 'submit' | 'ask'
   onNewChat: () => void
   onToggleMode: () => void
+  onOpenHistory: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -119,6 +131,17 @@ function AccountMenu({
           </button>
           <button
             type="button"
+            className="menu-icon-button"
+            aria-label="History"
+            onClick={() => {
+              onOpenHistory()
+              setOpen(false)
+            }}
+          >
+            <PixelHistory size={18} />
+          </button>
+          <button
+            type="button"
             className="menu-icon-button menu-icon-button--muted"
             aria-label="Sign out"
             onClick={() => {
@@ -137,6 +160,7 @@ function AccountMenu({
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
   const [mode, setMode] = useState<'submit' | 'ask'>('submit')
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   return (
     <div className="app-shell">
@@ -154,6 +178,7 @@ function SignedIn({ session }: { session: Session }) {
             setMode((m) => (m === 'submit' ? 'ask' : 'submit'))
             setChatKey((k) => k + 1)
           }}
+          onOpenHistory={() => setHistoryOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
         />
       </header>
@@ -162,6 +187,7 @@ function SignedIn({ session }: { session: Session }) {
       ) : (
         <DataQuestionChat key={chatKey} session={session} />
       )}
+      {historyOpen && <HistoryDrawer session={session} onClose={() => setHistoryOpen(false)} />}
     </div>
   )
 }

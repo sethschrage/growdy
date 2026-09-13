@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { PixelArrow } from './icons'
+import { useConversationLog } from './useConversationLog'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -24,6 +25,7 @@ export function ObservationChat({ session }: { session: Session }) {
   const [match, setMatch] = useState<PlantingMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const { log, reset: resetConversation } = useConversationLog(session, 'submit')
 
   useEffect(() => {
     supabase
@@ -40,6 +42,7 @@ export function ObservationChat({ session }: { session: Session }) {
 
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: input }]
     setMessages(nextMessages)
+    log(nextMessages)
     setInput('')
     setSending(true)
     setError(null)
@@ -61,7 +64,9 @@ export function ObservationChat({ session }: { session: Session }) {
     }
 
     if (data.type === 'question') {
-      setMessages((m) => [...m, { role: 'assistant', content: data.text }])
+      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: data.text }]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
@@ -79,13 +84,15 @@ export function ObservationChat({ session }: { session: Session }) {
     }
 
     if (!found || found.length !== 1) {
-      setMessages((m) => [
-        ...m,
+      const withAssistant = [
+        ...nextMessages,
         {
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `I couldn't find exactly one planting matching Plot ${plot}, Row ${row_number}, Position ${position} -- can you double check?`,
         },
-      ])
+      ]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
@@ -124,6 +131,7 @@ export function ObservationChat({ session }: { session: Session }) {
     setMatch(null)
     setError(null)
     setSubmitted(false)
+    resetConversation()
   }
 
   if (submitted) {
