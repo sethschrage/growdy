@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { ObservationChat } from './ObservationChat'
-import { PixelCloud, PixelSprout } from './icons'
+import { PixelCloud, PixelHamburger, PixelSprout } from './icons'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -84,7 +84,7 @@ function AccountMenu({
         aria-label="Menu"
         onClick={() => setOpen((v) => !v)}
       >
-        ⋯
+        <PixelHamburger size={30} />
       </button>
       {open && (
         <div className="app-menu-content">
@@ -120,7 +120,7 @@ function SignedIn({ session }: { session: Session }) {
     <div className="app-shell">
       <header className="app-header">
         <span className="app-icon" role="img" aria-label="growdy">
-          <PixelSprout size={24} />
+          <PixelSprout size={36} />
         </span>
         <AccountMenu
           email={session.user.email ?? ''}

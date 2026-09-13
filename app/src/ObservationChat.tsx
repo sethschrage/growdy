@@ -172,7 +172,7 @@ export function ObservationChat({ session }: { session: Session }) {
             placeholder="Describe what you observed..."
           />
           <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
-            <PixelArrow />
+            <PixelArrow size={24} />
           </button>
         </form>
       )}

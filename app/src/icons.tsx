@@ -96,3 +96,15 @@ export function PixelArrow({ size = 16 }: { size?: number }) {
     </svg>
   )
 }
+
+const HAMBURGER_BARS = [0, 3, 6] as const
+
+export function PixelHamburger({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={(size * 7) / 10} viewBox="0 0 10 7" shapeRendering="crispEdges" aria-hidden="true">
+      {HAMBURGER_BARS.map((y) => (
+        <rect key={y} x={0} y={y} width={10} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
