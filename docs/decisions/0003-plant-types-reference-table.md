@@ -1,6 +1,6 @@
 # 0003. Plant type vocabulary: propose-then-review entries, schema stays fixed
 
-**Status:** accepted (not yet implemented -- see Consequences)
+**Status:** superseded by 0004
 
 ## Context
 
