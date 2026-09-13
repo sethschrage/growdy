@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { ObservationChat } from './ObservationChat'
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +31,7 @@ function SignedIn({ session }: { session: Session }) {
       <button type="button" onClick={() => supabase.auth.signOut()}>
         Sign out
       </button>
+      <ObservationChat session={session} />
     </div>
   )
 }
