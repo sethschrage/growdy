@@ -1,10 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow } from './icons'
+import { PixelArrow, PixelThumbDown, PixelThumbUp } from './icons'
 import { useConversationLog } from './useConversationLog'
-
-type ChatMessage = { role: 'user' | 'assistant'; content: string }
+import type { ChatMessage } from './chatTypes'
 
 type Draft = {
   plot: string
@@ -26,6 +25,11 @@ export function ObservationChat({ session }: { session: Session }) {
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const { log, reset: resetConversation } = useConversationLog(session, 'submit')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, draft])
 
   useEffect(() => {
     supabase
@@ -124,6 +128,16 @@ export function ObservationChat({ session }: { session: Session }) {
     setMatch(null)
   }
 
+  function setFeedback(index: number, feedback: 'up' | 'down') {
+    setMessages((prev) => {
+      const updated = prev.map((m, i) =>
+        i === index ? { ...m, feedback: m.feedback === feedback ? undefined : feedback } : m,
+      )
+      log(updated)
+      return updated
+    })
+  }
+
   function resetChat() {
     setMessages([])
     setInput('')
@@ -148,29 +162,54 @@ export function ObservationChat({ session }: { session: Session }) {
   return (
     <div className="chat">
       <div className="chat-messages">
-        {messages.map((m, i) => (
-          <p key={i} className={`chat-message chat-message-${m.role}`}>
-            {m.content}
-          </p>
-        ))}
-        {error && <p className="error">{error}</p>}
-        {draft && match && (
-          <div className="chat-confirm">
-            <p>
-              Log this on{' '}
-              {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
-              {' '}"{draft.note}"?
-            </p>
-            <div className="chat-confirm-actions">
-              <button type="button" onClick={confirmSubmit} disabled={sending}>
-                Confirm
-              </button>
-              <button type="button" onClick={cancelDraft}>
-                Cancel
-              </button>
+        <div className="chat-messages-inner">
+          {messages.map((m, i) => (
+            <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
+              <p className={`chat-message chat-message-${m.role}`}>{m.content}</p>
+              {m.role === 'assistant' && (
+                <div className="feedback-row">
+                  <button
+                    type="button"
+                    className={`feedback-button${m.feedback === 'up' ? ' feedback-button--selected' : ''}`}
+                    aria-label="Good response"
+                    aria-pressed={m.feedback === 'up'}
+                    onClick={() => setFeedback(i, 'up')}
+                  >
+                    <PixelThumbUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`feedback-button feedback-button--down${m.feedback === 'down' ? ' feedback-button--selected' : ''}`}
+                    aria-label="Bad response"
+                    aria-pressed={m.feedback === 'down'}
+                    onClick={() => setFeedback(i, 'down')}
+                  >
+                    <PixelThumbDown size={14} />
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ))}
+          {error && <p className="error">{error}</p>}
+          {draft && match && (
+            <div className="chat-confirm">
+              <p>
+                Log this on{' '}
+                {match.label ?? `Plot ${draft.plot}, Row ${draft.row_number}, Position ${draft.position}`}:
+                {' '}"{draft.note}"?
+              </p>
+              <div className="chat-confirm-actions">
+                <button type="button" onClick={confirmSubmit} disabled={sending}>
+                  Confirm
+                </button>
+                <button type="button" onClick={cancelDraft}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
       {!draft && (
         <form className="chat-input" onSubmit={send}>

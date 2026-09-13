@@ -310,3 +310,53 @@ export function PixelHistory({ size = 18 }: { size?: number }) {
     </svg>
   )
 }
+
+const THUMB_UP_CELLS = [
+  [2, 0],
+  [3, 0],
+  [1, 1],
+  [2, 1],
+  [1, 2],
+  [2, 2],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+  [1, 4],
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [1, 5],
+  [2, 5],
+  [3, 5],
+  [4, 5],
+  [5, 5],
+  [1, 6],
+  [2, 6],
+  [3, 6],
+  [4, 6],
+  [5, 6],
+] as const
+
+export function PixelThumbUp({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {THUMB_UP_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
+
+const THUMB_DOWN_CELLS = THUMB_UP_CELLS.map(([x, y]) => [x, 6 - y] as const)
+
+export function PixelThumbDown({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {THUMB_DOWN_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
