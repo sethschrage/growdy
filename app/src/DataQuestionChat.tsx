@@ -94,7 +94,45 @@ export function DataQuestionChat({ session }: { session: Session }) {
       return
     }
 
-    const { query_type, parcel, plot, row_number, position, status } = data
+    const { query_type, variety, parcel, plot, row_number, position, status } = data
+
+    if (query_type === 'variety_lookup') {
+      const columns =
+        'id, parcel, label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason'
+      const [byVariety, byScion, byRootstock] = await Promise.all([
+        supabase.from('planting_readable').select(columns).ilike('variety', `%${variety}%`),
+        supabase.from('planting_readable').select(columns).ilike('scion', `%${variety}%`),
+        supabase.from('planting_readable').select(columns).ilike('rootstock', `%${variety}%`),
+      ])
+
+      setSending(false)
+
+      const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error
+      if (varietyError) {
+        setError(varietyError.message)
+        return
+      }
+
+      const seen = new Set<string>()
+      const matches: (PlantingRow & { id: string; parcel: string })[] = []
+      for (const row of [...(byVariety.data ?? []), ...(byScion.data ?? []), ...(byRootstock.data ?? [])]) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id)
+          matches.push(row)
+        }
+      }
+      matches.sort((a, b) => (a.parcel + a.plot).localeCompare(b.parcel + b.plot))
+
+      const answer =
+        matches.length === 0
+          ? `Nothing matches "${variety}".`
+          : matches.map((m) => `${m.parcel} -- ${describePlanting(m)}`).join('\n')
+
+      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
+      setMessages(withAssistant)
+      log(withAssistant)
+      return
+    }
 
     if (query_type === 'parcel_lookup') {
       const { data: plantings, error: plantingError } = await supabase
@@ -119,7 +157,9 @@ export function DataQuestionChat({ session }: { session: Session }) {
           ? `Nothing's recorded in Parcel ${parcel} yet.`
           : plantings.map(describePlanting).join('\n')
 
-      setMessages((m) => [...m, { role: 'assistant', content: answer }])
+      const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
+      setMessages(withAssistant)
+      log(withAssistant)
       return
     }
 
