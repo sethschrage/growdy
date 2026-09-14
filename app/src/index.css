@@ -27,15 +27,24 @@ body,
   height: 100%;
 }
 
+html {
+  background: var(--sky);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: var(--sky);
   color: var(--ink);
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .login-screen {
@@ -272,6 +281,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   padding-bottom: 90px;
   display: flex;
@@ -449,14 +459,14 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(6px + env(safe-area-inset-bottom));
   width: calc(100% - 24px);
   max-width: 440px;
   margin: 0 auto;
   display: flex;
   flex-direction: row;
   gap: 8px;
-  padding: 10px;
+  padding: 6px 6px 6px 12px;
   background: var(--soil);
   border: 3px solid var(--leaf);
   border-radius: 16px;
@@ -465,6 +475,7 @@ body {
 
 .chat-input input {
   flex: 1;
+  padding: 8px 10px;
 }
 
 .icon-button {
