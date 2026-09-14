@@ -31,7 +31,7 @@ flowchart TD
     GH -->|"migration files, applied manually after merge"| DB
     GH -->|"function code, deployed manually after merge"| EdgeFn
     App -->|sign in| Auth
-    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history"| DB
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check"| DB
     App -->|"user message"| EdgeFn
     EdgeFn -->|"composed reply"| App
     EdgeFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
@@ -60,11 +60,11 @@ flowchart TD
   why, and the comment at the top of
   [`supabase/functions/chat/index.ts`](../supabase/functions/chat/index.ts).
 - **The app's own direct connection to the database is narrower than it
-  looks** -- just auth, the producer-id lookup, and conversation-history
-  logging (`docs/decisions/0011`). Every actual question about vineyard
-  data goes through the Edge Function now, which writes and runs its own
-  SQL against Postgres rather than the client resolving a fixed set of
-  query shapes.
+  looks** -- auth, the producer-id lookup, conversation-history logging
+  (`docs/decisions/0011`), and the `app_status` poll (`docs/decisions/0017`).
+  Every actual question about vineyard data goes through the Edge
+  Function now, which writes and runs its own SQL against Postgres
+  rather than the client resolving a fixed set of query shapes.
 - **Supabase Storage isn't in this diagram.** It's listed in
   `README.md`'s stack table as a future concern for photo attachments,
   but no bucket exists yet and nothing in the app uses it --
