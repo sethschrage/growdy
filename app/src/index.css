@@ -308,19 +308,64 @@ body {
   margin: 0;
   padding: 8px 12px;
   border-radius: 16px;
-  white-space: pre-line;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chat-message-user {
   background: var(--leaf);
   color: var(--cream);
   border: 2px solid var(--leaf-dark);
+  white-space: pre-line;
 }
 
+/* The pixel-art display font's digits are ambiguous at a glance (2 can
+   read as 8) -- fine for decorative UI chrome, not for reporting real
+   vineyard counts. Assistant answers use a plain, legible font instead;
+   the game-like feel stays everywhere else (chrome, the producer's own
+   messages). */
 .chat-message-assistant {
   background: var(--panel);
   color: var(--ink);
   border: 2px solid var(--wood);
+  font-family: system-ui, sans-serif;
+}
+
+.chat-message-assistant p,
+.chat-message-assistant ul,
+.chat-message-assistant ol {
+  margin: 0 0 8px;
+}
+
+.chat-message-assistant ul,
+.chat-message-assistant ol {
+  padding-left: 20px;
+}
+
+.chat-message-assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-assistant table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.chat-message-assistant th,
+.chat-message-assistant td {
+  border: 1px solid var(--wood);
+  padding: 4px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.chat-message-assistant th {
+  background: var(--wood);
+  color: var(--cream);
 }
 
 .feedback-row {
