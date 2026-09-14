@@ -50,6 +50,7 @@ Supabase, and Anthropic.
 - [0012 -- One chat agent with a growing tool list](docs/decisions/0012-unified-chat-agent.md) -- merges the two chat modes into one Edge Function and tool list; the actual safety backstop was always the confirm-before-write step and the database's pending-only insert policy, not which function held which tool.
 - [0013 -- The model composes the answer, not a client template](docs/decisions/0013-model-composed-query-answers.md) -- the client still resolves every question the same safe, fixed way, but now sends the result back to the model to write the actual answer, so it reflects how the question was asked instead of a one-size-fits-all template.
 - [0014 -- An observation can stand on its own](docs/decisions/0014-open-ended-observations.md) -- a note doesn't have to be about one specific plant; `planting_id` is optional so a general observation has somewhere to go instead of being refused.
+- [0015 -- Lookup counts are computed in SQL](docs/decisions/0015-lookup-counts-computed-in-sql.md) -- a variety or parcel search's totals and breakdowns come from a `GROUP BY` in Postgres, not from counting a fetched array in the client, which silently undercounted once a search matched more rows than PostgREST returns by default.
 
 ## Stack
 
