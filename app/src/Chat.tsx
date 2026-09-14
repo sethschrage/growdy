@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { supabase } from './lib/supabaseClient'
 import { PixelArrow, PixelCheck, PixelCloud, PixelX } from './icons'
 import { useConversationLog } from './useConversationLog'
@@ -68,7 +70,13 @@ export function Chat({ session }: { session: Session }) {
         <div className="chat-messages-inner">
           {messages.map((m, i) => (
             <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
-              <p className={`chat-message chat-message-${m.role}`}>{m.content}</p>
+              <div className={`chat-message chat-message-${m.role}`}>
+                {m.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                ) : (
+                  m.content
+                )}
+              </div>
               {m.role === 'assistant' && (
                 <div className="feedback-row">
                   <button
