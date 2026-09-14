@@ -5,24 +5,23 @@ time -- what's planted, where, when, and what's observed about it.
 
 Most interaction still happens directly against the database, but a
 real app now exists alongside it (see `app/`): producers sign in with
-Google and use one AI-guided chat to both ask questions about what's
-planted where and log field observations, instead of a form or direct
-SQL for either. It's still a research tool, not a finished product --
-built to find out what field use and other producers actually need
-before building more of either the schema or the app. See
-[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md),
-[`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md),
-and [`docs/decisions/0012`](docs/decisions/0012-unified-chat-agent.md).
+Google and ask an AI-guided chat about their vineyard data in plain
+language -- the chat writes and runs its own read-only SQL to answer,
+rather than picking from a fixed menu of question types. It's still a
+research tool, not a finished product -- built to find out what field
+use and other producers actually need before building more of either
+the schema or the app. See
+[`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md)
+and [`docs/decisions/0016`](docs/decisions/0016-chat-queries-directly.md).
 
 ## Status
 
 Early. The core hierarchy (producer/parcel/plot/row/planting) is in
-place, and a companion app now exists with one chat for both asking
-questions and logging field observations, Google-authenticated,
-AI-guided throughout, plus a browsable history of every past
-conversation. See open and merged PRs for current progress, and
-[`docs/decisions/`](docs/decisions) for the reasoning behind each
-structural and app choice.
+place, and a companion app now exists with a Google-authenticated,
+AI-guided chat for asking questions about the data, plus a browsable
+history of every past conversation. See open and merged PRs for current
+progress, and [`docs/decisions/`](docs/decisions) for the reasoning
+behind each structural and app choice.
 
 ## Data model
 
@@ -44,13 +43,10 @@ Supabase, and Anthropic.
 - [0006 -- Planting lifecycle and position status](docs/decisions/0006-planting-lifecycle-and-position-status.md) -- why dead and removed are different events, and why per-position status is a database view rather than external code.
 - [0007 -- Uncertain values stay null](docs/decisions/0007-uncertain-values-stay-null.md) -- a hedged/unconfirmed identity fact stays null in its structured column; the guess lives in `nickname` or an observation instead, never asserted as fact.
 - [0008 -- App as a research tool](docs/decisions/0008-app-as-research-tool.md) -- the app exists to validate what field use and other producers actually need, not to be a finished product; it gets built up the same evidence-driven way the schema has been.
-- [0009 -- Chat-based observation submission](docs/decisions/0009-chat-based-observation-submission.md) -- submission is an open-ended chat, not a form, so real field language can surface schema gaps a form would hide; every submission is reviewed before it counts as confirmed data.
-- [0010 -- Read-only Q&A chat resolves against known views](docs/decisions/0010-read-only-qa-chat.md) -- answering a question reuses the same "AI drafts intent, client resolves and executes" split as observation submission, never a generated query.
 - [0011 -- Conversation history is a new table, written by the client](docs/decisions/0011-conversation-history.md) -- browsing past chats needs a session-level record neither existing table provides; the client writes it after every message, not an Edge Function.
-- [0012 -- One chat agent with a growing tool list](docs/decisions/0012-unified-chat-agent.md) -- merges the two chat modes into one Edge Function and tool list; the actual safety backstop was always the confirm-before-write step and the database's pending-only insert policy, not which function held which tool.
 - [0013 -- The model composes the answer, not a client template](docs/decisions/0013-model-composed-query-answers.md) -- the client still resolves every question the same safe, fixed way, but now sends the result back to the model to write the actual answer, so it reflects how the question was asked instead of a one-size-fits-all template.
-- [0014 -- An observation can stand on its own](docs/decisions/0014-open-ended-observations.md) -- a note doesn't have to be about one specific plant; `planting_id` is optional so a general observation has somewhere to go instead of being refused.
-- [0015 -- Lookup counts are computed in SQL](docs/decisions/0015-lookup-counts-computed-in-sql.md) -- a variety or parcel search's totals and breakdowns come from a `GROUP BY` in Postgres, not from counting a fetched array in the client, which silently undercounted once a search matched more rows than PostgREST returns by default.
+- [0014 -- An observation can stand on its own](docs/decisions/0014-open-ended-observations.md) -- `observations.planting_id` is optional, so a general note not about one specific plant has somewhere to go. The chat-submission workflow this was originally built for is gone (see 0016), but the schema fact stands: real pre-chat field notes already rely on it.
+- [0016 -- The chat writes and runs its own SQL](docs/decisions/0016-chat-queries-directly.md) -- one read-only SQL tool instead of a fixed menu of query types a hand-written resolver executes, enforced by Postgres' own read-only transaction mode rather than trusting the model; chat-based observation submission is removed entirely, though the `observations` table and its real data are untouched. Supersedes [0009](docs/decisions/0009-chat-based-observation-submission.md), [0010](docs/decisions/0010-read-only-qa-chat.md), [0012](docs/decisions/0012-unified-chat-agent.md), and [0015](docs/decisions/0015-lookup-counts-computed-in-sql.md).
 
 ## Stack
 
@@ -64,7 +60,7 @@ Supabase, and Anthropic.
 | Hosting | [Vercel](https://app-blue-ten-25.vercel.app), connected to this GitHub repo -- auto-deploys production from `main`, preview builds per branch/PR |
 | Auth | Google Sign-In via Supabase Auth -- Testing status, explicit test-user allow-list |
 | Server-side logic | Supabase Edge Functions, in `supabase/functions/` -- the only place a secret (like an API key) ever lives |
-| AI | Anthropic Claude (Haiku) -- see [`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md) |
+| AI | Anthropic Claude (Sonnet) -- writes and runs its own read-only SQL, see [`docs/decisions/0016`](docs/decisions/0016-chat-queries-directly.md) |
 
 ## Development
 

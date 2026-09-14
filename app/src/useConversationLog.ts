@@ -9,16 +9,13 @@ import type { ChatMessage } from './chatTypes'
 // logged as -- no server-side involvement, not even from the chat
 // Edge Function.
 //
-// mode isn't fixed at creation (docs/decisions/0012): a single session
-// can both answer questions and produce a submission, so it's derived
-// from what actually happened -- 'submit' once markSubmission() has
-// been called, 'ask' otherwise -- rather than which entry point the
-// session started from.
+// mode is always 'ask' now that chat-based observation submission is
+// removed (superseded 0012) -- kept as a column rather than dropped since
+// past sessions really did produce a 'submit' row.
 export function useConversationLog(session: Session) {
   const [producerId, setProducerId] = useState<string | null>(null)
   const conversationId = useRef(crypto.randomUUID())
   const started = useRef(false)
-  const hasSubmission = useRef(false)
 
   useEffect(() => {
     supabase
@@ -31,14 +28,13 @@ export function useConversationLog(session: Session) {
 
   async function log(transcript: ChatMessage[]) {
     if (!producerId || transcript.length === 0) return
-    const mode = hasSubmission.current ? 'submit' : 'ask'
 
     if (!started.current) {
       started.current = true
       await supabase.from('conversations').insert({
         id: conversationId.current,
         producer_id: producerId,
-        mode,
+        mode: 'ask',
         transcript,
       })
       return
@@ -46,13 +42,9 @@ export function useConversationLog(session: Session) {
 
     await supabase
       .from('conversations')
-      .update({ mode, transcript, updated_at: new Date().toISOString() })
+      .update({ mode: 'ask', transcript, updated_at: new Date().toISOString() })
       .eq('id', conversationId.current)
   }
 
-  function markSubmission() {
-    hasSubmission.current = true
-  }
-
-  return { log, conversationId, markSubmission }
+  return { log }
 }

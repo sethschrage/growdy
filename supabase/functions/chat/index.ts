@@ -1,116 +1,148 @@
-// The one server-side piece in this project (docs/decisions/0009, 0010,
-// 0012): holds the Anthropic API key so it never reaches the client. Its
-// job is narrow on purpose -- figure out what's being asked or logged,
-// and hand back a structured description of it. It never touches the
-// database itself; the app resolves a describe_query intent against
-// planting_readable or position_status, or a submit_observation_draft
-// intent against a planting match the app looks up itself when the note
-// is about one (0014: a note doesn't have to be), both under the
-// signed-in user's own RLS-scoped session.
+// The one server-side piece in this project (docs/decisions/0016). Holds
+// the Anthropic API key so it never reaches the client, and now also holds
+// the only database credential that ever leaves the browser: the caller's
+// own forwarded JWT, used to build a Supabase client scoped to exactly
+// that producer's RLS session -- never the service role key. The chat
+// writes and runs its own read-only SQL (via execute_readonly_query)
+// instead of picking from a fixed menu of query shapes a hand-written
+// resolver executes on its behalf (superseded 0010/0013/0015) -- one
+// general capability instead of a new resolver per question shape, and
+// one that can answer a question its designer never anticipated.
 //
-// Two tools live in one list here rather than in separate functions
-// (0012): the actual safety backstop was never which function could
-// reach which tool -- it's the client's confirm-before-write step and
-// the database's insert policy requiring status = 'pending' (0009),
-// neither of which changes here. Every response names which tool fired
-// (`tool`) so the client can tell a query intent from a submission
-// draft without needing two endpoints to infer it from.
+// Read-only is enforced by Postgres itself (a read-only transaction, plus
+// Postgres' own grammar rejecting a data-modifying CTE nested this way),
+// not by trusting the model or inspecting the query text -- see the
+// migration that defines execute_readonly_query for the verified detail.
 //
-// For describe_query, the client resolves the data and sends it back
-// here as a tool_result on the same conversation (assistant_content and
-// tool_use_id round-trip for exactly that), so the reply the producer
-// reads is the model's own composed text over real data -- not a canned
-// string template that can't adapt to how the question was phrased.
+// Chat-based observation submission (0009, 0012, 0014) is removed: no
+// draft/confirm flow, no pending-review workflow. The `observations`
+// table itself is untouched and fully queryable like anything else --
+// its rows are real field-note data, not something this removal affects.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = "claude-sonnet-5";
+const MAX_TOOL_ITERATIONS = 6;
+
+const SCHEMA_TABLES = [
+  "planting_readable",
+  "position_status",
+  "plant_types",
+  "parcels",
+  "plots",
+  "plot_rows",
+  "producers",
+  "observations",
+];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are helping a vineyard producer with their field data -- answering questions about what's planted where, and logging new observations about specific plants.
-
-There are five things you can help with:
-- A variety lookup: where a given variety, scion, rootstock, or nickname is planted, searched across every parcel -- for questions like "where is my Gamay" or "how much Gamay do I have," not narrowed to any one parcel.
-- A parcel lookup: what's planted anywhere within a whole parcel, not narrowed to one row or position.
-- A planting lookup: what's planted at a specific plot, row, and position.
-- A position status question: which positions in a specific plot and row are blocked, open, or planted (optionally filtered to just one of those statuses).
-- Logging an observation: recording something the producer noticed or did. This might be about one specific plant ("the vine near the busted trellis has fungus") or it might not be about any single plant at all ("I trimmed the weeds," "sprayed the whole vineyard," "saw a hawk over the north field") -- both are worth logging.
-
-Figure out which one is meant from context. Someone describing something they noticed, did, or want recorded ("I trimmed...", "this vine looks...", "saw some mildew on...") is logging an observation, not asking a question. Someone asking what's planted, where, or the status of positions is one of the four lookup types.
-
-If someone answers a parcel question with "everywhere," "anywhere," "all of them," or similar, that means they want a variety lookup, not a parcel lookup -- don't ask which parcel again.
-
-Ask only ONE clarifying question at a time, in plain conversational language, and only for whatever's actually missing. Never ask for something already given. For an observation, only ask for a plot/row/position if what's being described genuinely sounds like it's about one specific plant -- don't ask for those on a general note that was never about one. If it is about a specific plant but the person genuinely doesn't know an exact plot/row/position, don't guess at a value -- keep asking for whatever identifying detail they do have until you have all three, or, once it's clear they truly can't give more, just log the note without a location rather than refusing to log it at all.
-
-Once you have enough, call the matching tool. Do not call describe_query before a variety lookup has a variety, a parcel lookup has a parcel, a planting lookup has plot, row_number, and position, or a position status question has at least plot and row_number. Do not call submit_observation_draft before at least a note is known -- plot, row_number, and position are only needed when the note is actually about one specific plant.
-
-After a describe_query call, you'll get the matching data back. Answer in plain conversational language using it -- match the level of detail to how the question was actually phrased (a quick total for "how many," a fuller breakdown by parcel or plot for "where," specific varieties or nicknames if the data has them and the question invites it). Don't just restate a raw count if the data supports a more useful answer.`;
-
-const DESCRIBE_QUERY_TOOL = {
-  name: "describe_query",
+const EXECUTE_READONLY_QUERY_TOOL = {
+  name: "execute_readonly_query",
   description:
-    "Describe the data question being asked so the app can look it up. Never used to look up anything yourself -- only to describe what should be looked up.",
+    "Run a read-only SQL query (a single SELECT or WITH ... SELECT statement) against the vineyard database to answer the producer's question. Write whatever query actually answers it -- filter, group, join, and aggregate freely. You can call this more than once in a turn: search broadly first, then narrow with an added filter (like status) as a natural follow-up, instead of asking a clarifying question you could answer yourself.",
   input_schema: {
     type: "object",
     properties: {
-      query_type: {
-        type: "string",
-        enum: ["variety_lookup", "parcel_lookup", "planting_lookup", "position_status"],
-      },
-      variety: {
-        type: "string",
-        description: "Required for variety_lookup. The variety, scion, rootstock, or nickname to search for across every parcel. Not used otherwise.",
-      },
-      parcel: {
-        type: "string",
-        description: "Required for parcel_lookup. Not used otherwise.",
-      },
-      plot: {
-        type: "string",
-        description: "Required for planting_lookup and position_status. Not used for parcel_lookup.",
-      },
-      row_number: {
-        type: "integer",
-        description: "Required for planting_lookup and position_status. Not used for parcel_lookup.",
-      },
-      position: {
-        type: "integer",
-        description: "Only for planting_lookup",
-      },
-      status: {
-        type: "string",
-        enum: ["planted", "blocked", "open"],
-        description: "Only for position_status, if a specific status was asked about",
-      },
+      query: { type: "string", description: "A single SELECT or WITH ... SELECT statement." },
     },
-    required: ["query_type"],
+    required: ["query"],
   },
 };
 
-const SUBMIT_OBSERVATION_DRAFT_TOOL = {
-  name: "submit_observation_draft",
-  description:
-    "Submit the gathered observation details once a note is known. Include plot, row_number, and position only when the note is about one specific plant and those are known.",
-  input_schema: {
-    type: "object",
-    properties: {
-      plot: { type: "string", description: "Only if the note is about a specific plant and the plot is known." },
-      row_number: { type: "integer", description: "Only if the note is about a specific plant and the row is known." },
-      position: { type: "integer", description: "Only if the note is about a specific plant and the position is known." },
-      note: { type: "string" },
-      observed_date: {
-        type: "string",
-        description: "ISO date (YYYY-MM-DD), only if mentioned",
-      },
+function buildSystemPrompt(schema: string) {
+  return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
+
+You have direct, read-only SQL access to the database via the execute_readonly_query tool. Prefer planting_readable and position_status -- both already resolve foreign keys to readable names. planting_readable has variety/scion/rootstock/nickname columns for identifying a plant, and dead_date/removed_date/removed_reason for its status (alive = both null; dead = dead_date set, removed_date null; removed = removed_date set, regardless of dead_date). observations holds real field notes -- most linked to a specific planting via planting_id, some standing on their own with no location at all.
+
+A misspelling won't match a plain substring search. similarity(column, 'term') > 0.3 (pg_trgm) tolerates typos when an exact ilike search finds nothing.
+
+Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.
+
+Current schema:
+${schema}`;
+}
+
+async function callAnthropic(conversation: unknown[], systemPrompt: string) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
     },
-    required: ["note"],
-  },
-};
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
+      tools: [EXECUTE_READONLY_QUERY_TOOL],
+      messages: conversation,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Anthropic API error (${response.status}): ${message}`);
+  }
+
+  return response.json();
+}
+
+async function fetchSchemaDescription(supabase: SupabaseClient) {
+  const query = `select table_name, column_name, data_type
+    from information_schema.columns
+    where table_schema = 'public' and table_name = any(array[${SCHEMA_TABLES.map((t) => `'${t}'`).join(",")}])
+    order by table_name, ordinal_position`;
+
+  const { data, error } = await supabase.rpc("execute_readonly_query", { query });
+  if (error) throw new Error(`Schema lookup failed: ${error.message}`);
+
+  const byTable = new Map<string, string[]>();
+  for (const row of (data ?? []) as { table_name: string; column_name: string; data_type: string }[]) {
+    const columns = byTable.get(row.table_name) ?? [];
+    columns.push(`${row.column_name} (${row.data_type})`);
+    byTable.set(row.table_name, columns);
+  }
+
+  return [...byTable.entries()].map(([table, columns]) => `${table}: ${columns.join(", ")}`).join("\n");
+}
+
+async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, systemPrompt: string) {
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const data = await callAnthropic(conversation, systemPrompt);
+    const toolUses = (data.content ?? []).filter((block: { type: string }) => block.type === "tool_use");
+
+    if (toolUses.length === 0) {
+      const text = (data.content ?? []).find((block: { type: string }) => block.type === "text")?.text ?? "";
+      return { type: "text", text };
+    }
+
+    conversation.push({ role: "assistant", content: data.content });
+
+    const toolResults = await Promise.all(
+      toolUses.map(async (toolUse: { id: string; input: { query: string } }) => {
+        const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
+          query: toolUse.input.query,
+        });
+        return {
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: error ? JSON.stringify({ error: error.message }) : JSON.stringify(rows ?? []),
+          is_error: Boolean(error),
+        };
+      }),
+    );
+
+    conversation.push({ role: "user", content: toolResults });
+  }
+
+  return { type: "error", message: "Took too many steps to answer -- try rephrasing." };
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -120,51 +152,25 @@ Deno.serve(async (req: Request) => {
   try {
     const { messages } = await req.json();
 
-    const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        tools: [DESCRIBE_QUERY_TOOL, SUBMIT_OBSERVATION_DRAFT_TOOL],
-        messages,
-      }),
-    });
+    // Never construct a client with a secret/service-role key here --
+    // forwarding the caller's own JWT is what keeps every query RLS-scoped
+    // to exactly the signed-in producer, the same as if the browser ran it
+    // directly. The publishable key (same key family the app itself uses
+    // client-side) only sets the apikey header; it grants nothing on its
+    // own without a valid Authorization.
+    const publishableKey = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")!)["default"];
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      publishableKey,
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    );
 
-    if (!anthropicResponse.ok) {
-      const message = await anthropicResponse.text();
-      console.error(`Anthropic API error (${anthropicResponse.status}): ${message}`);
-      return new Response(JSON.stringify({ type: "error", message }), {
-        status: 502,
-        headers: { ...corsHeaders, "content-type": "application/json" },
-      });
-    }
+    const schema = await fetchSchemaDescription(supabase);
+    const systemPrompt = buildSystemPrompt(schema);
+    const result = await runAgentLoop([...messages], supabase, systemPrompt);
 
-    const data = await anthropicResponse.json();
-    const toolUse = data.content?.find((block: { type: string }) => block.type === "tool_use");
-
-    if (toolUse) {
-      return new Response(
-        JSON.stringify({
-          type: "ready",
-          tool: toolUse.name,
-          tool_use_id: toolUse.id,
-          assistant_content: data.content,
-          ...toolUse.input,
-        }),
-        { headers: { ...corsHeaders, "content-type": "application/json" } },
-      );
-    }
-
-    const text =
-      data.content?.find((block: { type: string }) => block.type === "text")?.text ?? "";
-
-    return new Response(JSON.stringify({ type: "question", text }), {
+    return new Response(JSON.stringify(result), {
+      status: result.type === "error" ? 502 : 200,
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {
