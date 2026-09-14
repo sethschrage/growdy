@@ -10,12 +10,20 @@ legible to someone reading it later.
 1. Create a feature branch (`feat/...`, `fix/...`, `docs/...`).
 2. Make the change (a migration, a doc, whatever the branch is for).
 3. Push the branch and open a pull request describing what changed and
-   why. If the PR touches any doc (README, an ADR, this file, the data
-   model, the CHANGELOG), link every one of them directly in the
-   description -- not just one -- so each is a single click to review
-   instead of a diff to hunt through.
+   why. Reference every file touched by path (as `` `inline code` ``, not
+   a hyperlink) -- a relative markdown link resolves against the PR's own
+   URL, not the repo tree, so it's broken from the moment it's posted; an
+   absolute link to the head branch works during review but breaks the
+   moment that branch is deleted after merge, which happens on every
+   merge here. A plain path never breaks and is just as easy to open from
+   the "Files changed" tab.
 4. CI runs automatically (see below). Review the diff.
-5. Merge via the PR (squash merge -- see "Merge strategy").
+5. Merge via the PR (squash merge -- see "Merge strategy"). When working
+   with Claude Code: it reports the PR's summary, CI/mergeability status,
+   and any comments (bot or human) back in chat once the PR is open, so
+   review happens there instead of switching to GitHub -- but it only
+   merges after an explicit go-ahead each time. Checks passing is never
+   itself the go-ahead.
 6. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
@@ -71,6 +79,17 @@ step. Vercel is connected directly to this GitHub repo (see
 production automatically, and every other branch or PR gets its own
 preview build. Merging a PR that touches `app/` *is* the deploy -- there's
 nothing further to run.
+
+## Diagrams
+
+`docs/architecture.md` and `docs/data-model.md` each hold one diagram
+showing the current state -- never a diff to reconstruct from git
+history. When a change actually alters what the diagram shows (not a
+wording fix in the surrounding prose), append the diagram being replaced
+to a `## History` section at the bottom of the same file, dated, before
+updating the live one at the top. Same reason `CHANGELOG.md` keeps every
+past release instead of just the latest: seeing how the shape of things
+changed over time shouldn't require `git log -p`.
 
 ## Edge Functions
 
