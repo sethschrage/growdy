@@ -364,20 +364,6 @@ body {
   box-shadow: 0 0 0 var(--berry-dark);
 }
 
-.chat-confirm {
-  align-self: stretch;
-  background: var(--panel);
-  border: 3px solid var(--wood);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.chat-confirm-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
 .chat-input {
   position: fixed;
   left: 0;
@@ -467,16 +453,6 @@ button:active {
 button:disabled {
   opacity: 0.6;
   cursor: default;
-}
-
-.chat-confirm-actions button:last-child {
-  background: var(--wood);
-  border-color: var(--wood-dark);
-  box-shadow: 0 4px 0 var(--wood-dark);
-}
-
-.chat-confirm-actions button:last-child:active {
-  box-shadow: 0 0 0 var(--wood-dark);
 }
 
 .error {

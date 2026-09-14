@@ -114,21 +114,25 @@ erDiagram
   aren't shown above since they have no stored columns of their own;
   they're derived reads over `planting` and related tables.
 - **`observations.status`** defaults to `pending` and only becomes
-  `approved`/`rejected` after review -- see
-  [0009](decisions/0009-chat-based-observation-submission.md).
+  `approved`/`rejected` after review -- a schema fact that still holds,
+  though nothing currently writes a new row through it: chat-based
+  submission (originally [0009](decisions/0009-chat-based-observation-submission.md))
+  is removed as of [0016](decisions/0016-chat-queries-directly.md), and
+  the table's 211 real rows all came from a direct bulk import instead.
 - **`observations.planting_id` is nullable** -- a note doesn't have to be
   about one specific plant; a general one (a task done, something seen,
   not tied to a position) is logged with no planting at all -- see
-  [0014](decisions/0014-open-ended-observations.md).
-- **`conversations`** is one row per chat session (`mode` is `submit` or
-  `ask`, derived from whether the session produced a submission rather
-  than fixed by an entry point the producer picked -- see
-  [0012](decisions/0012-unified-chat-agent.md)), holding the full
+  [0014](decisions/0014-open-ended-observations.md). Still true of the
+  table even though the chat-submission flow that originally motivated
+  it is gone.
+- **`conversations`** is one row per chat session, holding the full
   message transcript -- see [0011](decisions/0011-conversation-history.md).
-  `observations.conversation_id`
-  points back to the session a submission came from, when it came from
-  the chat-based submission flow rather than a direct import; review
-  follows that link to see the full exchange instead of a transcript
-  duplicated onto the observation row itself.
+  `mode` is always `ask` now that chat-based submission is removed
+  ([0016](decisions/0016-chat-queries-directly.md)); one historical row
+  from before that change still reads `submit`. `observations.conversation_id`
+  points back to the session a submission came from, for observations
+  submitted through the chat before it was removed; review follows that
+  link to see the full exchange instead of a transcript duplicated onto
+  the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
