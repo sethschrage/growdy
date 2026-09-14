@@ -103,6 +103,33 @@ changed over time shouldn't require `git log -p`.
   directly in Supabase's Edge Function secrets, never committed to the
   repo, never passed through a migration.
 
+## Designing tools for the model
+
+When a tool or prompt doesn't produce the right result, the first fix to
+reach for is giving the model more room to figure it out itself -- not a
+more specific instruction covering that exact case. A prompt that
+accumulates one hand-written rule per failure ("also check the nickname
+column", "don't end your SQL in a semicolon") doesn't scale, and it hides
+problems that are worth fixing structurally instead. Concretely:
+
+- Prefer one general capability (the chat writing its own SQL,
+  `docs/decisions/0016`) over a fixed menu of shapes with a resolver
+  behind each one, and prefer letting the model explore for itself
+  (querying `information_schema`, sampling real rows) over pre-fetching
+  an answer into its context -- a schema description built by us can go
+  stale or miss the exact thing that matters; the model looking directly
+  at the real data can't.
+- When something goes wrong, ask first whether it's a bug in what the
+  tool actually *does* (fix the code -- e.g. a query wrapper that chokes
+  on a trailing semicolon) before assuming it's a bug in what the model
+  was *told* to do (patch the prompt). The first real production use of
+  `execute_readonly_query` hit exactly this: a semicolon the wrapper
+  couldn't parse was a real bug, fixed once, in the function; guessing
+  where a variety name might be recorded was not something to hand-tell
+  the model -- it was fixed by telling it to look at the data itself when
+  a search comes up empty, which then generalizes to every future case
+  like it, not just this one.
+
 ## CI
 
 `.github/workflows/db-lint.yml` runs on any PR touching

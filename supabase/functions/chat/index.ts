@@ -26,17 +26,6 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
 const MAX_TOOL_ITERATIONS = 6;
 
-const SCHEMA_TABLES = [
-  "planting_readable",
-  "position_status",
-  "plant_types",
-  "parcels",
-  "plots",
-  "plot_rows",
-  "producers",
-  "observations",
-];
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -55,17 +44,16 @@ const EXECUTE_READONLY_QUERY_TOOL = {
   },
 };
 
-function buildSystemPrompt(schema: string) {
+function buildSystemPrompt() {
   return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
 
-You have direct, read-only SQL access to the database via the execute_readonly_query tool. Prefer planting_readable and position_status -- both already resolve foreign keys to readable names. planting_readable has variety/scion/rootstock/nickname columns for identifying a plant, and dead_date/removed_date/removed_reason for its status (alive = both null; dead = dead_date set, removed_date null; removed = removed_date set, regardless of dead_date). observations holds real field notes -- most linked to a specific planting via planting_id, some standing on their own with no location at all.
+You have direct, read-only SQL access to the database via the execute_readonly_query tool -- explore before you assume. If you don't already know a table's columns, or what its values actually look like, look: query information_schema.columns for its columns, or select a few real rows, before writing a targeted filter. Don't guess where a term might be recorded (a variety name someone mentions could be in a free-text nickname column instead of variety, for instance) -- check the real data if a filtered search comes up empty or seems off, rather than assuming there's no match.
 
-A misspelling won't match a plain substring search. similarity(column, 'term') > 0.3 (pg_trgm) tolerates typos when an exact ilike search finds nothing.
+Relevant tables and views: planting_readable and position_status (both already resolve foreign keys to readable names), plant_types, parcels, plots, plot_rows, producers, and observations (real field notes -- most linked to a specific planting, some standing on their own).
 
-Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.
+similarity(column, 'term') > 0.3 (pg_trgm) tolerates a misspelling a plain substring search would miss.
 
-Current schema:
-${schema}`;
+Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
 async function callAnthropic(conversation: unknown[], systemPrompt: string, includeTools = true) {
@@ -91,25 +79,6 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string, incl
   }
 
   return response.json();
-}
-
-async function fetchSchemaDescription(supabase: SupabaseClient) {
-  const query = `select table_name, column_name, data_type
-    from information_schema.columns
-    where table_schema = 'public' and table_name = any(array[${SCHEMA_TABLES.map((t) => `'${t}'`).join(",")}])
-    order by table_name, ordinal_position`;
-
-  const { data, error } = await supabase.rpc("execute_readonly_query", { query });
-  if (error) throw new Error(`Schema lookup failed: ${error.message}`);
-
-  const byTable = new Map<string, string[]>();
-  for (const row of (data ?? []) as { table_name: string; column_name: string; data_type: string }[]) {
-    const columns = byTable.get(row.table_name) ?? [];
-    columns.push(`${row.column_name} (${row.data_type})`);
-    byTable.set(row.table_name, columns);
-  }
-
-  return [...byTable.entries()].map(([table, columns]) => `${table}: ${columns.join(", ")}`).join("\n");
 }
 
 async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, systemPrompt: string) {
@@ -176,8 +145,7 @@ Deno.serve(async (req: Request) => {
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
 
-    const schema = await fetchSchemaDescription(supabase);
-    const systemPrompt = buildSystemPrompt(schema);
+    const systemPrompt = buildSystemPrompt();
     const result = await runAgentLoop([...messages], supabase, systemPrompt);
 
     return new Response(JSON.stringify(result), {
