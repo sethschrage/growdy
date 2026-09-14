@@ -23,7 +23,10 @@ legible to someone reading it later.
    and any comments (bot or human) back in chat once the PR is open, so
    review happens there instead of switching to GitHub -- but it only
    merges after an explicit go-ahead each time. Checks passing is never
-   itself the go-ahead.
+   itself the go-ahead. The status it reports must reflect every check in
+   a finished state (none still pending) -- a snapshot taken right after
+   opening the PR, before a check has even started, is not a status
+   report, it's a guess that happened not to be wrong yet.
 6. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
