@@ -1,6 +1,6 @@
 # 0016. The chat writes and runs its own SQL, and no longer submits data
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 

@@ -1,6 +1,6 @@
 # 0010. Read-only Q&A chat resolves against known views, not generated SQL
 
-**Status:** accepted
+**Status:** superseded by 0016
 
 ## Context
 

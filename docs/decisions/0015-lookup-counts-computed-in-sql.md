@@ -1,6 +1,6 @@
 # 0015. Lookup counts are computed in SQL, not by counting fetched rows
 
-**Status:** accepted
+**Status:** superseded by 0016
 
 ## Context
 
