@@ -63,6 +63,15 @@ which keeps no backups of its own, so there's nothing else to fall back
 on. A read-only check doesn't need one; anything that inserts, updates,
 or deletes real data does.
 
+## Frontend deploys
+
+Unlike a migration or Edge Function, the app (`app/`) has no manual deploy
+step. Vercel is connected directly to this GitHub repo (see
+`docs/decisions/0008`): every push to `main` builds and deploys it to
+production automatically, and every other branch or PR gets its own
+preview build. Merging a PR that touches `app/` *is* the deploy -- there's
+nothing further to run.
+
 ## Edge Functions
 
 - Live in `supabase/functions/<name>/index.ts`, one function per
@@ -110,8 +119,9 @@ diary of every WIP commit.
 Versions are not cut per PR. Several PRs accumulate on `main` until they
 add up to a real milestone, at which point:
 
-1. Check `README.md`, this file, and `docs/data-model.md` against what
-   actually shipped in the batch -- not just the CHANGELOG entry. A
+1. Check `README.md`, this file, `docs/data-model.md`, and any ADR with a
+   placeholder or "not yet decided" left in it against what actually
+   shipped in the batch -- not just the CHANGELOG entry. A
    fast-moving batch of PRs reliably leaves the higher-level docs
    describing an earlier version of the project than the one about to
    be tagged; catch that here; don't let it accumulate. Check Supabase's

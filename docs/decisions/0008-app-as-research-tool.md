@@ -29,9 +29,12 @@ the app in response to that evidence, not speculatively ahead of it --
 the same build-when-needed discipline the schema has followed throughout.
 
 Technically: a small React app (Vite), living in this repo under `app/`
-rather than a separate repo, hosted free on a static host (Vercel or
-Netlify -- not yet decided). It talks directly to Supabase's existing
-REST API, Auth, and Storage; no server of its own.
+rather than a separate repo, hosted free on Vercel -- connected directly
+to this GitHub repo, so it deploys itself: a production build on every
+push to `main`, a preview build for every other branch and PR. Unlike a
+migration or Edge Function, there's no manual "deploy after merge" step
+for the app; merging *is* deploying it. It talks directly to Supabase's
+existing REST API, Auth, and Storage; no server of its own.
 
 **The layer between the app and the database stays deliberately thin.**
 No ORM, no bespoke API re-shaping tables into a different data model --
