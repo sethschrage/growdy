@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
 import { HistoryDrawer } from './HistoryDrawer'
+import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
   PixelBunSlice,
   PixelBurger,
@@ -13,6 +14,29 @@ import {
   PixelSprout,
   PixelToppingSlice,
 } from './icons'
+
+function BlockedScreen({ block }: { block: NonNullable<AppBlock> }) {
+  return (
+    <div className="login-screen">
+      <div className="login-content">
+        <span className="app-icon" role="img" aria-label="growdy">
+          <PixelSprout size={56} />
+        </span>
+        <h1>growdy</h1>
+        {block.reason === 'maintenance' ? (
+          <p>{block.message ?? 'Down for maintenance -- back shortly.'}</p>
+        ) : (
+          <>
+            <p>A new version is available.</p>
+            <button type="button" onClick={() => window.location.reload()}>
+              Refresh
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -174,6 +198,7 @@ function SignedIn({ session }: { session: Session }) {
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const block = useAppStatus()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -188,6 +213,7 @@ function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
+  if (block) return <BlockedScreen block={block} />
   if (loading) return null
 
   return session ? <SignedIn session={session} /> : <LoginForm />

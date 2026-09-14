@@ -73,6 +73,12 @@ flowchart TD
 - **CI is independent of both deploy paths.** `db-lint` runs against a
   disposable local Postgres on every PR that touches a migration; it
   never touches the live `growdybase` project either way.
+- **Every open tab also polls one small status check** -- a build-time
+  version stamp plus a manually-toggleable `app_status.maintenance`
+  flag -- and hard-blocks itself if either says something changed that
+  it doesn't know about yet: a newer deploy, or a maintenance window
+  flipped on before risky direct work against production. See
+  [`docs/decisions/0017`](decisions/0017-app-status-forces-refresh.md).
 
 ## History
 
