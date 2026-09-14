@@ -44,17 +44,6 @@ function summarizePlantings(rows: PlantingRow[]) {
   }))
 }
 
-function countBy<T>(rows: T[], key: (row: T) => string) {
-  const counts = new Map<string, number>()
-  for (const row of rows) {
-    const k = key(row)
-    counts.set(k, (counts.get(k) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([value, count]) => ({ value, count }))
-}
-
 // Anthropic's tool-result round trip: the assistant's original tool_use
 // turn plus a user turn carrying the answer, appended one-off onto the
 // visible history for this single follow-up call only -- the stored,
@@ -201,46 +190,73 @@ export function Chat({ session }: { session: Session }) {
     const { query_type, variety, parcel, plot, row_number, position, status } = data
 
     if (query_type === 'variety_lookup') {
-      const columns =
-        'id, parcel, label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason'
-      const [byVariety, byScion, byRootstock, byNickname] = await Promise.all([
-        supabase.from('planting_readable').select(columns).ilike('variety', `%${variety}%`),
-        supabase.from('planting_readable').select(columns).ilike('scion', `%${variety}%`),
-        supabase.from('planting_readable').select(columns).ilike('rootstock', `%${variety}%`),
-        supabase.from('planting_readable').select(columns).ilike('nickname', `%${variety}%`),
-      ])
+      // Counting is done in SQL (GROUP BY), not by fetching every matching
+      // row into the client -- a real search can match thousands of rows,
+      // and PostgREST caps any plain select at 1,000 by default, which
+      // silently truncated the count before this existed.
+      const { data: countsData, error: countsError } = await supabase.rpc('variety_lookup_counts', {
+        search: variety,
+      })
 
-      const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error ?? byNickname.error
-      if (varietyError) {
+      if (countsError) {
         setSending(false)
-        setError(varietyError.message)
+        setError(countsError.message)
         return
       }
 
-      const seen = new Set<string>()
-      const matches: (PlantingRow & { id: string; parcel: string })[] = []
-      for (const row of [
-        ...(byVariety.data ?? []),
-        ...(byScion.data ?? []),
-        ...(byRootstock.data ?? []),
-        ...(byNickname.data ?? []),
-      ]) {
-        if (!seen.has(row.id)) {
-          seen.add(row.id)
-          matches.push(row)
+      const groups: { parcel: string; plot: string | null; count: number }[] = countsData ?? []
+      const totalMatches = groups.reduce((sum, g) => sum + g.count, 0)
+
+      let plantings: ReturnType<typeof summarizePlantings> | undefined
+      if (totalMatches <= MAX_DETAILED_MATCHES) {
+        const columns =
+          'id, parcel, label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason'
+        const [byVariety, byScion, byRootstock, byNickname] = await Promise.all([
+          supabase.from('planting_readable').select(columns).ilike('variety', `%${variety}%`),
+          supabase.from('planting_readable').select(columns).ilike('scion', `%${variety}%`),
+          supabase.from('planting_readable').select(columns).ilike('rootstock', `%${variety}%`),
+          supabase.from('planting_readable').select(columns).ilike('nickname', `%${variety}%`),
+        ])
+
+        const varietyError = byVariety.error ?? byScion.error ?? byRootstock.error ?? byNickname.error
+        if (varietyError) {
+          setSending(false)
+          setError(varietyError.message)
+          return
         }
+
+        const seen = new Set<string>()
+        const matches: (PlantingRow & { id: string; parcel: string })[] = []
+        for (const row of [
+          ...(byVariety.data ?? []),
+          ...(byScion.data ?? []),
+          ...(byRootstock.data ?? []),
+          ...(byNickname.data ?? []),
+        ]) {
+          if (!seen.has(row.id)) {
+            seen.add(row.id)
+            matches.push(row)
+          }
+        }
+        matches.sort((a, b) => (a.parcel + a.plot).localeCompare(b.parcel + b.plot))
+        plantings = summarizePlantings(matches)
       }
-      matches.sort((a, b) => (a.parcel + a.plot).localeCompare(b.parcel + b.plot))
+
+      const byParcel = new Map<string, number>()
+      for (const g of groups) {
+        byParcel.set(g.parcel, (byParcel.get(g.parcel) ?? 0) + g.count)
+      }
 
       const resultData = {
         query: variety,
-        total_matches: matches.length,
-        by_parcel: countBy(matches, (m) => m.parcel).map(({ value, count }) => ({ parcel: value, count })),
-        by_parcel_and_plot: countBy(matches, (m) => `${m.parcel} / ${m.plot}`).map(({ value, count }) => ({
-          location: value,
-          count,
-        })),
-        plantings: matches.length <= MAX_DETAILED_MATCHES ? summarizePlantings(matches) : undefined,
+        total_matches: totalMatches,
+        by_parcel: [...byParcel.entries()]
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([parcelName, count]) => ({ parcel: parcelName, count })),
+        by_parcel_and_plot: groups
+          .map((g) => ({ location: `${g.parcel} / ${g.plot}`, count: g.count }))
+          .sort((a, b) => a.location.localeCompare(b.location)),
+        plantings,
       }
 
       await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
@@ -248,28 +264,50 @@ export function Chat({ session }: { session: Session }) {
     }
 
     if (query_type === 'parcel_lookup') {
-      const { data: plantings, error: plantingError } = await supabase
-        .from('planting_readable')
-        .select(
-          'label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason',
-        )
-        .ilike('parcel', parcel)
-        .order('plot')
-        .order('row_number')
-        .order('position')
+      // Same fix as variety_lookup: a large parcel can exceed PostgREST's
+      // default 1,000-row cap just as easily, so counts come from a
+      // GROUP BY in SQL instead of the length of a fetched array.
+      const { data: countsData, error: countsError } = await supabase.rpc('parcel_lookup_counts', {
+        target_parcel: parcel,
+      })
 
-      if (plantingError) {
+      if (countsError) {
         setSending(false)
-        setError(plantingError.message)
+        setError(countsError.message)
         return
       }
 
-      const rows = plantings ?? []
+      const groups: { plot: string | null; count: number }[] = countsData ?? []
+      const totalMatches = groups.reduce((sum, g) => sum + g.count, 0)
+
+      let plantings: ReturnType<typeof summarizePlantings> | undefined
+      if (totalMatches <= MAX_DETAILED_MATCHES) {
+        const { data: detailRows, error: plantingError } = await supabase
+          .from('planting_readable')
+          .select(
+            'label, plot, row_number, position, variety, scion, rootstock, nickname, dead_date, removed_date, removed_reason',
+          )
+          .ilike('parcel', parcel)
+          .order('plot')
+          .order('row_number')
+          .order('position')
+
+        if (plantingError) {
+          setSending(false)
+          setError(plantingError.message)
+          return
+        }
+
+        plantings = summarizePlantings(detailRows ?? [])
+      }
+
       const resultData = {
         parcel,
-        total_matches: rows.length,
-        by_plot: countBy(rows, (r) => r.plot).map(({ value, count }) => ({ plot: value, count })),
-        plantings: rows.length <= MAX_DETAILED_MATCHES ? summarizePlantings(rows) : undefined,
+        total_matches: totalMatches,
+        by_plot: groups
+          .map((g) => ({ plot: g.plot, count: g.count }))
+          .sort((a, b) => (a.plot ?? '').localeCompare(b.plot ?? '')),
+        plantings,
       }
 
       await answerFromData(nextMessages, data.tool_use_id, data.assistant_content, resultData)
