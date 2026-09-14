@@ -74,6 +74,15 @@ which keeps no backups of its own, so there's nothing else to fall back
 on. A read-only check doesn't need one; anything that inserts, updates,
 or deletes real data does.
 
+For anything riskier than that -- a migration, a direct fix expected to
+take a few minutes -- flip on the maintenance flag first
+(`update app_status set maintenance = true, message = '...'`,
+`docs/decisions/0017`), and flip it back (`maintenance = false`) once
+done. Every open tab, and anyone trying to sign in, sees a hard block
+within 30 seconds instead of using the app while it's mid-change --
+including another agent session that might otherwise act on stale
+assumptions about what's currently live.
+
 ## Frontend deploys
 
 Unlike a migration or Edge Function, the app (`app/`) has no manual deploy
