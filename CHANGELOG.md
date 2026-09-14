@@ -13,6 +13,96 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-14
+
+This milestone is the chat's second real redesign, and it starts from a
+question about the project's own habits rather than a feature request: how
+much of the growing pile of per-question resolvers and hand-written SQL
+functions was genuine safety, versus one specific, avoidable design choice
+made early on. A real question exposed the first crack -- asked how much
+Gamay was planted, the chat confidently answered from data that was already
+wrong before it ever saw it, because PostgREST's default cap silently
+returns at most 1,000 rows from an unbounded `select()`, and 2,004 real
+plantings actually matched. Moving the counting into SQL itself fixed that
+one case (`0015`, #73), but it held for barely a day before the same
+underlying shape -- a fixed menu of client-resolved query types -- hit a
+ceiling no amount of patching a resolver could get past: a natural
+follow-up question with no matching shape, a misspelling no prompt wording
+could reliably normalize into a structured argument. Every version of the
+chat since `0009` had insisted the model never see or write a real query;
+relaxing that specifically for reads -- reads can't corrupt data, and RLS
+still applies no matter what SQL runs -- let nearly the entire resolver
+layer disappear at once, replaced by one tool, `execute_readonly_query`,
+verified safe directly against production (a nested data-modifying CTE,
+the one way past a naive text check, is still caught because the whole
+request runs inside a genuine Postgres read-only transaction). Chat-based
+observation *submission* was removed in the same change, though the
+`observations` table itself wasn't -- its 211 rows turned out to be real
+pre-chat field-note data, not review cruft, and stayed exactly as they
+were (`0016`, #76, superseding `0015`'s mechanism along with `0009`,
+`0010`, and `0012`).
+
+Handing the model a real query to write meant the next few days of actual
+use surfaced exactly the kind of gap a fixed menu had been hiding by
+design, and each one got fixed as a bug in what the tool does rather than
+a rule bolted onto the prompt: an agent that hit its iteration cap failed
+with a bare 502 and nothing to tell that apart from a real crash, fixed
+with per-call logging and a graceful fallback answer instead of a hard
+stop (#77); a trailing semicolon the query wrapper couldn't parse, fixed
+once in the function instead of asked around in every future prompt
+(#78); and an iteration cap tuned for the old design, raised once
+genuinely multi-step questions started asking for more room than six
+calls allowed, alongside a visible "thinking" indicator so a longer answer
+doesn't read as nothing happening (#82). That instinct -- fix the tool's
+behavior, don't patch the prompt per failure -- is now written into
+`CONTRIBUTING.md` directly, so it outlives any one bug (#78).
+
+A much smaller, unrelated discovery turned into its own standing rule: the
+architecture-diagram link inside a merged PR's own description had quietly
+gone dead, because a relative or branch-relative link only ever resolves
+during the PR's own review window -- the branch it points at gets deleted
+on every squash merge here. Twenty-five historical PRs got their links
+repaired against the one link shape that actually survives that (a
+specific merge-commit SHA), and PR descriptions now reference files as
+plain inline code instead of links at all, so the same rot can't recur
+(#75). A separate, more pointed question -- whether CI had actually
+finished before two recent PRs were merged -- turned up a real process
+gap: both had been merged on a snapshot of check status taken before their
+lint check had even started, not a final result. `CONTRIBUTING.md` now
+says plainly that a status report has to reflect every check in a
+finished state, and every PR since has been polled to an actual final
+state before merging (#79).
+
+Two real screenshots caught what a chat interface actually needs: raw
+markdown syntax showing up verbatim in an assistant's reply because
+nothing was rendering it, and a decorative pixel-art font that read a
+table's "2,004" as "8,004" at a glance. Assistant messages now render as
+real markdown, tables included, in a plain and legible font -- reserving
+the pixel-art style for the chrome around the conversation rather than
+the data inside it (#80).
+
+The last thread wasn't about the chat's intelligence at all: an
+already-open browser tab keeps running whatever it loaded indefinitely,
+with no way to make it pick up a new deploy, and no way to signal "don't
+use this right now" while something riskier than usual runs directly
+against production. One polling check now covers both -- a build-time
+version stamp compares itself against a fresh fetch on every open tab,
+and a manually-toggleable maintenance flag hard-blocks the whole app, no
+dismiss button, so a stale tab (or a second, unaware agent session) can't
+act on assumptions that stopped being true (`0017`, #81).
+
+Woven through all of it: this project keeps finding, at release time, that
+its own higher-level docs describe an earlier version of itself than the
+one actually live, and this batch closed that gap twice -- once at the
+start, catching that `docs/architecture.md` still treated Vercel as an
+open question rather than the app's real, finalized, auto-deploying host
+(#72), and again at the very end, catching that the same diagram was
+missing the app's new direct `app_status` poll (#84). The five ADRs this
+batch touches (`0009`, `0010`, `0012`, `0014`, `0015`) are marked
+superseded where their mechanism is actually gone, and left accepted
+where the underlying schema fact still holds regardless (#83) -- the same
+discipline applied to the diagrams, applied to the decision record.
+
 ## [0.6.0] - 2026-09-14
 
 This milestone closes two gaps between what the chat could technically
