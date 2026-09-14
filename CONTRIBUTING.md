@@ -18,7 +18,12 @@ legible to someone reading it later.
    merge here. A plain path never breaks and is just as easy to open from
    the "Files changed" tab.
 4. CI runs automatically (see below). Review the diff.
-5. Merge via the PR (squash merge -- see "Merge strategy").
+5. Merge via the PR (squash merge -- see "Merge strategy"). When working
+   with Claude Code: it reports the PR's summary, CI/mergeability status,
+   and any comments (bot or human) back in chat once the PR is open, so
+   review happens there instead of switching to GitHub -- but it only
+   merges after an explicit go-ahead each time. Checks passing is never
+   itself the go-ahead.
 6. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
