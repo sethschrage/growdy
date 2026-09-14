@@ -118,7 +118,7 @@ export function Chat({ session }: { session: Session }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question about your vineyard..."
+          aria-label="Ask a question about your vineyard"
         />
         <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
           <PixelArrow size={18} />
