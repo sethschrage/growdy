@@ -278,6 +278,8 @@ body {
 }
 
 .chat-messages {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -457,6 +459,7 @@ body {
 
 .chat-input {
   position: fixed;
+  z-index: 2;
   left: 0;
   right: 0;
   bottom: calc(6px + env(safe-area-inset-bottom));
