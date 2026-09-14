@@ -1,6 +1,6 @@
 # 0017. One status check forces a stale tab to refresh and gates maintenance windows
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
