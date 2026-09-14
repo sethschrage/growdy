@@ -13,6 +13,46 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-14
+
+This milestone closes two gaps between what the chat could technically
+do and what actually came up watching it get used for real, plus one gap
+that isn't about the chat at all: how little stands between this project
+and its own mistakes.
+
+Every answer the chat gave used to come from a fixed client-side string
+template -- the model only ever extracted *what* was being asked, never
+saw the data behind it, so "how much Gamay do I have" and "where is my
+Gamay" produced the exact same shape of reply regardless of which was
+actually asked. A real question exposed this precisely: two thousand
+real Gamay plantings, and the only answer on offer was a bare count. The
+fix completes the tool-use round trip that had been half-built since
+`0010` -- the client still resolves every question exactly the same safe
+way it always did, but now sends that resolved data back to the model as
+a proper `tool_result` and lets it compose the actual reply, so the
+answer can finally reflect how the question was phrased (`0013`, #66).
+
+Logging had the mirror-image problem: every observation required a
+resolved plot, row, and position, matching everything the chat's
+submission flow was originally built around -- a note about one specific
+plant. Real use didn't stay that narrow. "I trimmed the weeds" and
+"sprayed the whole vineyard" aren't about any single plant, and the chat
+just kept asking for a position that was never going to exist.
+`observations.planting_id` is now nullable, and the chat only asks for a
+location when what's being described actually sounds like it's about one
+plant (`0014`, #68).
+
+The third thread isn't about the chat: this project runs on Supabase's
+Free plan, which keeps zero backups of its own, and a lot of the routine
+work here -- reconciling a migration, checking real row counts, tracing a
+bug -- means running SQL directly against production, entirely outside
+the review a migration gets. Rather than stand up a scheduled backup
+pipeline sized for a project much bigger than this one, two lightweight
+habits live in `CONTRIBUTING.md` instead: a migration that would destroy
+real data renames first and drops later, once there's been time to
+notice if something still needed it, and any direct write against
+production gets a manual snapshot taken first (#69).
+
 ## [0.5.0] - 2026-09-13
 
 This milestone is the arc from two separate chat screens to one real
