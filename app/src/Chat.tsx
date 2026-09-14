@@ -17,7 +17,7 @@ export function Chat({ session }: { session: Session }) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, sending])
 
   async function send(event: FormEvent) {
     event.preventDefault()
@@ -101,6 +101,15 @@ export function Chat({ session }: { session: Session }) {
               )}
             </div>
           ))}
+          {sending && (
+            <div className="chat-message-wrap chat-message-wrap--assistant">
+              <div className="chat-message chat-message-assistant chat-thinking" aria-live="polite" aria-label="Thinking">
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+              </div>
+            </div>
+          )}
           {error && <p className="error">{error}</p>}
           <div ref={messagesEndRef} />
         </div>
