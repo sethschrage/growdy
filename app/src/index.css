@@ -22,8 +22,7 @@
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
 }
 
@@ -42,6 +41,7 @@ body {
 }
 
 #root {
+  height: var(--app-height, 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
