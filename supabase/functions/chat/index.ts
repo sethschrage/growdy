@@ -45,7 +45,7 @@ const corsHeaders = {
 const EXECUTE_READONLY_QUERY_TOOL = {
   name: "execute_readonly_query",
   description:
-    "Run a read-only SQL query (a single SELECT or WITH ... SELECT statement) against the vineyard database to answer the producer's question. Write whatever query actually answers it -- filter, group, join, and aggregate freely. You can call this more than once in a turn: search broadly first, then narrow with an added filter (like status) as a natural follow-up, instead of asking a clarifying question you could answer yourself.",
+    "Run a read-only SQL query (a single SELECT or WITH ... SELECT statement) against the vineyard database to answer the producer's question. Write whatever query actually answers it -- filter, group, join, and aggregate freely. One call is usually enough. Only call it again in the same turn if the first result genuinely doesn't answer the question, or a natural follow-up needs one more narrower query (like adding a status filter) instead of asking something you could just look up. As soon as you have enough to answer, stop calling this and write the answer.",
   input_schema: {
     type: "object",
     properties: {
@@ -68,7 +68,7 @@ Current schema:
 ${schema}`;
 }
 
-async function callAnthropic(conversation: unknown[], systemPrompt: string) {
+async function callAnthropic(conversation: unknown[], systemPrompt: string, includeTools = true) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -80,7 +80,7 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string) {
       model: MODEL,
       max_tokens: 1024,
       system: systemPrompt,
-      tools: [EXECUTE_READONLY_QUERY_TOOL],
+      ...(includeTools ? { tools: [EXECUTE_READONLY_QUERY_TOOL] } : {}),
       messages: conversation,
     }),
   });
@@ -126,9 +126,11 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
 
     const toolResults = await Promise.all(
       toolUses.map(async (toolUse: { id: string; input: { query: string } }) => {
+        console.log(`chat tool call (iteration ${i + 1}): ${toolUse.input.query}`);
         const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
           query: toolUse.input.query,
         });
+        if (error) console.error(`chat tool call failed: ${error.message}`);
         return {
           type: "tool_result",
           tool_use_id: toolUse.id,
@@ -141,7 +143,16 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
     conversation.push({ role: "user", content: toolResults });
   }
 
-  return { type: "error", message: "Took too many steps to answer -- try rephrasing." };
+  // Ran out of iterations without a final answer -- ask once more without
+  // the tool available, forcing a text reply that summarizes whatever was
+  // already found, instead of a hard failure with nothing to show for it.
+  console.error(`chat hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}) without a final answer`);
+  const finalData = await callAnthropic(conversation, systemPrompt, false);
+  const finalText = (finalData.content ?? []).find((block: { type: string }) => block.type === "text")?.text ?? "";
+  return {
+    type: "text",
+    text: finalText || "That took more searching than expected -- try asking a narrower question.",
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -170,7 +181,6 @@ Deno.serve(async (req: Request) => {
     const result = await runAgentLoop([...messages], supabase, systemPrompt);
 
     return new Response(JSON.stringify(result), {
-      status: result.type === "error" ? 502 : 200,
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {
