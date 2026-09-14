@@ -29,6 +29,12 @@ structural and app choice.
 See [`docs/data-model.md`](docs/data-model.md) for a diagram of every
 table and how they relate.
 
+## Architecture
+
+See [`docs/architecture.md`](docs/architecture.md) for a diagram of where
+each piece runs and how they talk to each other -- the app, Vercel,
+Supabase, and Anthropic.
+
 ## Notable design decisions
 
 - [0001 -- Tenancy membership model](docs/decisions/0001-tenancy-membership-model.md) -- how a user resolves to a producer, isolated behind one swappable RLS helper function.
@@ -51,7 +57,7 @@ table and how they relate.
 |---|---|
 | Database | [Supabase](https://supabase.com) (Postgres, Free tier) |
 | Spatial | PostGIS |
-| File storage | Supabase Storage |
+| File storage | Supabase Storage -- reserved for photo attachments, deliberately not wired up yet (see [`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md)) |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
 | Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
 | Hosting | [Vercel](https://app-blue-ten-25.vercel.app), connected to this GitHub repo -- auto-deploys production from `main`, preview builds per branch/PR |
