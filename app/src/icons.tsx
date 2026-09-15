@@ -347,3 +347,58 @@ export function PixelBook({ size = 18 }: { size?: number }) {
     </svg>
   )
 }
+
+const PLUS_CELLS = [
+  [3, 0],
+  [3, 1],
+  [3, 2],
+  [0, 3],
+  [1, 3],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+  [6, 3],
+  [3, 4],
+  [3, 5],
+  [3, 6],
+] as const
+
+// The sprout menu's "new observation" button -- a plain plus, same thin
+// single-cell-wide-line treatment as PixelCheck/PixelX rather than a
+// pin/waypoint glyph, which didn't read clearly at this grid size.
+export function PixelPlus({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {PLUS_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
+
+const GRID_CELLS = [
+  [0, 1],
+  [3, 1],
+  [6, 1],
+  [0, 3],
+  [3, 3],
+  [6, 3],
+  [0, 5],
+  [3, 5],
+  [6, 5],
+] as const
+
+// The sprout menu's "your vineyard data" button -- rows of dots reading as
+// planted positions in a row, distinct from PixelBook's Knowledge
+// Categories (external reference sources) -- this is the producer's own
+// internal parcel/plot/row/planting data.
+export function PixelGrid({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {GRID_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}

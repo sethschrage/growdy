@@ -4,6 +4,8 @@ import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
 import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
+import { ObservationForm } from './ObservationForm'
+import { ProducerDataView } from './ProducerDataView'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
   PixelBook,
@@ -12,7 +14,9 @@ import {
   PixelCloud,
   PixelCompose,
   PixelExit,
+  PixelGrid,
   PixelHistory,
+  PixelPlus,
   PixelSprout,
   PixelToppingSlice,
 } from './icons'
@@ -186,19 +190,89 @@ function AccountMenu({
   )
 }
 
+// Tapping the sprout opens a floating menu of features that stand on
+// their own outside chat -- see docs/decisions and App's own comment on
+// ObservationForm. New features get their own button here, same shape as
+// AccountMenu's bar, just anchored off the header's left edge instead of
+// its right.
+function SproutMenu({
+  onNewObservation,
+  onOpenProducerData,
+}: {
+  onNewObservation: () => void
+  onOpenProducerData: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [open])
+
+  return (
+    <div className="sprout-menu" ref={ref}>
+      <button
+        type="button"
+        className="sprout-menu-toggle"
+        aria-label="Features"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <PixelSprout size={44} />
+      </button>
+      {open && (
+        <div className="sprout-menu-bar" role="menu" aria-label="Features">
+          <button
+            type="button"
+            className="menu-icon-button"
+            aria-label="New observation"
+            onClick={() => {
+              onNewObservation()
+              setOpen(false)
+            }}
+          >
+            <PixelPlus size={20} />
+          </button>
+          <button
+            type="button"
+            className="menu-icon-button"
+            aria-label="Your vineyard data"
+            onClick={() => {
+              onOpenProducerData()
+              setOpen(false)
+            }}
+          >
+            <PixelGrid size={20} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [dataSourcesOpen, setDataSourcesOpen] = useState(false)
+  const [observationFormOpen, setObservationFormOpen] = useState(false)
+  const [producerDataOpen, setProducerDataOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-left">
-          <span className="app-icon" role="img" aria-label="growdy">
-            <PixelSprout size={44} />
-          </span>
+          <SproutMenu
+            onNewObservation={() => setObservationFormOpen(true)}
+            onOpenProducerData={() => setProducerDataOpen(true)}
+          />
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
@@ -229,6 +303,10 @@ function SignedIn({ session }: { session: Session }) {
         />
       )}
       {dataSourcesOpen && <DataSourcesView session={session} onClose={() => setDataSourcesOpen(false)} />}
+      {observationFormOpen && (
+        <ObservationForm session={session} onClose={() => setObservationFormOpen(false)} />
+      )}
+      {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
     </div>
   )
 }
