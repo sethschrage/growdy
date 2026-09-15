@@ -76,6 +76,34 @@ erDiagram
         text mode
         jsonb transcript
     }
+    DATA_PROVIDERS {
+        uuid id PK
+        text category
+        text name
+        boolean enabled
+        text context "nullable"
+    }
+    DATA_SOURCES {
+        uuid id PK
+        uuid provider_id FK
+        uuid producer_id FK
+        text name
+        text external_id
+        uuid vault_secret_id "nullable"
+        boolean enabled
+        text context "nullable"
+        text backfill_status "nullable"
+        timestamptz last_synced_at "nullable"
+        text last_error "nullable"
+        text last_warning "nullable"
+    }
+    WEATHER_OBSERVATIONS {
+        uuid id PK
+        uuid source_id FK
+        uuid producer_id FK
+        timestamptz observed_at
+        numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
+    }
 
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns
@@ -91,6 +119,8 @@ erDiagram
     PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
     PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
     CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+    DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
+    DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
 ```
 
 ## Reading this diagram
@@ -142,3 +172,98 @@ erDiagram
   the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
+
+## History
+
+### 2026-09-15 -- before external data channels ([0019](decisions/0019-external-data-channels.md))
+
+The diagram above gained `data_providers`, `data_sources`, and
+`weather_observations`. Before that, it was:
+
+```mermaid
+erDiagram
+    PRODUCERS {
+        uuid id PK
+        text name
+    }
+    PROFILES {
+        uuid id PK "also FK -> auth.users, Supabase-managed"
+        uuid producer_id FK
+    }
+    PARCELS {
+        uuid id PK
+        uuid producer_id FK
+        text name
+    }
+    PLOTS {
+        uuid id PK
+        uuid parcel_id FK
+        uuid producer_id FK
+        text name
+    }
+    PLOT_ROWS {
+        uuid id PK
+        uuid plot_id FK
+        uuid producer_id FK
+        int number
+        numeric length_meters "nullable"
+        numeric spacing_meters "nullable"
+    }
+    PLANTING {
+        uuid id PK
+        uuid producer_id FK
+        uuid parcel_id FK
+        uuid plot_id FK "nullable"
+        uuid plot_row_id FK "nullable"
+        int position "nullable"
+        geography location "nullable"
+        uuid variety_id FK "nullable"
+        uuid scion_variety_id FK "nullable"
+        uuid rootstock_variety_id FK "nullable"
+        text nickname "nullable"
+        text category "nullable"
+        date planted_date "nullable"
+        date dead_date "nullable"
+        date removed_date "nullable"
+        text removed_reason "nullable"
+    }
+    PLANT_TYPES {
+        uuid id PK
+        uuid proposed_by_producer_id FK "nullable"
+        text name
+        text kind
+        text status
+        text common_name "nullable"
+    }
+    OBSERVATIONS {
+        uuid id PK
+        uuid planting_id FK "nullable"
+        uuid producer_id FK
+        date observed_date "nullable"
+        text note
+        text photo_metadata "nullable"
+        text status
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
+    }
+
+    PRODUCERS ||--o{ PROFILES : "has members"
+    PRODUCERS ||--o{ PARCELS : owns
+    PARCELS ||--o{ PLOTS : "divided into"
+    PLOTS ||--o{ PLOT_ROWS : contains
+    PARCELS ||--o{ PLANTING : "located in"
+    PLOTS |o--o{ PLANTING : "organizes (optional)"
+    PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
+    PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+```

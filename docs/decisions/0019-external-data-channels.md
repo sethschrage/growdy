@@ -1,6 +1,6 @@
 # 0019. External data channels: Category -> Provider -> Source, starting with Tempest weather
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
