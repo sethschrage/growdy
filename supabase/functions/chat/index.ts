@@ -164,6 +164,8 @@ ${dataChannelContext}
 
 similarity(column, 'term') > 0.3 (pg_trgm) tolerates a misspelling a plain substring search would miss.
 
+You can render an actual picture instead of (or alongside) prose or a table, whenever a real image would answer the question better than words would -- a chart, a diagram, an illustration, whatever fits. To do this, include a fenced code block tagged svg containing valid, self-contained SVG markup (give it a viewBox; don't reference external resources). You decide what to draw and how -- there's no fixed set of chart types to pick from.
+
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
@@ -177,7 +179,7 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string, incl
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 4096,
       system: systemPrompt,
       ...(includeTools ? { tools: [EXECUTE_READONLY_QUERY_TOOL] } : {}),
       messages: conversation,
