@@ -89,10 +89,13 @@ erDiagram
         uuid producer_id FK
         text name
         text external_id
-        uuid vault_secret_id "nullable"
+        uuid vault_secret_id "nullable -- no credential needed, e.g. Device/USA-NPN"
         boolean enabled
         text context "nullable"
+        jsonb config "nullable -- e.g. Device's last-known lat/long"
         text backfill_status "nullable"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
         timestamptz last_synced_at "nullable"
         text last_error "nullable"
         text last_warning "nullable"
@@ -149,12 +152,24 @@ erDiagram
   see [0006](decisions/0006-planting-lifecycle-and-position-status.md))
   aren't shown above since they have no stored columns of their own;
   they're derived reads over `planting` and related tables.
+- **`data_providers`/`data_sources` aren't weather-specific**, even though
+  `weather_observations` is the only table either currently feeds. The
+  same `category`/`provider`/`source` rows also cover `location` (the
+  `Device` provider, a producer's own GPS reading, no credential and
+  `vault_secret_id` left null) and `phenology` (USA National Phenology
+  Network, a shared public dataset queried live rather than ingested --
+  it has no observations table of its own, since nothing is stored
+  locally). `config` (jsonb) is where a source that isn't ingesting
+  time-series data keeps whatever it needs instead -- `Device`'s last
+  known latitude/longitude, currently the only user.
 - **`observations.status`** defaults to `pending` and only becomes
-  `approved`/`rejected` after review -- a schema fact that still holds,
-  though nothing currently writes a new row through it: chat-based
-  submission (originally [0009](decisions/0009-chat-based-observation-submission.md))
-  is removed as of [0016](decisions/0016-chat-queries-directly.md), and
-  the table's 211 real rows all came from a direct bulk import instead.
+  `approved`/`rejected` after review. Chat-based submission (originally
+  [0009](decisions/0009-chat-based-observation-submission.md)) is removed
+  as of [0016](decisions/0016-chat-queries-directly.md), but the same
+  gate now applies to a producer entering an observation directly through
+  a structured form in the app (`app/src/ObservationForm.tsx`) -- outside
+  the chat/model path entirely, writing straight to this table under the
+  producer's own RLS session.
 - **`observations.planting_id` is nullable** -- a note doesn't have to be
   about one specific plant; a general one (a task done, something seen,
   not tied to a position) is logged with no planting at all -- see

@@ -19,9 +19,16 @@ and [`docs/decisions/0016`](docs/decisions/0016-chat-queries-directly.md).
 Early. The core hierarchy (producer/parcel/plot/row/planting) is in
 place, and a companion app now exists with a Google-authenticated,
 AI-guided chat for asking questions about the data, plus a browsable
-history of every past conversation. See open and merged PRs for current
-progress, and [`docs/decisions/`](docs/decisions) for the reasoning
-behind each structural and app choice.
+history of every past conversation. The chat can also pull in outside
+context -- weather, device location, grapevine phenology -- through a
+Knowledge Categories screen where a producer manages what's connected
+(see [`docs/decisions/0019`](docs/decisions/0019-external-data-channels.md)).
+A separate, non-chat part of the app handles the producer's own
+day-to-day data directly: a structured form for logging an observation,
+and a read-only browser over their own parcels/plots/rows/plantings. See
+open and merged PRs for current progress, and
+[`docs/decisions/`](docs/decisions) for the reasoning behind each
+structural and app choice.
 
 ## Data model
 
