@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
-import { HistoryDrawer } from './HistoryDrawer'
+import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
   PixelBunSlice,
@@ -173,6 +173,7 @@ function AccountMenu({
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [resumed, setResumed] = useState<Conversation | null>(null)
 
   return (
     <div className="app-shell">
@@ -184,13 +185,31 @@ function SignedIn({ session }: { session: Session }) {
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
-          onNewChat={() => setChatKey((k) => k + 1)}
+          onNewChat={() => {
+            setResumed(null)
+            setChatKey((k) => k + 1)
+          }}
           onOpenHistory={() => setHistoryOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
         />
       </header>
-      <Chat key={chatKey} session={session} />
-      {historyOpen && <HistoryDrawer session={session} onClose={() => setHistoryOpen(false)} />}
+      <Chat
+        key={chatKey}
+        session={session}
+        initialMessages={resumed?.transcript}
+        conversationId={resumed?.id}
+      />
+      {historyOpen && (
+        <HistoryDrawer
+          session={session}
+          onClose={() => setHistoryOpen(false)}
+          onContinue={(conversation) => {
+            setResumed(conversation)
+            setChatKey((k) => k + 1)
+            setHistoryOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }

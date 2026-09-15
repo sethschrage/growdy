@@ -12,10 +12,15 @@ import type { ChatMessage } from './chatTypes'
 // mode is always 'ask' now that chat-based observation submission is
 // removed (superseded 0012) -- kept as a column rather than dropped since
 // past sessions really did produce a 'submit' row.
-export function useConversationLog(session: Session) {
+//
+// `existing` is set when the chat was opened from History to continue a
+// past conversation: reuse its id and skip straight to the update branch
+// below, since the row is already there -- inserting again would collide
+// on the primary key.
+export function useConversationLog(session: Session, existing?: { id: string }) {
   const [producerId, setProducerId] = useState<string | null>(null)
-  const conversationId = useRef(crypto.randomUUID())
-  const started = useRef(false)
+  const conversationId = useRef(existing?.id ?? crypto.randomUUID())
+  const started = useRef(Boolean(existing))
 
   useEffect(() => {
     supabase

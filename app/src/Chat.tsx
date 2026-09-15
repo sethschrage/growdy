@@ -1,18 +1,25 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { supabase } from './lib/supabaseClient'
 import { PixelArrow, PixelCheck, PixelCloud, PixelX } from './icons'
+import { MessageContent } from './MessageContent'
 import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
 
-export function Chat({ session }: { session: Session }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+export function Chat({
+  session,
+  initialMessages,
+  conversationId,
+}: {
+  session: Session
+  initialMessages?: ChatMessage[]
+  conversationId?: string
+}) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { log } = useConversationLog(session)
+  const { log } = useConversationLog(session, conversationId ? { id: conversationId } : undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -71,11 +78,7 @@ export function Chat({ session }: { session: Session }) {
           {messages.map((m, i) => (
             <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
               <div className={`chat-message chat-message-${m.role}`}>
-                {m.role === 'assistant' ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                ) : (
-                  m.content
-                )}
+                <MessageContent role={m.role} content={m.content} />
               </div>
               {m.role === 'assistant' && (
                 <div className="feedback-row">

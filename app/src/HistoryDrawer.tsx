@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { MessageContent } from './MessageContent'
 import type { ChatMessage } from './chatTypes'
 
-type Conversation = {
+export type Conversation = {
   id: string
   mode: 'submit' | 'ask'
   transcript: ChatMessage[]
@@ -14,9 +15,36 @@ function firstPrompt(transcript: ChatMessage[]): string {
   return transcript.find((m) => m.role === 'user')?.content ?? '(empty conversation)'
 }
 
+// Plain text, not markdown -- readable in any text/markdown viewer without
+// depending on this app's own rendering.
+function toExportText(conversation: Conversation): string {
+  const lines = conversation.transcript.map(
+    (m) => `${m.role === 'user' ? 'You' : 'Growdy'}: ${m.content}`,
+  )
+  return lines.join('\n\n')
+}
+
+function exportConversation(conversation: Conversation) {
+  const blob = new Blob([toExportText(conversation)], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `growdy-chat-${conversation.id.slice(0, 8)}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // Mounted only while open (App.tsx renders it conditionally), so a fresh
 // mount is what resets state on each open -- no imperative reset needed.
-export function HistoryDrawer({ session: _session, onClose }: { session: Session; onClose: () => void }) {
+export function HistoryDrawer({
+  session: _session,
+  onClose,
+  onContinue,
+}: {
+  session: Session
+  onClose: () => void
+  onContinue: (conversation: Conversation) => void
+}) {
   const [conversations, setConversations] = useState<Conversation[] | null>(null)
   const [selected, setSelected] = useState<Conversation | null>(null)
 
@@ -36,10 +64,20 @@ export function HistoryDrawer({ session: _session, onClose }: { session: Session
             <button type="button" className="history-back" onClick={() => setSelected(null)}>
               &larr; Back
             </button>
+            <div className="history-detail-actions">
+              <button type="button" onClick={() => onContinue(selected)}>
+                Continue this chat
+              </button>
+              <button type="button" className="history-export" onClick={() => exportConversation(selected)}>
+                Export
+              </button>
+            </div>
             <div className="history-detail-messages">
               {selected.transcript.map((m, i) => (
                 <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
-                  <p className={`chat-message chat-message-${m.role}`}>{m.content}</p>
+                  <div className={`chat-message chat-message-${m.role}`}>
+                    <MessageContent role={m.role} content={m.content} />
+                  </div>
                 </div>
               ))}
             </div>

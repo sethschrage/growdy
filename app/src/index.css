@@ -654,6 +654,28 @@ button:disabled {
   transform: none;
 }
 
+.history-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.history-detail-actions button {
+  flex: 1;
+}
+
+.history-export {
+  background: none;
+  border: 2px solid var(--wood);
+  box-shadow: none;
+  color: var(--wood-dark);
+}
+
+.history-export:active {
+  box-shadow: none;
+  transform: none;
+}
+
 .history-detail-messages {
   display: flex;
   flex-direction: column;
