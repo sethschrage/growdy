@@ -26,11 +26,16 @@ conventionally referred to by their formal identifier already (e.g.
 common name itself -- there's no current row where either needs a second
 name.
 
-Backfilled this producer's four real scion rows against the official
-ENTAV-INRA clone registry (selections.entav-inra.fr), not guessed: 214
-and 312 are both Cabernet Franc clones (two different certified
-selections of the same variety is normal, not a mistake), 358 is Gamay,
-817 is Meunier.
+Not backfilled automatically as part of this migration: a common name
+can plausibly apply to more than one clone or rootstock entry -- this
+producer's own four scion rows already include two different Cabernet
+Franc clones -- so setting it is a real judgment call, not a one-to-one
+lookup safe to apply unattended. Researched against the official
+ENTAV-INRA clone registry (selections.entav-inra.fr) for reference, to
+be entered by hand the same reviewed way any other `plant_types`
+promotion works, not guessed and not auto-applied here: 214 and 312 are
+both Cabernet Franc clones (two different certified selections of the
+same variety, not a mistake), 358 is Gamay, 817 is Meunier.
 
 `planting_readable.scion` now resolves to `coalesce(common_name, name)`,
 so the common name surfaces automatically through the view the chat is
@@ -51,6 +56,12 @@ promotion time.
 
 ## Consequences
 
+- This producer's four existing scion rows are already `canonical`, so
+  the promotion-time hook above doesn't reach them retroactively -- they
+  ship with `common_name` still null. Setting them is a deliberate,
+  reviewed `UPDATE` against the four values researched above, done once
+  someone (Virgil or Seth) actually confirms them -- not something this
+  migration decides on its own.
 - A future `kind = 'variety'` row, or a rootstock referred to informally
   enough to need its own common name, can populate `common_name` the same
   way -- the column isn't scion-specific by constraint, only by current

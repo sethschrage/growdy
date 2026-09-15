@@ -9,12 +9,15 @@ alter table public.plant_types
 comment on column public.plant_types.common_name is
   'The common grape variety name this row is actually known as (e.g. "Gamay" for scion clone "ENTAV-INRA(R) 358"). Distinct from name, which may be a formal certified clone identifier, and from planting.nickname, which is a per-planting informal label, not a shared reference. Nullable -- populated where known, mainly for scion rows whose name is a clone code rather than a variety name.';
 
--- Backfilled from the official ENTAV-INRA clone registry
--- (selections.entav-inra.fr) for this producer's real scion plantings.
-update public.plant_types set common_name = 'Cabernet Franc' where name = 'ENTAV-INRA® 214' and kind = 'scion';
-update public.plant_types set common_name = 'Cabernet Franc' where name = 'ENTAV-INRA® 312' and kind = 'scion';
-update public.plant_types set common_name = 'Gamay' where name = 'ENTAV-INRA® 358' and kind = 'scion';
-update public.plant_types set common_name = 'Meunier' where name = 'ENTAV-INRA® 817' and kind = 'scion';
+-- Not backfilled automatically here, on purpose: a common name can
+-- plausibly apply to more than one clone or rootstock entry (this
+-- producer's real data already has two different Cabernet Franc clones),
+-- so setting it is a real judgment call, not a one-to-one lookup a
+-- migration should make unattended. Left for a human to enter by hand,
+-- the same reviewed way any other plant_types promotion works -- see
+-- docs/decisions/0018 for the ENTAV-INRA registry values researched
+-- for this producer's actual four scion rows, ready to enter, not
+-- applied here.
 
 -- planting_readable.scion now prefers the common name over the formal
 -- clone identifier when one is known, so a question like "how much Gamay"
