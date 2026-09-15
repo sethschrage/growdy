@@ -108,6 +108,34 @@ function parseReading(obs: unknown[]): { reading: ParsedReading; warnings: strin
   return { reading, warnings };
 }
 
+// Resolves a Tempest station ID (what a producer actually sees in the
+// Tempest app/URL, e.g. tempestwx.com/station/175413) to the device ID
+// the observations endpoint actually requires -- confirmed live against a
+// real station: GET /stations/{id} returns every device at that station,
+// and the one with device_type "ST" is the combined Sky+Air sensor unit
+// observations come from (a station also has an "HB" hub device, which
+// reports no observations of its own). This was an open, unconfirmable-
+// from-public-docs item in docs/decisions/0019; resolved here rather than
+// asking a producer to know an internal API concept they have no way to
+// see in Tempest's own UI.
+export async function resolveTempestDeviceId(stationId: string, apiKey: string): Promise<string> {
+  const url = `${TEMPEST_API_BASE}/stations/${stationId}?api_key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Tempest API error (${response.status}) looking up station ${stationId}: ${await response.text()}`);
+  }
+  const data = await response.json();
+  const station = data.stations?.[0];
+  if (!station) {
+    throw new Error(`no Tempest station found for id ${stationId}`);
+  }
+  const device = (station.devices ?? []).find((d: { device_type?: string }) => d.device_type === "ST");
+  if (!device) {
+    throw new Error(`station ${stationId} has no Tempest (ST) sensor device`);
+  }
+  return String(device.device_id);
+}
+
 async function fetchChunk(deviceId: string, apiKey: string, timeStart: number, timeEnd: number): Promise<unknown[][]> {
   const url = `${TEMPEST_API_BASE}/observations/device/${deviceId}?time_start=${timeStart}&time_end=${timeEnd}&api_key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(url);

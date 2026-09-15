@@ -23,6 +23,6 @@ export function createUserScopedClient(req: Request): SupabaseClient {
 // path in this project that has an actual reason to see every producer's
 // rows. Never call this from anything a browser can trigger.
 export function createAdminClient(): SupabaseClient {
-  const secretKey = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")!)["default"];
+  const secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   return createClient(Deno.env.get("SUPABASE_URL")!, secretKey);
 }

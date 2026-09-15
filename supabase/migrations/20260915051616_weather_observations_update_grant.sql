@@ -1,0 +1,20 @@
+-- Fix: weather_observations was only ever granted SELECT, INSERT (to
+-- authenticated originally, and to service_role in this session's earlier
+-- migration) -- never UPDATE. ingest-weather's upsert() compiles to
+-- INSERT ... ON CONFLICT (source_id, observed_at) DO UPDATE SET ..., and
+-- Postgres checks UPDATE privilege on the target columns for that clause
+-- at the statement level, regardless of whether any row actually conflicts
+-- at runtime. This means every upsert -- from every real invocation of
+-- ingest-weather since its original PR, and from sync-scheduled-weather
+-- just now -- has failed outright with "permission denied for table
+-- weather_observations", for every producer, the entire time. Confirmed
+-- live: a debug_whoami() RPC proved the connecting role really was
+-- service_role with bypassrls=true, and information_schema already
+-- showed the SELECT/INSERT grants present -- UPDATE was the missing
+-- piece, only found by testing an actual upsert end to end against a
+-- real device. No RLS policy changes needed: weather_observations has no
+-- update policy (intentionally append-only per its original design), but
+-- ON CONFLICT DO UPDATE still needs the base GRANT to plan the statement
+-- even though RLS still blocks any UPDATE that isn't also an INSERT this
+-- caller is allowed to make.
+grant update on public.weather_observations to authenticated, service_role;
