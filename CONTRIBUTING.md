@@ -48,6 +48,16 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   advisors for anything new -- a schema change is the most likely place
   a fresh finding shows up, and it's easy to miss since `execute_sql`
   and other elevated-access checks won't surface it.
+- A migration that adds a table or column includes a `COMMENT ON`
+  explaining it, in the same migration -- context captured once, when the
+  thing is created, not researched and retrofitted later by whoever needs
+  it next (see [`0018`](decisions/0018-plant-types-common-name.md), which
+  had to do exactly that retrofit for two views that had shipped with no
+  column comments at all). This isn't "write it once and never touch it
+  again" -- a comment that turns out incomplete or wrong gets corrected
+  the same way, via its own `COMMENT ON` in a later migration, same as any
+  other schema refinement. The rule is against shipping *undocumented*,
+  not against improving the documentation over time.
 - A migration that would destroy real data (`drop column`, `drop table`)
   renames instead of dropping outright -- `alter table x rename column y
   to y_deprecated`, say -- with the actual drop left for its own later

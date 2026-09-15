@@ -37,16 +37,28 @@ so the common name surfaces automatically through the view the chat is
 already told to prefer -- no separate lookup or chat-side logic needed.
 `variety` and `rootstock` are unchanged, per the same scoping.
 
+**Promoting a `kind = 'scion'` row from `pending` to `canonical`**
+([0003](0003-plant-types-reference-table.md)'s review step) **now
+includes setting `common_name`**, not just accepting the proposed
+`name`. That promotion is already a manual, human-reviewed action with
+no self-service path -- the natural, and only, moment to research and
+capture the variety a new clone code actually is, rather than a gap
+left for whoever next asks the chat a question that clone should have
+answered. A `common_name` that turns out wrong or incomplete gets
+corrected the same way a canonical `name` would -- an `UPDATE`, reviewed
+like any other change to real data -- not treated as fixed at
+promotion time.
+
 ## Consequences
 
 - A future `kind = 'variety'` row, or a rootstock referred to informally
   enough to need its own common name, can populate `common_name` the same
   way -- the column isn't scion-specific by constraint, only by current
   data.
-- `common_name` will need populating by hand for any new scion type
-  proposed later ([0003](0003-plant-types-reference-table.md)'s
-  propose-then-review workflow doesn't currently ask for it) -- worth
-  revisiting if that becomes a real recurring gap rather than a
-  hypothetical one.
-- This doesn't touch `nickname` or the propose/review workflow at all --
-  it closes a different gap than either of those already solve.
+- This doesn't touch `nickname` at all -- it closes a different gap than
+  that solves. It does extend 0003's review step with one more thing to
+  check before promoting a scion proposal, the same review discipline
+  already generalized in `CONTRIBUTING.md`'s Migrations section (every
+  migration that adds a table or column includes its own `COMMENT ON`,
+  for the same reason: capture context when the thing is created, not
+  after someone's already had to work around not having it).
