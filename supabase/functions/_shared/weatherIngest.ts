@@ -211,8 +211,12 @@ export async function syncWeatherSourceChunk(
     last_error: null,
     // Deliberately not accumulated across runs -- only this run's
     // warnings, so an old, already-noticed warning doesn't linger
-    // forever once whatever caused it stops happening.
-    last_warning: warnings.length > 0 ? warnings.slice(0, 10).join("; ") : null,
+    // forever once whatever caused it stops happening. Deduplicated
+    // first: a structural issue (e.g. an unexpected field count) fires
+    // once per reading, and a chunk can hold thousands of readings, so
+    // without dedup the same message repeats until it's the only thing
+    // last_warning shows.
+    last_warning: warnings.length > 0 ? [...new Set(warnings)].slice(0, 10).join("; ") : null,
   };
 
   let done: boolean;
