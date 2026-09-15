@@ -50,6 +50,7 @@ Supabase, and Anthropic.
 - [0017 -- One status check forces a stale tab to refresh](docs/decisions/0017-app-status-forces-refresh.md) -- a build-time version stamp plus a manually-toggleable maintenance flag, polled by every open tab, hard-block the app (no dismiss) when either says something's changed that the tab doesn't know about yet.
 - [0018 -- plant_types.common_name, so a clone code resolves to its variety](docs/decisions/0018-plant-types-common-name.md) -- a scion row's `name` is often a formal certified clone identifier, not the variety a producer would ask about; `common_name` closes that gap, distinct from `planting.nickname`.
 - [0019 -- External data channels: Category -> Provider -> Source](docs/decisions/0019-external-data-channels.md) -- how outside data (starting with Tempest weather) gets into Growdy: producer-added sources against admin-curated providers, credentials in Supabase Vault, ingestion through the producer's own session rather than a background service, fully structured columns instead of a raw catch-all.
+- [0020 -- Scheduled weather sync](docs/decisions/0020-scheduled-weather-sync.md) -- revisits 0019's browser-only ingestion once real use showed it wasn't fresh enough: an hourly `pg_cron` job and one narrowly-scoped `service_role` Edge Function, the fallback 0019 had already named.
 
 ## Stack
 

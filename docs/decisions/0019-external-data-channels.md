@@ -28,7 +28,10 @@ existing, enabled provider -- a producer picks Tempest from a list and
 supplies a station ID and API key; they never supply a URL or invent a new
 provider.
 
-**No `service_role`, no `pg_cron`/`pg_net`, no new server.** Ingestion runs
+**No `service_role`, no `pg_cron`/`pg_net`, no new server.** *(This specific
+sub-decision was revisited once real use showed the trade-off below wasn't
+acceptable -- see [0020](0020-scheduled-weather-sync.md). Everything else in
+this ADR still stands.)* Ingestion runs
 through the signed-in producer's own forwarded JWT -- the exact mechanism
 `chat` already uses -- triggered by that producer's own browser session
 (adding a source, opening the sources screen, a manual sync), never by an
