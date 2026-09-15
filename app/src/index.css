@@ -379,6 +379,29 @@ body {
   color: var(--cream);
 }
 
+/* Layout safety only, not a creative constraint -- the model decides what
+   to draw (see supabase/functions/chat/index.ts's system prompt), this
+   just keeps one drawing from overflowing or dominating the page. */
+.chat-graphic {
+  max-width: 100%;
+  max-height: 480px;
+  overflow: hidden;
+  margin: 0 0 8px;
+}
+
+.chat-graphic svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chat-graphic-fallback {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
 .chat-thinking {
   display: flex;
   align-items: center;
