@@ -6,9 +6,9 @@ import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
+  PixelBook,
   PixelBunSlice,
   PixelBurger,
-  PixelChannels,
   PixelCloud,
   PixelCompose,
   PixelExit,
@@ -165,7 +165,7 @@ function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelChannels size={18} />
+            <PixelBook size={18} />
           </button>
           <PixelToppingSlice className="menu-topping" />
           <button
