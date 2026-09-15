@@ -193,12 +193,45 @@ async function getVitisViniferaSpeciesId(): Promise<number> {
   return id;
 }
 
+// Confirms the producer has actually enabled the USA-NPN source (the
+// Knowledge Categories -> Phenology -> USA National Phenology Network
+// toggle -- see EnableProviderPanel) before ever calling out to it. This
+// is what makes that toggle mean something rather than being UI with no
+// effect: a producer who never enabled it gets told so, not a silent
+// query against a dataset they haven't opted into.
+async function requirePhenologyProviderEnabled(supabase: SupabaseClient): Promise<void> {
+  const { data: providerRow, error: providerError } = await supabase
+    .from("data_providers")
+    .select("id")
+    .eq("category", "phenology")
+    .eq("name", "USA National Phenology Network")
+    .maybeSingle();
+  if (providerError) throw new Error(providerError.message);
+  if (!providerRow) throw new Error("no 'USA National Phenology Network' provider configured");
+
+  const { data: sourceRow, error: sourceError } = await supabase
+    .from("data_sources")
+    .select("enabled")
+    .eq("provider_id", providerRow.id)
+    .limit(1)
+    .maybeSingle();
+  if (sourceError) throw new Error(sourceError.message);
+
+  if (!sourceRow?.enabled) {
+    throw new Error(
+      "USA National Phenology Network isn't enabled yet -- ask the producer to open Knowledge Categories -> Phenology -> USA National Phenology Network and enable it, then try again.",
+    );
+  }
+}
+
 // Reads the producer's own Device location (RLS-scoped via the caller's
 // forwarded JWT, same as every other query this function runs) and, if
 // set, queries USA-NPN for real grapevine phenophase observations in a
 // bounding box around it -- roughly a regional "nearby", not hyper-local
 // (0.5 degrees is ballpark 35-55km depending on latitude).
 async function fetchGrapePhenology(supabase: SupabaseClient, startDate: string, endDate: string): Promise<unknown> {
+  await requirePhenologyProviderEnabled(supabase);
+
   const { data: providerRow, error: providerError } = await supabase
     .from("data_providers")
     .select("id")
