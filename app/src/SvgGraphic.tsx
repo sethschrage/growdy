@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import DOMPurify from 'dompurify'
 
 // Renders SVG the chat model wrote itself (see docs/decisions -- chat's
@@ -10,7 +11,14 @@ import DOMPurify from 'dompurify'
 // dangerouslySetInnerHTML unsanitized. DOMPurify's own svg profile keeps
 // shapes/paths/gradients/text while stripping <script>, on* handlers, and
 // <foreignObject> (which could otherwise smuggle arbitrary HTML).
+//
+// The inline copy is capped small (see .chat-graphic) so it fits a chat
+// bubble -- fine for a simple shape, not for anything with real detail
+// (a 100-position row map, say). Tapping it opens the same sanitized
+// markup full-screen instead of re-rendering a different, "zoomed"
+// version -- one sanitize call, two sizes of the same output.
 export function SvgGraphic({ code }: { code: string }) {
+  const [expanded, setExpanded] = useState(false)
   const clean = DOMPurify.sanitize(code, { USE_PROFILES: { svg: true, svgFilters: true } }).trim()
 
   // Sanitizing stripped everything meaningful (or the model's block wasn't
@@ -21,5 +29,37 @@ export function SvgGraphic({ code }: { code: string }) {
     return <pre className="chat-graphic-fallback">{code}</pre>
   }
 
-  return <div className="chat-graphic" dangerouslySetInnerHTML={{ __html: clean }} />
+  return (
+    <>
+      <div
+        className="chat-graphic"
+        role="button"
+        tabIndex={0}
+        aria-label="View larger"
+        onClick={() => setExpanded(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setExpanded(true)
+        }}
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+      <p className="chat-graphic-hint">Tap to enlarge</p>
+      {expanded && (
+        <div className="chat-graphic-overlay" onClick={() => setExpanded(false)}>
+          <button
+            type="button"
+            className="chat-graphic-overlay-close"
+            aria-label="Close"
+            onClick={() => setExpanded(false)}
+          >
+            &times;
+          </button>
+          <div
+            className="chat-graphic-overlay-content"
+            onClick={(e) => e.stopPropagation()}
+            dangerouslySetInnerHTML={{ __html: clean }}
+          />
+        </div>
+      )}
+    </>
+  )
 }
