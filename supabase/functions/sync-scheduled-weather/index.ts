@@ -26,13 +26,20 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
 import { syncWeatherSourceChunk, type WeatherSource } from "../_shared/weatherIngest.ts";
 
-// At 5 days/chunk, this catches up ~60 days of history per source per
-// hour -- a full 5-year backfill (the default floor -- see
-// private.add_data_source) finishes in ~1.5 days instead of ~5 at a
-// smaller cap. Tempest's real rate limits are still unconfirmed (see
-// docs/decisions/0019's open items); this is a reasonable starting point,
-// not a measured one -- tune down if real use shows it's too aggressive.
-const MAX_CHUNKS_PER_SOURCE = 12;
+// Calibrated against two real runs: 12 chunks completed in well under 30
+// seconds with no issue; 40 chunks crashed near the very end with a
+// WORKER_RESOURCE_LIMIT error (memory, not wall-clock time -- Supabase's
+// Edge Function runtime, not pg_net or Postgres). Each chunk still commits
+// independently before the next starts, so the crash lost no data, just
+// the last couple of chunks that invocation would have completed. 25
+// stays with real margin below the observed ceiling. Chunks run
+// sequentially, not concurrently, so raising this doesn't increase the
+// request *rate* to Tempest (still unconfirmed -- see docs/decisions/0019's
+// open items), only how much sequential work fits in one hourly
+// invocation. At 5 days/chunk that's ~125 days of history per source per
+// hour -- a full 5-year backfill finishes in under 15 hours instead of
+// ~1.5 days at the previous cap of 12.
+const MAX_CHUNKS_PER_SOURCE = 25;
 
 type SourceWithKey = WeatherSource & { api_key: string };
 
