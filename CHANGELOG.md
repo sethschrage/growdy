@@ -133,11 +133,17 @@ Closing this batch out the same way `0.7.0` closed the last one: the
 release checklist itself found two things nobody had noticed. `pg_net`,
 enabled for the scheduled-sync work, had landed in the `public` schema
 instead of `extensions` -- every other extension in this project already
-followed that convention, this one just hadn't been given a schema
-explicitly. And `docs/architecture.md`, last updated when this project
-had exactly one Edge Function and one external API, hadn't been touched
-since -- it now reflects all four Edge Functions, three external APIs,
-and the scheduled job that ties them together, with the version it
+followed that convention. It stays there for now, though: `pg_net` runs
+its own background worker wired up at the Postgres server level, and
+doesn't support `ALTER EXTENSION ... SET SCHEMA` at all -- CI's own
+`db-lint` run caught that immediately. Actually relocating it means
+dropping and recreating the extension, a real risk to the live hourly
+sync this project depends on for something that's a namespace-hygiene
+WARN, not an active exposure, so it's named here and left alone rather
+than forced through. And `docs/architecture.md`, last updated when this
+project had exactly one Edge Function and one external API, hadn't been
+touched since -- it now reflects all four Edge Functions, three external
+APIs, and the scheduled job that ties them together, with the version it
 replaces kept in the file's own History section rather than only
 reachable through `git log -p`.
 
