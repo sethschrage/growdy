@@ -58,6 +58,7 @@ erDiagram
         text name
         text kind
         text status
+        text common_name "nullable"
     }
     OBSERVATIONS {
         uuid id PK
@@ -103,6 +104,11 @@ erDiagram
   ways (`variety_id`, `scion_variety_id`, `rootstock_variety_id`)
   depending on whether a plant is own-rooted or grafted -- see
   [0004](decisions/0004-plant-types-kind-and-planting-columns.md).
+  `name` for a `kind = 'scion'` row is often a formal certified clone
+  identifier, not a grape variety name -- `common_name` (nullable) holds
+  the actual variety where it's known, distinct from `planting.nickname`,
+  which is a per-planting informal label, not a shared reference -- see
+  [0018](decisions/0018-plant-types-common-name.md).
 - **`producer_id` is denormalized onto every table below `producers`**
   (not just reachable by joining up the chain), so RLS policies never
   need to walk the hierarchy to check access -- see

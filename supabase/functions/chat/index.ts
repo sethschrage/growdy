@@ -31,6 +31,72 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// The tables/views worth describing to the model up front. Keep this list
+// in sync with what buildSystemPrompt actually tells the model to use --
+// it's the input to fetchSchemaDescription below, not a security boundary
+// (execute_readonly_query can already reach anything RLS allows).
+const SCHEMA_RELATIONS = [
+  "planting_readable",
+  "position_status",
+  "plant_types",
+  "parcels",
+  "plots",
+  "plot_rows",
+  "producers",
+  "observations",
+];
+
+const SCHEMA_DESCRIPTION_QUERY = `
+  select
+    c.relname as name,
+    obj_description(c.oid) as description,
+    json_agg(
+      json_build_object(
+        'name', a.attname,
+        'type', format_type(a.atttypid, a.atttypmod),
+        'comment', col_description(c.oid, a.attnum)
+      )
+      order by a.attnum
+    ) as columns
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+  where n.nspname = 'public'
+    and c.relname in (${SCHEMA_RELATIONS.map((name) => `'${name}'`).join(",")})
+  group by c.oid, c.relname
+`;
+
+type SchemaColumn = { name: string; type: string; comment: string | null };
+type SchemaRelation = { name: string; description: string | null; columns: SchemaColumn[] };
+
+// docs/decisions/0016 already committed to this: "the schema description
+// the model sees is generated at request time from information_schema
+// [...], not hand-typed into the prompt -- it can't drift the way
+// hand-maintained prose repeatedly has elsewhere in this project." The
+// code shipped with a hand-typed one-line table list instead, contradicting
+// its own ADR -- this actually builds it from the database's own COMMENT ON
+// metadata. Real column-level detail also closes a gap the bare table-name
+// list left open: e.g. position_status.status resolves to one of three
+// specific strings via a CASE expression with no column of its own to
+// check a constraint against -- only a comment can carry that.
+async function fetchSchemaDescription(supabase: SupabaseClient): Promise<string> {
+  const { data, error } = await supabase.rpc("execute_readonly_query", { query: SCHEMA_DESCRIPTION_QUERY });
+  if (error) {
+    console.error(`schema description query failed: ${error.message}`);
+    return "";
+  }
+  const relations = (data ?? []) as SchemaRelation[];
+  return relations
+    .map((rel) => {
+      const header = rel.description ? `${rel.name} -- ${rel.description}` : rel.name;
+      const columns = rel.columns
+        .map((col) => (col.comment ? `  - ${col.name} (${col.type}): ${col.comment}` : `  - ${col.name} (${col.type})`))
+        .join("\n");
+      return `${header}\n${columns}`;
+    })
+    .join("\n\n");
+}
+
 const EXECUTE_READONLY_QUERY_TOOL = {
   name: "execute_readonly_query",
   description:
@@ -44,12 +110,12 @@ const EXECUTE_READONLY_QUERY_TOOL = {
   },
 };
 
-function buildSystemPrompt() {
+function buildSystemPrompt(schemaDescription: string) {
   return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
 
-You have direct, read-only SQL access to the database via the execute_readonly_query tool -- explore before you assume. If you don't already know a table's columns, or what its values actually look like, look: query information_schema.columns for its columns, or select a few real rows, before writing a targeted filter. Don't guess where a term might be recorded (a variety name someone mentions could be in a free-text nickname column instead of variety, for instance) -- check the real data if a filtered search comes up empty or seems off, rather than assuming there's no match.
+You have direct, read-only SQL access to the database via the execute_readonly_query tool. The tables and views below, and what each column actually means, cover the common cases -- read them before writing a query instead of guessing at a column name or what its values look like. If something you need isn't covered here (a variety name someone mentions could be in a free-text nickname column instead of a structured one, for instance), or a filtered search comes up empty or seems off, query information_schema.columns or sample a few real rows before concluding there's no match.
 
-Relevant tables and views: planting_readable and position_status (both already resolve foreign keys to readable names), plant_types, parcels, plots, plot_rows, producers, and observations (real field notes -- most linked to a specific planting, some standing on their own).
+${schemaDescription}
 
 similarity(column, 'term') > 0.3 (pg_trgm) tolerates a misspelling a plain substring search would miss.
 
@@ -145,7 +211,7 @@ Deno.serve(async (req: Request) => {
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
 
-    const systemPrompt = buildSystemPrompt();
+    const systemPrompt = buildSystemPrompt(await fetchSchemaDescription(supabase));
     const result = await runAgentLoop([...messages], supabase, systemPrompt);
 
     return new Response(JSON.stringify(result), {
