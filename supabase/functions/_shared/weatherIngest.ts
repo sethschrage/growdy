@@ -154,11 +154,27 @@ async function fetchChunk(deviceId: string, apiKey: string, timeStart: number, t
 // backfill is complete. Never throws for an ingestion-level failure (a bad
 // API call, a validation issue); those are reported in the return value so
 // a caller looping over many sources can isolate one failure from the rest.
+// Returns the source's updated backfill/sync fields so a caller retrying
+// several chunks in one invocation can advance its own local copy of
+// `source` between calls -- passing the same unrefreshed `source` back in
+// on every iteration would recompute the identical window each time and
+// never actually advance (this was a real bug: sync-scheduled-weather's
+// retry loop only ever completed one real chunk per invocation,
+// regardless of how many iterations or how much time it was given, since
+// its local `source` object never picked up the previous iteration's
+// progress).
 export async function syncWeatherSourceChunk(
   supabase: SupabaseClient,
   source: WeatherSource,
   apiKey: string,
-): Promise<{ done: boolean; error?: string; rows_processed?: number }> {
+): Promise<{
+  done: boolean;
+  error?: string;
+  rows_processed?: number;
+  backfill_status?: string | null;
+  backfill_cursor?: string | null;
+  last_synced_at?: string | null;
+}> {
   const isBackfilling = source.backfill_status !== "complete";
   const backfillStartEpoch = source.backfill_start ? Math.floor(new Date(source.backfill_start).getTime() / 1000) : 0;
 
@@ -237,5 +253,11 @@ export async function syncWeatherSourceChunk(
 
   await supabase.from("data_sources").update(update).eq("id", source.id);
 
-  return { done, rows_processed: obsRows.length };
+  return {
+    done,
+    rows_processed: obsRows.length,
+    backfill_status: (update.backfill_status as string | undefined) ?? source.backfill_status,
+    backfill_cursor: (update.backfill_cursor as string | undefined) ?? source.backfill_cursor,
+    last_synced_at: (update.last_synced_at as string | undefined) ?? source.last_synced_at,
+  };
 }

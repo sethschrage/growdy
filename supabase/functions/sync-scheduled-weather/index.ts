@@ -63,10 +63,21 @@ Deno.serve(async (req: Request) => {
 
   for (const source of (sources ?? []) as SourceWithKey[]) {
     try {
+      // A mutable copy advanced with each chunk's real result -- passing
+      // the original, never-updated `source` back in on every iteration
+      // would recompute the same window each time and never progress
+      // past the first chunk (see the comment on syncWeatherSourceChunk).
+      let current: WeatherSource = source;
       let done = false;
       for (let i = 0; i < MAX_CHUNKS_PER_SOURCE && !done; i++) {
-        const result = await syncWeatherSourceChunk(supabase, source, source.api_key);
+        const result = await syncWeatherSourceChunk(supabase, current, source.api_key);
         if (result.error) throw new Error(result.error);
+        current = {
+          ...current,
+          backfill_status: result.backfill_status ?? current.backfill_status,
+          backfill_cursor: result.backfill_cursor ?? current.backfill_cursor,
+          last_synced_at: result.last_synced_at ?? current.last_synced_at,
+        };
         done = result.done;
       }
       synced++;
