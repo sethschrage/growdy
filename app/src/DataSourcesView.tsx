@@ -3,8 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { useDataSources, type DataProvider, type DataSource } from './useDataSources'
 
-function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAdded: () => void }) {
-  const [providerId, setProviderId] = useState(providers[0]?.id ?? '')
+function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded: () => void }) {
   const [name, setName] = useState('')
   const [externalId, setExternalId] = useState('')
   const [secret, setSecret] = useState('')
@@ -13,11 +12,11 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!providerId || !name.trim() || !externalId.trim() || !secret.trim()) return
+    if (!name.trim() || !externalId.trim() || !secret.trim()) return
     setSubmitting(true)
     setError(null)
     const { error } = await supabase.functions.invoke('add-weather-source', {
-      body: { provider_id: providerId, name, station_id: externalId, secret },
+      body: { provider_id: provider.id, name, station_id: externalId, secret },
     })
     setSubmitting(false)
     if (error) {
@@ -39,17 +38,7 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
 
   return (
     <form className="data-source-form" onSubmit={handleSubmit}>
-      <h3>Add a data source</h3>
-      <label>
-        Data Provider
-        <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.category} / {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <h3>Add a {provider.name} source</h3>
       <label>
         Label
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Home Station" />
@@ -111,26 +100,85 @@ function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () =>
 
 // Genuinely full-screen (inset: 0), not HistoryDrawer's side-panel
 // treatment -- see docs/decisions/0019.
+//
+// Three-level drill-down (category -> provider -> its sources), matching
+// docs/decisions/0019's own Category/Provider/Source taxonomy instead of
+// flattening straight to a picker inside the add-source form -- a
+// producer with more than one provider in a category (or more categories
+// once a second one exists) navigates the same shape the data actually
+// has, rather than reading it off a "category / name" string in a
+// dropdown.
 export function DataSourcesView({ onClose }: { session: Session; onClose: () => void }) {
   const { providers, sources, refresh } = useDataSources()
+  const [category, setCategory] = useState<string | null>(null)
+  const [providerId, setProviderId] = useState<string | null>(null)
+
+  const categories = providers ? [...new Set(providers.map((p) => p.category))] : []
+  const categoryProviders = providers?.filter((p) => p.category === category) ?? []
+  const provider = providers?.find((p) => p.id === providerId) ?? null
+  const providerSources = sources?.filter((s) => s.provider_id === providerId) ?? []
+
+  const title = provider ? provider.name : category ? category : 'Knowledge Categories'
 
   return (
     <div className="data-sources-overlay">
       <div className="data-sources-header">
-        <h2>Knowledge Categories</h2>
+        <h2>{title}</h2>
         <button type="button" onClick={onClose} aria-label="Close" className="data-sources-close">
           &times;
         </button>
       </div>
       <div className="data-sources-body">
-        {sources === null && <p className="history-empty">Loading...</p>}
-        {sources?.length === 0 && <p className="history-empty">No sources added yet.</p>}
-        <ul className="data-source-list">
-          {sources?.map((s) => (
-            <SourceRow key={s.id} source={s} onChanged={refresh} />
-          ))}
-        </ul>
-        {providers && providers.length > 0 && <AddSourceForm providers={providers} onAdded={refresh} />}
+        {providerId ? (
+          <button type="button" className="data-sources-back" onClick={() => setProviderId(null)}>
+            &larr; {category}
+          </button>
+        ) : category ? (
+          <button type="button" className="data-sources-back" onClick={() => setCategory(null)}>
+            &larr; Categories
+          </button>
+        ) : null}
+
+        {providers === null && <p className="history-empty">Loading...</p>}
+
+        {providers && !category && (
+          <ul className="data-source-list">
+            {categories.length === 0 && <p className="history-empty">No categories yet.</p>}
+            {categories.map((c) => (
+              <li key={c}>
+                <button type="button" className="data-source-nav-item" onClick={() => setCategory(c)}>
+                  {c}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {category && !provider && (
+          <ul className="data-source-list">
+            {categoryProviders.length === 0 && <p className="history-empty">No providers in this category yet.</p>}
+            {categoryProviders.map((p) => (
+              <li key={p.id}>
+                <button type="button" className="data-source-nav-item" onClick={() => setProviderId(p.id)}>
+                  {p.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {provider && (
+          <>
+            {sources === null && <p className="history-empty">Loading...</p>}
+            {sources !== null && providerSources.length === 0 && <p className="history-empty">No sources added yet.</p>}
+            <ul className="data-source-list">
+              {providerSources.map((s) => (
+                <SourceRow key={s.id} source={s} onChanged={refresh} />
+              ))}
+            </ul>
+            <AddSourceForm provider={provider} onAdded={refresh} />
+          </>
+        )}
       </div>
     </div>
   )
