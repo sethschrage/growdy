@@ -111,7 +111,6 @@ body {
   font-size: 42px;
   margin: 0;
   color: var(--wood-dark);
-  text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.5);
 }
 
 .google-signin-button {
