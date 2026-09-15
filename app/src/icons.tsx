@@ -307,3 +307,48 @@ export function PixelX({ size = 14 }: { size?: number }) {
     </svg>
   )
 }
+
+// A stack of bands (like stacked disks/channels) -- the menu icon for
+// data channel management, docs/decisions/0019.
+const CHANNELS_CELLS = [
+  [1, 0],
+  [2, 0],
+  [3, 0],
+  [4, 0],
+  [5, 0],
+  [0, 1],
+  [6, 1],
+  [0, 2],
+  [1, 2],
+  [2, 2],
+  [3, 2],
+  [4, 2],
+  [5, 2],
+  [6, 2],
+  [0, 3],
+  [6, 3],
+  [0, 4],
+  [1, 4],
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [6, 4],
+  [0, 5],
+  [6, 5],
+  [1, 6],
+  [2, 6],
+  [3, 6],
+  [4, 6],
+  [5, 6],
+] as const
+
+export function PixelChannels({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {CHANNELS_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}

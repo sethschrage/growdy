@@ -3,10 +3,12 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
 import { HistoryDrawer } from './HistoryDrawer'
+import { DataSourcesView } from './DataSourcesView'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
   PixelBunSlice,
   PixelBurger,
+  PixelChannels,
   PixelCloud,
   PixelCompose,
   PixelExit,
@@ -93,11 +95,13 @@ function AccountMenu({
   email,
   onNewChat,
   onOpenHistory,
+  onOpenDataSources,
   onSignOut,
 }: {
   email: string
   onNewChat: () => void
   onOpenHistory: () => void
+  onOpenDataSources: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -155,6 +159,18 @@ function AccountMenu({
           <button
             type="button"
             className="menu-icon-button"
+            aria-label="Data Channels"
+            onClick={() => {
+              onOpenDataSources()
+              setOpen(false)
+            }}
+          >
+            <PixelChannels size={18} />
+          </button>
+          <PixelToppingSlice className="menu-topping" />
+          <button
+            type="button"
+            className="menu-icon-button"
             aria-label="Sign out"
             onClick={() => {
               onSignOut()
@@ -173,6 +189,7 @@ function AccountMenu({
 function SignedIn({ session }: { session: Session }) {
   const [chatKey, setChatKey] = useState(0)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [dataSourcesOpen, setDataSourcesOpen] = useState(false)
 
   return (
     <div className="app-shell">
@@ -186,11 +203,13 @@ function SignedIn({ session }: { session: Session }) {
           email={session.user.email ?? ''}
           onNewChat={() => setChatKey((k) => k + 1)}
           onOpenHistory={() => setHistoryOpen(true)}
+          onOpenDataSources={() => setDataSourcesOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
         />
       </header>
       <Chat key={chatKey} session={session} />
       {historyOpen && <HistoryDrawer session={session} onClose={() => setHistoryOpen(false)} />}
+      {dataSourcesOpen && <DataSourcesView session={session} onClose={() => setDataSourcesOpen(false)} />}
     </div>
   )
 }
