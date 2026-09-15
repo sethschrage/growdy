@@ -26,7 +26,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
 import { syncWeatherSourceChunk, type WeatherSource } from "../_shared/weatherIngest.ts";
 
-const MAX_CHUNKS_PER_SOURCE = 3;
+// At 5 days/chunk, this catches up ~60 days of history per source per
+// hour -- a full 5-year backfill (the default floor -- see
+// private.add_data_source) finishes in ~1.5 days instead of ~5 at a
+// smaller cap. Tempest's real rate limits are still unconfirmed (see
+// docs/decisions/0019's open items); this is a reasonable starting point,
+// not a measured one -- tune down if real use shows it's too aggressive.
+const MAX_CHUNKS_PER_SOURCE = 12;
 
 type SourceWithKey = WeatherSource & { api_key: string };
 

@@ -16,15 +16,19 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
     if (!providerId || !name.trim() || !externalId.trim() || !secret.trim()) return
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.rpc('add_data_source', {
-      p_provider_id: providerId,
-      p_name: name,
-      p_external_id: externalId,
-      p_secret: secret,
+    const { error } = await supabase.functions.invoke('add-weather-source', {
+      body: { provider_id: providerId, name, station_id: externalId, secret },
     })
     setSubmitting(false)
     if (error) {
-      setError(error.message)
+      let message = error.message
+      try {
+        const body = await error.context.json()
+        if (body?.error) message = body.error
+      } catch {
+        // error.context wasn't a JSON response -- fall back to error.message
+      }
+      setError(message)
       return
     }
     setName('')
@@ -51,7 +55,7 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Home Station" />
       </label>
       <label>
-        Device ID
+        Station ID
         <input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
       </label>
       <label>
@@ -67,8 +71,6 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
 }
 
 function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () => void }) {
-  const [syncing, setSyncing] = useState(false)
-
   async function toggle() {
     await supabase.from('data_sources').update({ enabled: !source.enabled }).eq('id', source.id)
     onChanged()
@@ -76,22 +78,6 @@ function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () =>
 
   async function remove() {
     await supabase.from('data_sources').delete().eq('id', source.id)
-    onChanged()
-  }
-
-  // Backfill is many bounded chunks, not one call (docs/decisions/0019) --
-  // the browser drives repetition since there's no background scheduler.
-  async function sync() {
-    setSyncing(true)
-    let done = false
-    while (!done) {
-      const { data, error } = await supabase.functions.invoke('ingest-weather', {
-        body: { source_id: source.id },
-      })
-      if (error) break
-      done = (data as { done?: boolean } | null)?.done ?? true
-    }
-    setSyncing(false)
     onChanged()
   }
 
@@ -115,9 +101,6 @@ function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () =>
         {source.last_warning && <p className="warning">{source.last_warning}</p>}
       </div>
       <div className="data-source-actions">
-        <button type="button" onClick={sync} disabled={syncing}>
-          {syncing ? 'Syncing...' : 'Sync now'}
-        </button>
         <button type="button" onClick={remove} className="data-source-remove">
           Remove
         </button>
