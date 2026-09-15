@@ -13,6 +13,134 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-15
+
+This milestone draws a line this project hadn't needed before: what's
+Growdy's own data, and what's the world outside it. Everything in this
+batch either builds one side of that line or tests it against real use --
+external data channels for weather, location, and phenology on one side;
+a first non-chat surface for the producer's own parcels, rows, and
+observations on the other; and, in between, the same discipline this
+project always applies to a fixed menu of anything -- prove the pattern
+once, then generalize it -- applied here to entire data sources instead
+of query shapes or schema columns.
+
+It starts smaller than that, though: a handful of mobile-web fixes that
+had nothing to do with any of it -- the whole page no longer scrolls when
+only the chat should, and the composer got slimmer (#86); `#root` now
+sizes itself to the true visual viewport instead of the layout one, so an
+iOS keyboard doesn't leave a dead gap at the bottom (#87); decorative
+clouds now draw behind chat content instead of in front of it (#88); and
+a stray drop shadow on the wordmark is gone (#89) -- the kind of rough
+edges that don't block anything but do make an app feel unfinished every
+time they're seen. Chat also stopped guessing at the schema from a bare
+table list and started reading real column comments and foreign keys
+directly (#90), a small change that mattered more once the schema was
+about to grow.
+
+The main arc starts from a question `docs/vision.md` had named but never
+designed: real vineyard questions often need more than what's already
+tracked, and Growdy had no way to bring outside data in at all.
+[`0019`](docs/decisions/0019-external-data-channels.md) (#92) is that
+design, deliberately built around one real first case -- Tempest weather
+station telemetry -- rather than a general integration platform designed
+ahead of any real source: a `Category -> Provider -> Source` taxonomy
+where a category and provider are ours to add (real integration code
+against a real API), and a source is the only thing a producer adds
+themselves, against an existing provider, supplying only their own
+credentials. `data_providers`, `data_sources`, and `weather_observations`
+shipped as additive schema first (#93), followed by an `ingest-weather`
+Edge Function that never touches `service_role` -- it authenticates as
+the caller's own forwarded JWT, the same pattern `chat` already used, and
+a producer's Tempest API key lives in Supabase Vault, reachable only
+through two narrowly-scoped `SECURITY DEFINER` functions (#94), one of
+which needed a real fix within a day of shipping: `CREATE FUNCTION`
+grants `EXECUTE` to `PUBLIC` by default, and both had been missed (#95).
+The chat learned to surface weather as real per-channel context (#96),
+and a screen to add, toggle, sync, and remove a source shipped alongside
+it (#97) -- at which point `0019` was marked accepted against what
+actually shipped, including a full data-model diagram update (#98).
+
+Real use immediately showed the trade-off `0019` had named out loud --
+weather only refreshing while someone had the app open -- wasn't
+acceptable, so [`0020`](docs/decisions/0020-scheduled-weather-sync.md)
+brought back the `pg_cron` + `service_role` design `0019` had considered
+and rejected first, now that there was a real reason to: one Edge
+Function, `sync-scheduled-weather`, the only place in this project that
+uses `service_role`, invoked hourly, authorized by a random secret minted
+into Vault at migration time that no human ever sees or types (#100).
+Standing that up for real surfaced exactly the kind of gaps a
+never-actually-run scheduled job hides by design: real grant gaps and a
+self-serve station-ID resolution flow so a producer never has to know
+Tempest's internal device-ID concept (#101), a structural warning that
+repeated itself thousands of times instead of being deduped (#102), a
+stale-source backfill bug plus a cron timeout that was simply too short
+(#103), and a non-numeric `observed_at` that aborted an entire chunk
+instead of just the one bad reading (#104) -- each fixed as a bug in what
+the ingestion code actually does, the same discipline `0.7.0` wrote into
+`CONTRIBUTING.md` for the chat's own tools, now proven out on a scheduled
+job instead of a model.
+
+With one real provider proven end to end, the taxonomy itself needed to
+be a real, navigable thing rather than a backend concept -- "Data
+Channels" became "Knowledge Categories" (also fixing an invisible close
+button, #105), the backfill floor changed from an arbitrary five years to
+Tempest's own real 2019 launch date (#106), and the screen became a real
+`Category -> Provider -> Source` drill-down instead of a flat add-source
+form (#107). Then the taxonomy got tested against two sources that don't
+look anything like Tempest: `location`, whose one provider is `Device` --
+a producer's own browser geolocation, permission-based, no credential,
+named `Device` specifically because a second, external-receiver provider
+(`Trimble`) is expected later -- and `phenology`, whose provider is the
+USA National Phenology Network, queried live per question against real
+field-reported grapevine observations rather than a gridded model or a
+synced table, with its full name used deliberately instead of the
+acronym (#109, #112). Neither needed the credentialed add-source form at
+all, which the UI hadn't accounted for -- a source with nothing to type
+in got its own plain "Enable" flow instead of Tempest's Label/Station
+ID/API key form asking for credentials that don't exist (#115).
+
+The chat also picked up a real second output shape: a fenced `svg` code
+block renders as an actual picture, sanitized before it ever reaches
+`dangerouslySetInnerHTML` the same way any other untrusted content this
+project surfaces would be (#110), which then needed a way to see one at
+actual size instead of squeezed into a chat bubble -- tap to enlarge
+full-screen, one sanitize call reused for both sizes (#114). The
+Knowledge Categories menu icon went through two real rounds before it
+read as a book rather than a window or a cabinet (#111, #113), and the
+chat input's placeholder text finally just says "Ask a question" (#108).
+
+The last new thread doesn't touch the chat at all: tapping the sprout
+icon now opens a floating menu of features that live outside it
+entirely, on purpose, starting with two. A structured observation-entry
+form writes straight to `observations` using its existing columns as
+real form widgets, still landing as `pending` for the same human-review
+gate chat-submitted rows always went through; and a read-only browser
+walks a producer's own parcel -> plot -> row -> planting structure,
+scoped to currently-active plantings so a row's full replant history
+doesn't clutter what's actually out there right now. Both are
+deliberately kept off the Knowledge Categories screen: that taxonomy is
+for external reference channels, while a producer's own core vineyard
+data and their own field notes stay on this new, separate menu instead
+(#116). Building the first of the two also surfaced a genuine browser
+quirk worth naming: wrapping a multi-button custom control in a plain
+`<label>` lets the browser's own label-click-forwarding fire a second,
+synthetic click on whatever ends up first in the DOM after a re-render --
+here, undoing a selection immediately after making it -- fixed by not
+using `<label>` for anything more complex than one simple input.
+
+Closing this batch out the same way `0.7.0` closed the last one: the
+release checklist itself found two things nobody had noticed. `pg_net`,
+enabled for the scheduled-sync work, had landed in the `public` schema
+instead of `extensions` -- every other extension in this project already
+followed that convention, this one just hadn't been given a schema
+explicitly. And `docs/architecture.md`, last updated when this project
+had exactly one Edge Function and one external API, hadn't been touched
+since -- it now reflects all four Edge Functions, three external APIs,
+and the scheduled job that ties them together, with the version it
+replaces kept in the file's own History section rather than only
+reachable through `git log -p`.
+
 ## [0.7.0] - 2026-09-14
 
 This milestone is the chat's second real redesign, and it starts from a

@@ -25,17 +25,35 @@ flowchart TD
     subgraph Supabase["Supabase project: growdybase"]
         Auth["Auth -- Google Sign-In"]
         DB["Postgres<br/>tables + views, RLS-scoped"]
-        EdgeFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY"]
+        Cron["pg_cron + pg_net<br/>hourly schedule"]
+        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY"]
+        AddWeatherFn["Edge Function: add-weather-source"]
+        IngestFn["Edge Function: ingest-weather"]
+        SyncFn["Edge Function: sync-scheduled-weather<br/>the only service_role caller"]
     end
 
     GH -->|"migration files, applied manually after merge"| DB
-    GH -->|"function code, deployed manually after merge"| EdgeFn
+    GH -->|"function code, deployed manually after merge"| ChatFn
+    GH --> AddWeatherFn
+    GH --> IngestFn
+    GH --> SyncFn
+
     App -->|sign in| Auth
-    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check"| DB
-    App -->|"user message"| EdgeFn
-    EdgeFn -->|"composed reply"| App
-    EdgeFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
-    EdgeFn <-->|"messages + one SQL tool <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources"| DB
+    App -->|"user message"| ChatFn
+    ChatFn -->|"composed reply"| App
+    ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    ChatFn <-->|"messages + read-only SQL + phenology tools <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    ChatFn -->|"live grapevine phenology lookup"| USANPN["USA National Phenology<br/>Network API"]
+    App -->|"add a Tempest source"| AddWeatherFn
+    AddWeatherFn <-->|"caller's forwarded JWT"| DB
+    AddWeatherFn -->|"resolve station ID -> device ID"| Tempest["Tempest Weather API"]
+    App -->|"manual sync"| IngestFn
+    IngestFn <-->|"caller's forwarded JWT"| DB
+    IngestFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, hourly"| SyncFn
+    SyncFn <-->|"service_role -- every enabled source at once"| DB
+    SyncFn -->|"fetch station history"| Tempest
 ```
 
 ## Reading this diagram
@@ -51,26 +69,49 @@ flowchart TD
   are: the app has no secrets and nothing to lose by shipping instantly;
   Supabase holds real producer data and the only API key this project
   has, so nothing reaches it without a human merging first.
-- **The Edge Function now does touch the database** -- a deliberate
-  change from how this looked before (see the History section below).
-  It builds its own per-request Postgres client from the caller's
-  forwarded JWT, never the service role key, so every query it runs is
-  RLS-scoped exactly as if the browser ran it directly. See
-  [`docs/decisions/0016`](decisions/0016-chat-queries-directly.md) for
-  why, and the comment at the top of
-  [`supabase/functions/chat/index.ts`](../supabase/functions/chat/index.ts).
-- **The app's own direct connection to the database is narrower than it
-  looks** -- auth, the producer-id lookup, conversation-history logging
-  (`docs/decisions/0011`), and the `app_status` poll (`docs/decisions/0017`).
-  Every actual question about vineyard data goes through the Edge
-  Function now, which writes and runs its own SQL against Postgres
-  rather than the client resolving a fixed set of query shapes.
+- **Four Edge Functions now, not one**, each scoped to exactly what it
+  needs: `chat` and `ingest-weather` and `add-weather-source` all build
+  their own per-request Postgres client from the caller's forwarded JWT,
+  never the service role key, so every query they run is RLS-scoped
+  exactly as if the browser ran it directly (see
+  [`docs/decisions/0016`](decisions/0016-chat-queries-directly.md) and
+  the comment at the top of
+  [`supabase/functions/_shared/supabaseClient.ts`](../supabase/functions/_shared/supabaseClient.ts)).
+  `sync-scheduled-weather` is the one deliberate exception -- the only
+  place in this project that uses `service_role`, because nobody is
+  signed in when `pg_cron` fires it once an hour -- see
+  [`docs/decisions/0020`](decisions/0020-scheduled-weather-sync.md).
+- **Three external APIs now, not one.** Alongside Anthropic, `chat` also
+  calls the USA National Phenology Network's public API directly, live,
+  per question -- no ingestion, nothing stored locally, since it's a
+  shared dataset queried at chat-time rather than a per-producer feed
+  (see [`docs/decisions/0019`](decisions/0019-external-data-channels.md)'s
+  prediction that a future source would need a genuinely different
+  shape). Tempest is called from three different places for two different
+  reasons: `add-weather-source` resolves a producer-entered station ID to
+  the device ID Tempest's observations endpoint actually requires,
+  `ingest-weather` backfills/refreshes on a producer's own manual action,
+  and `sync-scheduled-weather` does the same on `pg_cron`'s hourly clock
+  -- but the actual fetch/parse/validate/upsert logic lives once, in
+  `_shared/weatherIngest.ts`, not duplicated across the two ingestion
+  paths.
+- **The app's own direct connection to the database covers more ground
+  than it used to** -- auth, the producer-id lookup, conversation-history
+  logging (`docs/decisions/0011`), the `app_status` poll
+  (`docs/decisions/0017`), Knowledge Categories' source management, and
+  now the sprout menu's two features: browsing the producer's own
+  parcel/plot/row/planting structure read-only, and entering a structured
+  observation directly -- both deliberately outside the chat/model path
+  entirely, going straight to Postgres under the producer's own RLS
+  session. Every actual *question* about vineyard data still goes through
+  `chat`, which writes and runs its own SQL against Postgres rather than
+  the client resolving a fixed set of query shapes.
 - **Supabase Storage isn't in this diagram.** It's listed in
   `README.md`'s stack table as a future concern for photo attachments,
   but no bucket exists yet and nothing in the app uses it --
   deliberately deferred, see
   [`docs/decisions/0009`](decisions/0009-chat-based-observation-submission.md).
-- **CI is independent of both deploy paths.** `db-lint` runs against a
+- **CI is independent of every deploy path.** `db-lint` runs against a
   disposable local Postgres on every PR that touches a migration; it
   never touches the live `growdybase` project either way.
 - **Every open tab also polls one small status check** -- a build-time
@@ -81,6 +122,47 @@ flowchart TD
   [`docs/decisions/0017`](decisions/0017-app-status-forces-refresh.md).
 
 ## History
+
+### 2026-09-15 -- before external data channels and scheduled sync ([0019](decisions/0019-external-data-channels.md), [0020](decisions/0020-scheduled-weather-sync.md))
+
+The diagram above gained three Edge Functions (`add-weather-source`,
+`ingest-weather`, `sync-scheduled-weather`), `pg_cron`/`pg_net`, and two
+external APIs (Tempest, USA National Phenology Network). Before that, the
+whole system had exactly one Edge Function and one external API:
+
+```mermaid
+flowchart TD
+    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
+    CI["db-lint CI<br/>fresh local Postgres per PR"]
+    Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
+    Browser["Producer's browser"]
+
+    GH -->|every PR touching migrations| CI
+    GH -->|"push to main: auto-deploy"| Vercel
+    Browser -->|loads| Vercel
+
+    subgraph App["app/ -- React + Vite, no server of its own"]
+        Client["Client"]
+    end
+    Vercel --> App
+
+    subgraph Supabase["Supabase project: growdybase"]
+        Auth["Auth -- Google Sign-In"]
+        DB["Postgres<br/>tables + views, RLS-scoped"]
+        EdgeFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY"]
+    end
+
+    GH -->|"migration files, applied manually after merge"| DB
+    GH -->|"function code, deployed manually after merge"| EdgeFn
+    App -->|sign in| Auth
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check"| DB
+    App -->|"user message"| EdgeFn
+    EdgeFn -->|"composed reply"| App
+    EdgeFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    EdgeFn <-->|"messages + one SQL tool <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+```
+
+### Before 0016: client resolves, Edge Function never touches the database
 
 The chat's shape changed materially in `0016` -- worth keeping the
 prior diagram visible rather than only in `git log -p`, per this file's
