@@ -149,6 +149,62 @@ function DeviceLocationPanel({
   )
 }
 
+// USA National Phenology Network is one shared public dataset, identical
+// for every producer -- no personal account, no station, no credential to
+// enter (confirmed against USA-NPN's own docs: access is honor-system, a
+// plain request_source string, not a key). Nothing here needs its own
+// name/id/secret fields -- there's exactly one thing to toggle on. The
+// chat's get_grape_phenology tool checks this same enabled row before
+// querying USA-NPN, so the toggle actually controls something rather
+// than being UI with no effect.
+function EnableProviderPanel({
+  provider,
+  source,
+  onChanged,
+}: {
+  provider: DataProvider
+  source: DataSource | null
+  onChanged: () => void
+}) {
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function enable() {
+    setSubmitting(true)
+    setError(null)
+    const { error } = await supabase.rpc('add_data_source', {
+      p_provider_id: provider.id,
+      p_name: provider.name,
+      p_external_id: 'default',
+    })
+    setSubmitting(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    onChanged()
+  }
+
+  if (source) {
+    return (
+      <ul className="data-source-list">
+        <SourceRow source={source} onChanged={onChanged} />
+      </ul>
+    )
+  }
+
+  return (
+    <div className="data-source-form">
+      <h3>{provider.name}</h3>
+      <p className="data-source-status-line">A shared public dataset -- no account or credential needed, just enable it.</p>
+      {error && <p className="error">{error}</p>}
+      <button type="button" onClick={enable} disabled={submitting}>
+        {submitting ? 'Enabling...' : `Enable ${provider.name}`}
+      </button>
+    </div>
+  )
+}
+
 function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () => void }) {
   async function toggle() {
     await supabase.from('data_sources').update({ enabled: !source.enabled }).eq('id', source.id)
@@ -261,7 +317,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
           <DeviceLocationPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
         )}
 
-        {provider && provider.name !== 'Device' && (
+        {provider && provider.name === 'USA National Phenology Network' && (
+          <EnableProviderPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
+        )}
+
+        {provider && provider.name !== 'Device' && provider.name !== 'USA National Phenology Network' && (
           <>
             {sources === null && <p className="history-empty">Loading...</p>}
             {sources !== null && providerSources.length === 0 && <p className="history-empty">No sources added yet.</p>}
