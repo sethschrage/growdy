@@ -8,12 +8,22 @@ export type DataProvider = {
   enabled: boolean
 }
 
+// Shape used only by the "Device" provider's config -- a geolocation
+// reading has no credential and no backfill, just the latest known
+// position, overwritten in place each time it's refreshed.
+export type DeviceLocationConfig = {
+  latitude: number
+  longitude: number
+  captured_at: string
+}
+
 export type DataSource = {
   id: string
   provider_id: string
   name: string
   external_id: string
   enabled: boolean
+  config: DeviceLocationConfig | Record<string, unknown> | null
   backfill_status: 'pending' | 'in_progress' | 'complete' | null
   last_synced_at: string | null
   last_error: string | null
@@ -34,7 +44,7 @@ export function useDataSources() {
       supabase
         .from('data_sources')
         .select(
-          'id, provider_id, name, external_id, enabled, backfill_status, last_synced_at, last_error, last_warning',
+          'id, provider_id, name, external_id, enabled, config, backfill_status, last_synced_at, last_error, last_warning',
         )
         .order('created_at', { ascending: false }),
     ])
