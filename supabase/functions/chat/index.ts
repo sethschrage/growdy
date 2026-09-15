@@ -151,6 +151,98 @@ const EXECUTE_READONLY_QUERY_TOOL = {
   },
 };
 
+const GET_GRAPE_PHENOLOGY_TOOL = {
+  name: "get_grape_phenology",
+  description:
+    "Look up real field-reported grapevine (Vitis vinifera) growth-stage data -- bud break, flowering, veraison, ripe fruit, and the other USA National Phenology Network phenophases -- observed near the producer's own vineyard within a date range. Uses the location saved under Knowledge Categories -> Location -> Device; if none is set, this returns an error explaining that instead of data, which you should relay to the producer rather than treating as a bug. These are real observer reports, not a model -- they're sparse, so a narrow window can come back empty even when nothing is wrong. Give it a real window (a couple of weeks on either side of the date in question is a reasonable start) and widen start_date/end_date and retry before concluding there's no nearby data, the same way you'd broaden a SQL search.",
+  input_schema: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", description: "YYYY-MM-DD" },
+      end_date: { type: "string", description: "YYYY-MM-DD" },
+    },
+    required: ["start_date", "end_date"],
+  },
+};
+
+const USANPN_BASE = "https://services.usanpn.org/npn_portal/";
+// Honor-system self-identification USA-NPN's API asks callers for --
+// same disclosure style the rnpn R client uses in its own requests.
+const USANPN_REQUEST_SRC = "growdy vineyard app (https://github.com/sethschrage/growdy)";
+
+// Cached per warm isolate, not per request -- USA-NPN's full species list
+// is large and static; looking it up once per cold start is enough. Only
+// Vitis vinifera is ever needed here, so this stays a single cached id
+// rather than a general species-lookup cache.
+let cachedVitisViniferaSpeciesId: number | null = null;
+
+async function getVitisViniferaSpeciesId(): Promise<number> {
+  if (cachedVitisViniferaSpeciesId !== null) return cachedVitisViniferaSpeciesId;
+  const response = await fetch(`${USANPN_BASE}species/getSpecies.json`);
+  if (!response.ok) throw new Error(`USA-NPN species lookup failed (${response.status})`);
+  const species = (await response.json()) as Record<string, unknown>[];
+  const match = species.find((s) => {
+    const genus = String(s.genus ?? "").toLowerCase();
+    const sp = String(s.species ?? "").toLowerCase();
+    return genus === "vitis" && sp === "vinifera";
+  });
+  if (!match) throw new Error("Vitis vinifera not found in USA-NPN's species list");
+  const id = Number(match.species_id);
+  if (!Number.isFinite(id)) throw new Error("USA-NPN species list returned a non-numeric species_id");
+  cachedVitisViniferaSpeciesId = id;
+  return id;
+}
+
+// Reads the producer's own Device location (RLS-scoped via the caller's
+// forwarded JWT, same as every other query this function runs) and, if
+// set, queries USA-NPN for real grapevine phenophase observations in a
+// bounding box around it -- roughly a regional "nearby", not hyper-local
+// (0.5 degrees is ballpark 35-55km depending on latitude).
+async function fetchGrapePhenology(supabase: SupabaseClient, startDate: string, endDate: string): Promise<unknown> {
+  const { data: providerRow, error: providerError } = await supabase
+    .from("data_providers")
+    .select("id")
+    .eq("category", "location")
+    .eq("name", "Device")
+    .maybeSingle();
+  if (providerError) throw new Error(providerError.message);
+  if (!providerRow) throw new Error("no 'Device' location provider configured");
+
+  const { data: sourceRow, error: sourceError } = await supabase
+    .from("data_sources")
+    .select("config")
+    .eq("provider_id", providerRow.id)
+    .limit(1)
+    .maybeSingle();
+  if (sourceError) throw new Error(sourceError.message);
+
+  const config = sourceRow?.config as { latitude?: number; longitude?: number } | null;
+  if (config?.latitude == null || config?.longitude == null) {
+    throw new Error(
+      "No device location set yet -- ask the producer to open Knowledge Categories -> Location -> Device and enable location, then try again.",
+    );
+  }
+
+  const speciesId = await getVitisViniferaSpeciesId();
+  const delta = 0.5;
+  const params = new URLSearchParams({
+    request_src: USANPN_REQUEST_SRC,
+    start_date: startDate,
+    end_date: endDate,
+    "species_id[1]": String(speciesId),
+    bottom_left_x1: String(config.longitude - delta),
+    bottom_left_y1: String(config.latitude - delta),
+    upper_right_x2: String(config.longitude + delta),
+    upper_right_y2: String(config.latitude + delta),
+  });
+
+  const response = await fetch(`${USANPN_BASE}observations/getObservations.json?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`USA-NPN API error (${response.status}): ${await response.text()}`);
+  }
+  return response.json();
+}
+
 function buildSystemPrompt(schemaDescription: string, dataChannelContext: string) {
   return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
 
@@ -165,6 +257,8 @@ ${dataChannelContext}
 similarity(column, 'term') > 0.3 (pg_trgm) tolerates a misspelling a plain substring search would miss.
 
 You can render an actual picture instead of (or alongside) prose or a table, whenever a real image would answer the question better than words would -- a chart, a diagram, an illustration, whatever fits. To do this, include a fenced code block tagged svg containing valid, self-contained SVG markup (give it a viewBox; don't reference external resources). You decide what to draw and how -- there's no fixed set of chart types to pick from.
+
+For a question about what growth stage the grapes should be at, or general grapevine phenology (bud break, flowering, veraison, ripe fruit) around a given date, use the get_grape_phenology tool for real nearby field observations instead of answering from general knowledge -- it knows what's actually been reported near this vineyard, which is more useful than a generic seasonal guess.
 
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
@@ -181,7 +275,7 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string, incl
       model: MODEL,
       max_tokens: 4096,
       system: systemPrompt,
-      ...(includeTools ? { tools: [EXECUTE_READONLY_QUERY_TOOL] } : {}),
+      ...(includeTools ? { tools: [EXECUTE_READONLY_QUERY_TOOL, GET_GRAPE_PHENOLOGY_TOOL] } : {}),
       messages: conversation,
     }),
   });
@@ -207,17 +301,36 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
     conversation.push({ role: "assistant", content: data.content });
 
     const toolResults = await Promise.all(
-      toolUses.map(async (toolUse: { id: string; input: { query: string } }) => {
-        console.log(`chat tool call (iteration ${i + 1}): ${toolUse.input.query}`);
-        const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
-          query: toolUse.input.query,
-        });
-        if (error) console.error(`chat tool call failed: ${error.message}`);
+      toolUses.map(async (toolUse: { id: string; name: string; input: Record<string, unknown> }) => {
+        console.log(`chat tool call (iteration ${i + 1}): ${toolUse.name} ${JSON.stringify(toolUse.input)}`);
+        let content: unknown;
+        let isError = false;
+        try {
+          if (toolUse.name === "execute_readonly_query") {
+            const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
+              query: toolUse.input.query as string,
+            });
+            if (error) throw new Error(error.message);
+            content = rows ?? [];
+          } else if (toolUse.name === "get_grape_phenology") {
+            content = await fetchGrapePhenology(
+              supabase,
+              toolUse.input.start_date as string,
+              toolUse.input.end_date as string,
+            );
+          } else {
+            throw new Error(`unknown tool: ${toolUse.name}`);
+          }
+        } catch (err) {
+          console.error(`chat tool call failed (${toolUse.name}): ${err}`);
+          content = { error: String(err) };
+          isError = true;
+        }
         return {
           type: "tool_result",
           tool_use_id: toolUse.id,
-          content: error ? JSON.stringify({ error: error.message }) : JSON.stringify(rows ?? []),
-          is_error: Boolean(error),
+          content: JSON.stringify(content),
+          is_error: isError,
         };
       }),
     );
