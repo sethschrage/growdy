@@ -15,3 +15,14 @@ export function createUserScopedClient(req: Request): SupabaseClient {
     { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
   );
 }
+
+// Builds a Postgres client authenticated as service_role -- bypasses RLS
+// entirely, scoped to no one user. This is real elevated privilege, not a
+// convenience: call it only from sync-scheduled-weather (see
+// docs/decisions/0020), the one deliberately-narrow, cross-producer code
+// path in this project that has an actual reason to see every producer's
+// rows. Never call this from anything a browser can trigger.
+export function createAdminClient(): SupabaseClient {
+  const secretKey = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")!)["default"];
+  return createClient(Deno.env.get("SUPABASE_URL")!, secretKey);
+}
