@@ -386,7 +386,8 @@ body {
   max-width: 100%;
   max-height: 480px;
   overflow: hidden;
-  margin: 0 0 8px;
+  margin: 0;
+  cursor: zoom-in;
 }
 
 .chat-graphic svg {
@@ -395,11 +396,62 @@ body {
   display: block;
 }
 
+.chat-graphic-hint {
+  margin: 2px 0 8px;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.65;
+}
+
 .chat-graphic-fallback {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 13px;
   margin: 0 0 8px;
+}
+
+.chat-graphic-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.chat-graphic-overlay-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--cream);
+  font-size: 32px;
+  line-height: 1;
+  padding: 4px 8px;
+  z-index: 1;
+}
+
+.chat-graphic-overlay-close:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.chat-graphic-overlay-content {
+  max-width: 100%;
+  max-height: 100%;
+  cursor: default;
+}
+
+.chat-graphic-overlay-content svg {
+  max-width: 100%;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  width: auto;
+  height: auto;
+  display: block;
 }
 
 .chat-thinking {
