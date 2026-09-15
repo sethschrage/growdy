@@ -121,6 +121,7 @@ export function Chat({
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a question"
           aria-label="Ask a question about your vineyard"
         />
         <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
