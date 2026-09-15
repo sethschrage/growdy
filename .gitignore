@@ -7,3 +7,6 @@ node_modules/
 supabase/.branches
 supabase/.temp
 
+# Private planning doc, not part of the public repo -- see docs/vision.md
+docs/vision.md
+
