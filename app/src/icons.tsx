@@ -308,40 +308,54 @@ export function PixelX({ size = 14 }: { size?: number }) {
   )
 }
 
-// An open book: two pages fanning up and out from a spine along the
-// bottom -- the menu icon for the Knowledge Categories screen,
-// docs/decisions/0019. Tried a closed-book (spine + cover) design first;
-// a symmetric center-split rectangle read as a window/cabinet, and an
-// asymmetric single-spine version still didn't read as a book at 18px.
-// Compared four real candidates rendered at large scale before picking
-// this one -- the wedge/valley shape reads clearly as an open book, where
-// the others didn't.
-const BOOK_CELLS = [
-  [0, 0],
-  [6, 0],
-  [0, 1],
-  [1, 1],
+// Three connected nodes -- the menu icon for the Knowledge Categories
+// screen, docs/decisions/0019 -- reading as "connections" rather than a
+// literal book. Two earlier book designs (a closed spine+cover, then an
+// open-book wedge) both stopped reading clearly at actual button size.
+// Deliberately not an X-crossing or checkmark shape, since those already
+// mean "negative"/"positive" feedback elsewhere in this icon set --
+// three nodes branching from one point avoids that collision while still
+// reading as "linked together" at 18px.
+const NETWORK_CELLS = [
+  [3, 0],
+  [4, 0],
+  [5, 0],
+  [3, 1],
+  [4, 1],
   [5, 1],
-  [6, 1],
-  [0, 2],
-  [1, 2],
-  [2, 2],
+  [3, 2],
   [4, 2],
   [5, 2],
-  [6, 2],
-  [0, 3],
-  [1, 3],
-  [2, 3],
-  [3, 3],
   [4, 3],
-  [5, 3],
-  [6, 3],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [2, 5],
+  [6, 5],
+  [0, 6],
+  [1, 6],
+  [2, 6],
+  [6, 6],
+  [7, 6],
+  [8, 6],
+  [0, 7],
+  [1, 7],
+  [2, 7],
+  [6, 7],
+  [7, 7],
+  [8, 7],
+  [0, 8],
+  [1, 8],
+  [2, 8],
+  [6, 8],
+  [7, 8],
+  [8, 8],
 ] as const
 
-export function PixelBook({ size = 18 }: { size?: number }) {
+export function PixelNetwork({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 4" shapeRendering="crispEdges" aria-hidden="true">
-      {BOOK_CELLS.map(([x, y]) => (
+    <svg width={size} height={size} viewBox="0 0 9 9" shapeRendering="crispEdges" aria-hidden="true">
+      {NETWORK_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
     </svg>
@@ -390,7 +404,7 @@ const GRID_CELLS = [
 ] as const
 
 // The sprout menu's "your vineyard data" button -- rows of dots reading as
-// planted positions in a row, distinct from PixelBook's Knowledge
+// planted positions in a row, distinct from PixelNetwork's Knowledge
 // Categories (external reference sources) -- this is the producer's own
 // internal parcel/plot/row/planting data.
 export function PixelGrid({ size = 20 }: { size?: number }) {

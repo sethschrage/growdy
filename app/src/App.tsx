@@ -8,7 +8,6 @@ import { ObservationForm } from './ObservationForm'
 import { ProducerDataView } from './ProducerDataView'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
-  PixelBook,
   PixelBunSlice,
   PixelBurger,
   PixelCloud,
@@ -16,6 +15,7 @@ import {
   PixelExit,
   PixelGrid,
   PixelHistory,
+  PixelNetwork,
   PixelPlus,
   PixelSprout,
   PixelToppingSlice,
@@ -114,7 +114,14 @@ function AccountMenu({
   useEffect(() => {
     if (!open) return
     function handleClick(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      // composedPath(), not contains(event.target) -- the toggle button
+      // swaps its own icon on this same click (burger -> bun-slice), which
+      // removes event.target from the DOM before this handler runs. A
+      // detached node is never "contained" by anything, even its former
+      // parent, so contains() would read every open-click as outside and
+      // close the menu immediately. composedPath() is captured at dispatch
+      // time, before that swap, so it still reflects the real ancestry.
+      if (ref.current && !event.composedPath().includes(ref.current)) {
         setOpen(false)
       }
     }
@@ -126,11 +133,17 @@ function AccountMenu({
     <div className="app-menu" ref={ref}>
       <button
         type="button"
-        className={`app-menu-toggle${open ? ' app-menu-toggle--open' : ''}`}
-        aria-label="Menu"
+        className="app-menu-toggle"
+        aria-label={open ? 'Close menu' : 'Menu'}
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <PixelBurger size={30} />
+        {/* Open state shows the bar's own trailing bun-slice instead of
+            the closed burger -- the toggle IS that last bun once the
+            burger's "layers" have spread out, not a separate rotated
+            icon sitting next to them. The bar itself only draws the
+            leading bun-slice now; this is the trailing one. */}
+        {open ? <PixelBunSlice className="menu-bun" /> : <PixelBurger size={30} />}
       </button>
       {open && (
         <div className="app-menu-bar" role="menu" aria-label={`Account menu for ${email}`}>
@@ -169,7 +182,7 @@ function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelBook size={18} />
+            <PixelNetwork size={18} />
           </button>
           <PixelToppingSlice className="menu-topping" />
           <button
@@ -183,7 +196,6 @@ function AccountMenu({
           >
             <PixelExit size={18} />
           </button>
-          <PixelBunSlice className="menu-bun" />
         </div>
       )}
     </div>
@@ -208,7 +220,9 @@ function SproutMenu({
   useEffect(() => {
     if (!open) return
     function handleClick(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      // See AccountMenu's identical handler for why this is
+      // composedPath() rather than contains(event.target).
+      if (ref.current && !event.composedPath().includes(ref.current)) {
         setOpen(false)
       }
     }
