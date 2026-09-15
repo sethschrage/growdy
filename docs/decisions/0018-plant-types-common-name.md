@@ -1,6 +1,6 @@
 # 0018. plant_types.common_name, so a clone code resolves to its variety
 
-**Status:** proposed
+**Status:** accepted
 
 ## Context
 
