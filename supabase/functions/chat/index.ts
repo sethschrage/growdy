@@ -20,16 +20,13 @@
 // its rows are real field-note data, not something this removal affects.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+import { createUserScopedClient } from "../_shared/supabaseClient.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
 const MAX_TOOL_ITERATIONS = 15;
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // The tables/views worth describing to the model up front. Keep this list
 // in sync with what buildSystemPrompt actually tells the model to use --
@@ -201,15 +198,8 @@ Deno.serve(async (req: Request) => {
     // Never construct a client with a secret/service-role key here --
     // forwarding the caller's own JWT is what keeps every query RLS-scoped
     // to exactly the signed-in producer, the same as if the browser ran it
-    // directly. The publishable key (same key family the app itself uses
-    // client-side) only sets the apikey header; it grants nothing on its
-    // own without a valid Authorization.
-    const publishableKey = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")!)["default"];
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      publishableKey,
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
-    );
+    // directly (see _shared/supabaseClient.ts).
+    const supabase = createUserScopedClient(req);
 
     const systemPrompt = buildSystemPrompt(await fetchSchemaDescription(supabase));
     const result = await runAgentLoop([...messages], supabase, systemPrompt);
