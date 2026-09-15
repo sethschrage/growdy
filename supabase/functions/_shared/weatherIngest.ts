@@ -64,7 +64,12 @@ export type WeatherSource = {
 // docs/decisions/0019) to named, range-validated fields. A field failing
 // its plausibility range is nulled out and named in the returned warnings
 // -- a bad field doesn't discard the rest of an otherwise-good reading.
-function parseReading(obs: unknown[]): { reading: ParsedReading; warnings: string[] } {
+// observed_at gets the same treatment: a non-numeric epoch would otherwise
+// throw inside `new Date(...).toISOString()`, which (unlike every other
+// field's graceful null-and-warn) would abort the *entire* chunk instead
+// of just this one reading -- reading is null here specifically so the
+// caller can skip just this reading and keep the rest of the chunk.
+function parseReading(obs: unknown[]): { reading: ParsedReading | null; warnings: string[] } {
   const warnings: string[] = [];
 
   function field(index: number, name: string, range?: [number, number]): number | null {
@@ -82,10 +87,16 @@ function parseReading(obs: unknown[]): { reading: ParsedReading; warnings: strin
     return num;
   }
 
+  const epochSeconds = Number(obs[0]);
+  if (!Number.isFinite(epochSeconds)) {
+    warnings.push(`observed_at: non-numeric value ${JSON.stringify(obs[0])}`);
+    return { reading: null, warnings };
+  }
+
   const precipType = field(13, "precip_type");
 
   const reading: ParsedReading = {
-    observed_at: new Date(Number(obs[0]) * 1000).toISOString(),
+    observed_at: new Date(epochSeconds * 1000).toISOString(),
     wind_lull: field(1, "wind_lull", FIELD_RANGES.wind_lull),
     wind_avg: field(2, "wind_avg", FIELD_RANGES.wind_avg),
     wind_gust: field(3, "wind_gust", FIELD_RANGES.wind_gust),
@@ -201,16 +212,22 @@ export async function syncWeatherSourceChunk(
   }
 
   const warnings: string[] = [];
-  const rowsToUpsert = obsRows.map((obs) => {
-    if (obs.length !== RAW_OBS_FIELD_COUNT) {
-      warnings.push(
-        `observation array had ${obs.length} fields, expected ${RAW_OBS_FIELD_COUNT} -- Tempest's response shape may have changed`,
-      );
-    }
-    const { reading, warnings: fieldWarnings } = parseReading(obs);
-    warnings.push(...fieldWarnings);
-    return { source_id: source.id, producer_id: source.producer_id, ...reading };
-  });
+  const rowsToUpsert = obsRows
+    .map((obs) => {
+      if (obs.length !== RAW_OBS_FIELD_COUNT) {
+        warnings.push(
+          `observation array had ${obs.length} fields, expected ${RAW_OBS_FIELD_COUNT} -- Tempest's response shape may have changed`,
+        );
+      }
+      const { reading, warnings: fieldWarnings } = parseReading(obs);
+      warnings.push(...fieldWarnings);
+      // A reading with no usable timestamp is skipped entirely -- there's
+      // no row to upsert without one -- rather than letting it take the
+      // rest of the chunk down with it (see the comment on parseReading).
+      if (!reading) return null;
+      return { source_id: source.id, producer_id: source.producer_id, ...reading };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   if (rowsToUpsert.length > 0) {
     const { error: upsertError } = await supabase
@@ -255,7 +272,7 @@ export async function syncWeatherSourceChunk(
 
   return {
     done,
-    rows_processed: obsRows.length,
+    rows_processed: rowsToUpsert.length,
     backfill_status: (update.backfill_status as string | undefined) ?? source.backfill_status,
     backfill_cursor: (update.backfill_cursor as string | undefined) ?? source.backfill_cursor,
     last_synced_at: (update.last_synced_at as string | undefined) ?? source.last_synced_at,
