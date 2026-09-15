@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { useDataSources, type DataProvider, type DataSource } from './useDataSources'
+import { useDataSources, type DataProvider, type DataSource, type DeviceLocationConfig } from './useDataSources'
 
 function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded: () => void }) {
   const [name, setName] = useState('')
@@ -56,6 +56,96 @@ function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded:
         {submitting ? 'Adding...' : 'Add source'}
       </button>
     </form>
+  )
+}
+
+// "Device" is a permission grant + a live reading, not a credentialed
+// external API -- add_data_source accepts no secret for it (see
+// 20260915152830_add_data_source_secret_optional.sql), and there's
+// nothing to backfill. One row per producer for now; a second geolocation
+// provider (Trimble, an external receiver) will need its own panel shape
+// once it exists, since a hardware receiver's connection flow won't look
+// like a permission prompt.
+function DeviceLocationPanel({
+  provider,
+  source,
+  onChanged,
+}: {
+  provider: DataProvider
+  source: DataSource | null
+  onChanged: () => void
+}) {
+  const [status, setStatus] = useState<PermissionState | 'unsupported'>('unsupported')
+  const [requesting, setRequesting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!navigator.permissions?.query) return
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((result) => {
+        if (!cancelled) setStatus(result.state)
+      })
+      .catch(() => {
+        // Querying the 'geolocation' permission isn't supported in this
+        // browser -- status stays 'unsupported' until Enable is pressed.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function enable() {
+    setRequesting(true)
+    setError(null)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        setStatus('granted')
+        const config: DeviceLocationConfig = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          captured_at: new Date().toISOString(),
+        }
+        if (source) {
+          await supabase.from('data_sources').update({ config }).eq('id', source.id)
+        } else {
+          await supabase.rpc('add_data_source', {
+            p_provider_id: provider.id,
+            p_name: 'This device',
+            p_external_id: 'device',
+            p_config: config,
+          })
+        }
+        setRequesting(false)
+        onChanged()
+      },
+      (err) => {
+        setStatus(err.code === err.PERMISSION_DENIED ? 'denied' : status)
+        setError(err.message)
+        setRequesting(false)
+      },
+    )
+  }
+
+  const config = (source?.config ?? null) as DeviceLocationConfig | null
+  const statusLabel =
+    status === 'granted' ? 'Granted' : status === 'denied' ? 'Denied' : status === 'prompt' ? 'Not requested yet' : 'Unknown'
+
+  return (
+    <div className="data-source-form">
+      <h3>Device location</h3>
+      <p className="data-source-status-line">Permission: {statusLabel}</p>
+      {config && (
+        <p className="data-source-status-line">
+          Last known: {config.latitude.toFixed(5)}, {config.longitude.toFixed(5)} ({new Date(config.captured_at).toLocaleString()})
+        </p>
+      )}
+      {error && <p className="error">{error}</p>}
+      <button type="button" onClick={enable} disabled={requesting}>
+        {requesting ? 'Locating...' : config ? 'Refresh location' : 'Enable device location'}
+      </button>
+    </div>
   )
 }
 
@@ -167,7 +257,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
           </ul>
         )}
 
-        {provider && (
+        {provider && provider.name === 'Device' && (
+          <DeviceLocationPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
+        )}
+
+        {provider && provider.name !== 'Device' && (
           <>
             {sources === null && <p className="history-empty">Loading...</p>}
             {sources !== null && providerSources.length === 0 && <p className="history-empty">No sources added yet.</p>}

@@ -736,6 +736,12 @@ select {
   color: var(--wood-dark);
 }
 
+.data-source-status-line {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
 .history-overlay {
   position: fixed;
   inset: 0;
