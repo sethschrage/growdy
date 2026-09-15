@@ -39,9 +39,9 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
 
   return (
     <form className="data-source-form" onSubmit={handleSubmit}>
-      <h3>Add a channel</h3>
+      <h3>Add a data source</h3>
       <label>
-        Provider
+        Data Provider
         <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
@@ -64,7 +64,7 @@ function AddSourceForm({ providers, onAdded }: { providers: DataProvider[]; onAd
       </label>
       {error && <p className="error">{error}</p>}
       <button type="submit" disabled={submitting}>
-        {submitting ? 'Adding...' : 'Add channel'}
+        {submitting ? 'Adding...' : 'Add source'}
       </button>
     </form>
   )
@@ -117,14 +117,14 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
   return (
     <div className="data-sources-overlay">
       <div className="data-sources-header">
-        <h2>Data Channels</h2>
+        <h2>Knowledge Categories</h2>
         <button type="button" onClick={onClose} aria-label="Close" className="data-sources-close">
           &times;
         </button>
       </div>
       <div className="data-sources-body">
         {sources === null && <p className="history-empty">Loading...</p>}
-        {sources?.length === 0 && <p className="history-empty">No channels added yet.</p>}
+        {sources?.length === 0 && <p className="history-empty">No sources added yet.</p>}
         <ul className="data-source-list">
           {sources?.map((s) => (
             <SourceRow key={s.id} source={s} onChanged={refresh} />

@@ -159,7 +159,7 @@ function AccountMenu({
           <button
             type="button"
             className="menu-icon-button"
-            aria-label="Data Channels"
+            aria-label="Knowledge Categories"
             onClick={() => {
               onOpenDataSources()
               setOpen(false)
