@@ -308,44 +308,39 @@ export function PixelX({ size = 14 }: { size?: number }) {
   )
 }
 
-// A closed book, spine on the left (solid bar) and cover on the right
-// (outline) -- the menu icon for the Knowledge Categories screen,
-// docs/decisions/0019. A symmetric center-split rectangle reads as a
-// window/cabinet at this size, not a book -- an asymmetric spine is what
-// actually makes it read as one.
+// An open book: two pages fanning up and out from a spine along the
+// bottom -- the menu icon for the Knowledge Categories screen,
+// docs/decisions/0019. Tried a closed-book (spine + cover) design first;
+// a symmetric center-split rectangle read as a window/cabinet, and an
+// asymmetric single-spine version still didn't read as a book at 18px.
+// Compared four real candidates rendered at large scale before picking
+// this one -- the wedge/valley shape reads clearly as an open book, where
+// the others didn't.
 const BOOK_CELLS = [
   [0, 0],
-  [0, 1],
-  [0, 2],
-  [0, 3],
-  [0, 4],
-  [0, 5],
-  [0, 6],
-  [2, 0],
-  [3, 0],
-  [4, 0],
-  [5, 0],
   [6, 0],
-  [2, 6],
-  [3, 6],
-  [4, 6],
-  [5, 6],
-  [6, 6],
-  [2, 1],
-  [2, 2],
-  [2, 3],
-  [2, 4],
-  [2, 5],
+  [0, 1],
+  [1, 1],
+  [5, 1],
   [6, 1],
+  [0, 2],
+  [1, 2],
+  [2, 2],
+  [4, 2],
+  [5, 2],
   [6, 2],
+  [0, 3],
+  [1, 3],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
   [6, 3],
-  [6, 4],
-  [6, 5],
 ] as const
 
 export function PixelBook({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 7 4" shapeRendering="crispEdges" aria-hidden="true">
       {BOOK_CELLS.map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
       ))}
