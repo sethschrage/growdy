@@ -317,11 +317,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
           <DeviceLocationPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
         )}
 
-        {provider && provider.name === 'USA National Phenology Network' && (
+        {provider && (provider.name === 'USA National Phenology Network' || provider.name === 'Anthropic Web Search') && (
           <EnableProviderPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
         )}
 
-        {provider && provider.name !== 'Device' && provider.name !== 'USA National Phenology Network' && (
+        {provider && provider.name !== 'Device' && provider.name !== 'USA National Phenology Network' && provider.name !== 'Anthropic Web Search' && (
           <>
             {sources === null && <p className="history-empty">Loading...</p>}
             {sources !== null && providerSources.length === 0 && <p className="history-empty">No sources added yet.</p>}
