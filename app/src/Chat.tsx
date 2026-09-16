@@ -40,14 +40,25 @@ export function Chat({
       }
     }
     scroll()
-    // iOS Safari's own address/tab bar can collapse or expand right around
-    // this same moment (e.g. after the keyboard dismisses on send), which
-    // changes the actual visible height out from under a scroll position
-    // computed a moment earlier -- a second corrective pass once that's
-    // had time to settle catches it without depending on exactly when it
-    // happens.
+    // Two independent things can shift layout shortly after this first
+    // scroll fires, landing the "top" of the message somewhere that isn't
+    // actually the top by the time everything settles: iOS Safari's own
+    // chrome (address/tab bar) can collapse or expand right around now
+    // (e.g. after the keyboard dismisses on send) -- and separately, the
+    // pixel-art display font loads with `display=swap`, so text first
+    // renders in a fallback font and reflows once the real one arrives,
+    // changing line heights. A fixed-delay pass catches the first; waiting
+    // on the font itself catches the second regardless of how long it
+    // actually takes to load.
+    let cancelled = false
     const correction = setTimeout(scroll, 400)
-    return () => clearTimeout(correction)
+    document.fonts?.ready.then(() => {
+      if (!cancelled) scroll()
+    })
+    return () => {
+      cancelled = true
+      clearTimeout(correction)
+    }
   }, [messages, sending])
 
   async function send(event: FormEvent) {
