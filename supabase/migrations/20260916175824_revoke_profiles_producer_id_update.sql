@@ -1,0 +1,22 @@
+-- Real, live gap found while reviewing grants for an unrelated change:
+-- `profiles: user can update own profile` only checks `id = auth.uid()`
+-- -- true of the row both before AND after an update, regardless of what
+-- producer_id gets changed to, since id never changes in that attack.
+-- Unlike conversations/data_sources/weather_observations, whose UPDATE
+-- policies check `private.user_can_access_producer(producer_id)` in a
+-- WITH CHECK that re-validates the *new* row (rejecting a producer_id the
+-- caller doesn't belong to), profiles' policy never references
+-- producer_id at all. Verified directly: `authenticated` really does
+-- have table-level UPDATE on profiles today, with no column
+-- restriction -- any signed-in user could reassign their own row's
+-- producer_id to a different, arbitrary producer and immediately gain
+-- full RLS-scoped access to that producer's entire dataset, with a
+-- single client-side update call, no chat or write-tool involvement
+-- required. This is the exact risk docs/decisions/0022 names for a
+-- hypothetical future write tool -- except it's not hypothetical, it's
+-- live, and unrelated to whether that tool ever ships.
+--
+-- Fixed the way 0022 already prescribes: revoke UPDATE on just this one
+-- column. Every other column on profiles (full_name, last_seen_release)
+-- stays exactly as updatable as it already was.
+revoke update (producer_id) on public.profiles from authenticated;
