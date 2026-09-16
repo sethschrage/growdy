@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient'
 import { Chat } from './Chat'
 import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
+import { ObservationCandidatesView } from './ObservationCandidatesView'
 import { ObservationForm } from './ObservationForm'
 import { ProducerDataView } from './ProducerDataView'
 import { ReleaseNotes } from './ReleaseNotes'
@@ -16,6 +17,7 @@ import {
   PixelExit,
   PixelGrid,
   PixelHistory,
+  PixelMagnifier,
   PixelNetwork,
   PixelPlus,
   PixelSprout,
@@ -211,9 +213,11 @@ function AccountMenu({
 function SproutMenu({
   onNewObservation,
   onOpenProducerData,
+  onOpenObservationCandidates,
 }: {
   onNewObservation: () => void
   onOpenProducerData: () => void
+  onOpenObservationCandidates: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -266,6 +270,17 @@ function SproutMenu({
           >
             <PixelGrid size={20} />
           </button>
+          <button
+            type="button"
+            className="menu-icon-button"
+            aria-label="Possible observations"
+            onClick={() => {
+              onOpenObservationCandidates()
+              setOpen(false)
+            }}
+          >
+            <PixelMagnifier size={20} />
+          </button>
         </div>
       )}
     </div>
@@ -278,6 +293,7 @@ function SignedIn({ session }: { session: Session }) {
   const [dataSourcesOpen, setDataSourcesOpen] = useState(false)
   const [observationFormOpen, setObservationFormOpen] = useState(false)
   const [producerDataOpen, setProducerDataOpen] = useState(false)
+  const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
 
   return (
@@ -287,6 +303,7 @@ function SignedIn({ session }: { session: Session }) {
           <SproutMenu
             onNewObservation={() => setObservationFormOpen(true)}
             onOpenProducerData={() => setProducerDataOpen(true)}
+            onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
           />
         </div>
         <AccountMenu
@@ -322,6 +339,9 @@ function SignedIn({ session }: { session: Session }) {
         <ObservationForm session={session} onClose={() => setObservationFormOpen(false)} />
       )}
       {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
+      {observationCandidatesOpen && (
+        <ObservationCandidatesView session={session} onClose={() => setObservationCandidatesOpen(false)} />
+      )}
       <ReleaseNotes session={session} />
     </div>
   )
