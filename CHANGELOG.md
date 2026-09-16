@@ -13,6 +13,93 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-16
+
+This is the batch where chat stopped being read-only. Growdy could
+already answer questions about a producer's own data (`0016`); this
+release lets it act on the world outside that data too -- writing
+changes back with a real undo path, reaching the open web when the
+vineyard's own tables don't have the answer, and mining a producer's
+own past conversations for observations that were said out loud but
+never logged. Alongside that, parcel access stopped being all-or-nothing
+per account, and a real access-control gap that had been sitting in
+production got caught and closed.
+
+It starts with a small batch of chat fixes that had nothing to do with
+any of that: errors now actually get logged instead of silently
+swallowed, the feedback buttons work again, a long reply no longer
+fights the user for scroll position, and the sprout icon's idle
+animation stopped rotating the wrong way (#124).
+
+The main new capability is
+[`0022`](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md)
+(#127, #130): the chat can now write to the database, not just query it.
+It's deliberately the same shape `0016` already proved for reads -- one
+general `execute_readonly_query`-style tool rather than a menu of
+resolvers -- extended to two tools instead of one: `propose_write_query`
+drafts arbitrary DML (never DDL -- `authenticated` owns no tables and
+has no `CREATE`/`TRUNCATE` on `public` to begin with) and shows the
+producer exactly what it's about to do, and `confirm_write` only runs
+after a real click, never on the model's own judgment. Every write goes
+through a generic audit trigger first, so `revert_audit_entry` can undo
+one later -- field by field, and only where nobody else has touched that
+specific field since, so reverting an old change can't silently clobber
+a newer, unrelated edit to the same row. The design is honest about its
+own limits in the ADR itself: it can't undo a real-world action a write
+triggered, and it doesn't help with DDL at all -- rollback is a safety
+net for mistakes in the data, not a general undo button.
+
+Chat also picked up a second source of answers outside its own
+database: [`0024`](docs/decisions/0024-web-access-as-a-provider.md)
+(#129, #131) wires Anthropic's own hosted web search and web fetch in as
+an opt-in Provider, sitting in the same Category -> Provider -> Source
+taxonomy `0019` built for weather stations -- a producer sees and
+enables "Anthropic Web Search" the same way they'd add a data source,
+rather than it being an always-on tool with a cost nobody chose.
+
+A real security gap got found and closed in two passes. The first
+attempt (#132) revoked column-level `UPDATE` on `profiles.producer_id`
+from `authenticated`, meant to stop a producer from re-pointing their
+own membership at a different producer's account -- and looked correct
+until direct privilege introspection showed it had done nothing: a
+pre-existing table-level `GRANT UPDATE ON profiles TO authenticated`
+from the very first migration already covered every column implicitly,
+and a column-level `REVOKE` can't narrow a table-level grant that broad.
+The real fix (#135) revokes the table-level grant entirely and re-grants
+`UPDATE` on only the two columns a producer actually needs to change
+(`full_name`, `last_seen_release`) -- verified this time with
+`has_column_privilege` before shipping, not just reasoned about.
+
+`last_seen_release` exists because of the release notes popup itself
+(#133) -- the same screen rendering this text. The app now compares a
+producer's own `last_seen_release` against GitHub's Releases API
+directly (no duplicating release content into Postgres) and shows
+what's new since their last visit, once, until they dismiss it.
+
+Parcel access stopped being all specific to the owning producer:
+[`0025`](docs/decisions/0025-parcel-sharing-and-self-serve-creation.md)
+(#134) lets a parcel's owner share just that one parcel with another
+producer as an Editor or Viewer, cascading down through its plots, rows,
+and plantings via the same isolated access-check functions `0001`
+already built for exactly this kind of extension, rather than reaching
+for a full-account membership join table the actual need didn't call
+for. Producers can also create their own new parcels now, self-serve,
+instead of needing one seeded for them. The post-migration advisor pass
+this project always runs caught three real findings across both this
+migration and `0022`'s -- a function left executable by `PUBLIC` by
+default, three unindexed foreign keys, and two permissive `SELECT`
+policies that should've been one -- all fixed immediately (#136).
+
+The last piece closes a gap chat's move away from direct submission
+opened: a producer might mention something worth logging mid-conversation
+without ever using the observation form. A scheduled job, reusing
+`0020`'s same Vault-secret + `pg_cron` handshake, now reads conversations
+every six hours, asks Claude whether each one actually describes a real
+field observation, and -- only on a real match -- surfaces it as a
+candidate the producer confirms or dismisses themselves (0025 follow-up,
+#137). Nothing ever reaches `observations` without that click; this is a
+recovery net for things already said, not a second submission path.
+
 ## [0.9.0] - 2026-09-16
 
 This milestone is the sprout menu (introduced in `0.8.0`) getting
