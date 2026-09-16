@@ -1,0 +1,32 @@
+# 0023. Producer memory: structured entries plus embedded conversation history, searched via pgvector
+
+**Status:** accepted
+
+## Context
+
+The chat has no memory today, at any level -- confirmed directly, not assumed: `chat` is a stateless Edge Function, and a "continued" conversation only works because the client resends the entire prior transcript as fresh context on every turn ([Chat.tsx](../../app/src/Chat.tsx)). Nothing persists across separate conversations, and there is no API-level persistent-memory feature to lean on either -- Anthropic's own cross-conversation memory is a claude.ai consumer-app feature, not something exposed to a third-party app via the Messages API, and using it wouldn't fit this project's own goal of staying easy to move to a different model provider anyway.
+
+The explicit direction for this decision: not a purely structured table of discrete facts, and not an unstructured blob either -- something that lets the model *search* quickly across both a producer's explicit memory entries and their past conversations, the way a person would recall "didn't we already talk about this."
+
+One real technical fact shapes the mechanism regardless of preference: **Anthropic has no embeddings API of its own.** Generating a vector to search against requires a separate provider no matter which model answers the chat -- this was never a choice between "use Anthropic for everything" and "add a dependency," only a choice of which embeddings provider.
+
+## Decision
+
+**Two embedded corpora, searched by one new tool.**
+- `producer_memory`: a real, structured, producer-visible table (`id`, `producer_id`, `content` text, `embedding vector`, `source` -- `'manual'` or `'model-suggested'`, `created_at`). Visible and directly editable by the producer in the app (a real screen, not designed in this ADR -- same as `0019` left its own screen's UI to the PR that actually built it).
+- `conversation_embeddings`: derived from `conversations.transcript`, not a new source of truth -- `conversations` stays authoritative, this is a rebuildable index over it (`id`, `conversation_id` FK, `producer_id`, `chunk_text`, `embedding`, `created_at`).
+- `search_memory(query)`, a new chat tool: embeds `query` via the chosen embeddings provider, runs one `pgvector` similarity search (`<=>`) across both tables, RLS-scoped exactly like every other read, and returns the closest matches as context. This can't just be another `execute_readonly_query` call -- turning `query` text into a vector needs a real external API call the model can't make inline, the same reason a live external lookup already earned its own tool once before (`get_grape_phenology`, `0016`/`0019`), applied here to "look this up" meaning "embed it, then search," not "run SQL."
+
+**Writing a memory entry reuses `0022`'s mechanism -- it doesn't get one of its own.** Inserting or updating a `producer_memory` row is just DML against a table like any other; `propose_write_query`/`confirm_write` already cover it, confirmed by the producer the same way any other write is. A memory entry can arrive from two directions -- the producer types it directly into the memory screen, or the model proposes one mid-conversation -- and both land through the exact same confirmed, audited path.
+
+**Embeddings provider: Voyage AI, picked concretely, not built as a swappable abstraction.** It's Anthropic's own recommended embeddings partner for RAG use cases, and this mirrors the same call already made for web access -- the obvious choice now, a portability layer only once there's a real second case to design against, not before. `pgvector` (cataloged on this project at `0.8.2`, not yet installed) stores the vectors directly in this same Postgres database -- keeps this on Growdy's own infra rather than a separate vector-database service, the same "nothing depends on LLM infra, all context lives here" principle already applied to how web access and the chat model itself are kept swappable.
+
+**Conversation content gets embedded on a schedule, not synchronously per message.** A new `pg_cron` job, the same shape as `sync-scheduled-weather` (`0020`), periodically finds conversation content that hasn't been embedded yet (or has changed) and embeds it in the background. An extra external API round trip on every single chat turn would tax latency for a feature that doesn't need to be real-time -- searching yesterday's conversation a few minutes later than it happened is fine; a slower reply to today's question is not.
+
+**What actually leaves the system, named explicitly, the same transparency `0019` already applied to weather and phenology data:** the raw text of every memory entry and every embedded conversation chunk is sent to Voyage's API to compute a vector. This is real vineyard-specific conversation content leaving Growdy's own infra for the sole purpose of generating an embedding -- worth being plainly honest about rather than glossing over, the same way `0019` named exactly what a third-party weather API could see.
+
+## Consequences
+
+- `conversations.transcript` remains the single source of truth; `conversation_embeddings` is a derived, rebuildable index -- if the embeddings provider or model ever changes, this table can be dropped and regenerated from `conversations` with zero data loss, unlike a design where the embedding *was* the record.
+- Real risk surface is what leaves for Voyage on every embed call, and how far behind the scheduled job's cadence lets the searchable index lag actual conversations -- worth watching once this is live rather than assumed correct from the design alone.
+- Not decided here, deliberately: the producer-facing memory screen's actual design, and the separate "scan old conversations for content that might be worth remembering and surface it for review" idea from earlier planning -- a real, related feature that would build on this table once it exists, not solved by this ADR.
