@@ -3,7 +3,13 @@ import { supabase } from './lib/supabaseClient'
 
 type Parcel = { id: string; name: string }
 type Plot = { id: string; name: string }
-type PlotRow = { id: string; number: number }
+type PlotRow = {
+  id: string
+  number: number
+  length_meters: number | null
+  spacing_meters: number | null
+  end_post_count: number | null
+}
 type Planting = {
   id: string
   position: number | null
@@ -23,6 +29,92 @@ function plantingLabel(p: Planting): string {
 
 function plantingStatus(p: Planting): 'planted' | 'blocked' {
   return p.dead_date ? 'blocked' : 'planted'
+}
+
+function rowMeasurementsSummary(row: PlotRow): string {
+  const parts: string[] = []
+  if (row.length_meters != null) parts.push(`${row.length_meters}m long`)
+  if (row.spacing_meters != null) parts.push(`${row.spacing_meters}m spacing`)
+  if (row.end_post_count != null) parts.push(`${row.end_post_count} end posts`)
+  return parts.length > 0 ? parts.join(' · ') : 'No measurements recorded'
+}
+
+// A row's physical measurements (length, spacing, end-post count) --
+// nullable, editor/owner-only (see the plot_rows RLS policy for why a
+// viewer share can read but not set these). This is the first editable
+// field anywhere in this read-only tree, so it gets its own small inline
+// form rather than a shared "edit mode" the rest of the tree doesn't need.
+function RowMeasurements({
+  plot,
+  row,
+  onSave,
+}: {
+  plot: Plot
+  row: PlotRow
+  onSave: (plot: Plot, row: PlotRow, updated: Partial<PlotRow>) => Promise<string | null>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [length, setLength] = useState(row.length_meters?.toString() ?? '')
+  const [spacing, setSpacing] = useState(row.spacing_meters?.toString() ?? '')
+  const [endPosts, setEndPosts] = useState(row.end_post_count?.toString() ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!editing) {
+    return (
+      <div className="pdv-row-measurements">
+        <span className="pdv-row-measurements-summary">{rowMeasurementsSummary(row)}</span>
+        <button type="button" className="pdv-row-measurements-edit" onClick={() => setEditing(true)}>
+          Edit
+        </button>
+      </div>
+    )
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    const result = await onSave(plot, row, {
+      length_meters: length === '' ? null : Number(length),
+      spacing_meters: spacing === '' ? null : Number(spacing),
+      end_post_count: endPosts === '' ? null : Number(endPosts),
+    })
+    setSaving(false)
+    if (result) setError(result)
+    else setEditing(false)
+  }
+
+  return (
+    <form
+      className="pdv-row-measurements pdv-row-measurements--editing"
+      onSubmit={(e) => {
+        e.preventDefault()
+        handleSave()
+      }}
+    >
+      <label>
+        Length (m)
+        <input type="number" step="any" value={length} onChange={(e) => setLength(e.target.value)} />
+      </label>
+      <label>
+        Spacing (m)
+        <input type="number" step="any" value={spacing} onChange={(e) => setSpacing(e.target.value)} />
+      </label>
+      <label>
+        End posts
+        <input type="number" step="1" value={endPosts} onChange={(e) => setEndPosts(e.target.value)} />
+      </label>
+      {error && <p className="error">{error}</p>}
+      <div className="pdv-row-measurements-actions">
+        <button type="submit" disabled={saving}>
+          Save
+        </button>
+        <button type="button" onClick={() => setEditing(false)} disabled={saving}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
 }
 
 // A real collapsible tree, not a level-by-level button drill-down: every
@@ -67,10 +159,28 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   async function togglePlot(plot: Plot) {
     const key = `plot:${plot.id}`
     if (!expanded.has(key) && !rowsByPlot.has(plot.id)) {
-      const { data } = await supabase.from('plot_rows').select('id, number').eq('plot_id', plot.id).order('number')
+      const { data } = await supabase
+        .from('plot_rows')
+        .select('id, number, length_meters, spacing_meters, end_post_count')
+        .eq('plot_id', plot.id)
+        .order('number')
       setRowsByPlot((prev) => new Map(prev).set(plot.id, (data as PlotRow[]) ?? []))
     }
     toggle(key)
+  }
+
+  async function saveRowMeasurements(plot: Plot, row: PlotRow, updated: Partial<PlotRow>) {
+    const { error } = await supabase.from('plot_rows').update(updated).eq('id', row.id)
+    if (error) return error.message
+    setRowsByPlot((prev) => {
+      const next = new Map(prev)
+      next.set(
+        plot.id,
+        (next.get(plot.id) ?? []).map((r) => (r.id === row.id ? { ...r, ...updated } : r)),
+      )
+      return next
+    })
+    return null
   }
 
   async function toggleRow(plot: Plot, row: PlotRow) {
@@ -130,6 +240,9 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
                                 </button>
                                 {rOpen && (
                                   <ul className="pdv-tree pdv-tree--leaves" role="group">
+                                    <li className="pdv-tree-indent">
+                                      <RowMeasurements plot={plot} row={row} onSave={saveRowMeasurements} />
+                                    </li>
                                     {plantings === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
                                     {plantings?.length === 0 && (
                                       <li className="pdv-empty pdv-tree-indent">No active plantings.</li>
