@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow, PixelCheck, PixelCloud, PixelX } from './icons'
+import { PixelArrow, PixelCheck, PixelCloud, PixelSproutGrowth, PixelX } from './icons'
 import { MessageContent } from './MessageContent'
 import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
@@ -154,9 +154,7 @@ export function Chat({
           {sending && (
             <div className="chat-message-wrap chat-message-wrap--assistant">
               <div className="chat-message chat-message-assistant chat-thinking" aria-live="polite" aria-label="Thinking">
-                <span className="thinking-dot" />
-                <span className="thinking-dot" />
-                <span className="thinking-dot" />
+                <PixelSproutGrowth size={20} />
               </div>
             </div>
           )}
