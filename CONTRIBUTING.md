@@ -202,6 +202,10 @@ add up to a real milestone, at which point:
    opening line. A paragraph that only lists what changed, without
    saying why it mattered or why that choice was made, needs another
    pass. Not a categorized bullet list.
-3. A matching git tag and GitHub Release are published.
+3. A matching git tag and GitHub Release are published. The GitHub
+   Release's title is never just the bare version -- it's `vX.Y.Z --
+   <short theme phrase>`, a noun-phrase pulled from the CHANGELOG entry's
+   own opening theme (e.g. `v0.7.0 -- The chat writes and runs its own
+   SQL`), so the release list itself is legible without opening each one.
 
 See `CHANGELOG.md` for the actual history.
