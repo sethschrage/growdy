@@ -155,12 +155,11 @@ const EXECUTE_READONLY_QUERY_TOOL = {
 // differently from the two client tools above (a versioned `type`, no
 // input_schema): the API runs these itself and returns the result
 // in-line in the same turn, so runAgentLoop needs no dispatch branch for
-// either name, unlike execute_readonly_query/get_grape_phenology. Only
-// ever included when the producer has actually enabled the "Anthropic
-// Web Search" provider -- see isWebAccessEnabled -- since each search
-// carries a real, per-call cost ($10/1,000) nobody should be exposed to
-// without opting in. max_uses bounds a single turn's worst case the same
-// way execute_readonly_query bounds its own with a row cap and timeout.
+// either name, unlike execute_readonly_query/get_grape_phenology. Always
+// available, no per-producer opt-in (see 0024's amendment) -- unlike a
+// weather station's ongoing subscription-shaped cost, a search is $10/1,000
+// and max_uses already bounds a single turn's worst case, the same way
+// execute_readonly_query bounds its own with a row cap and timeout.
 const WEB_SEARCH_TOOL = {
   type: "web_search_20260318",
   name: "web_search",
@@ -247,30 +246,6 @@ async function requirePhenologyProviderEnabled(supabase: SupabaseClient): Promis
   }
 }
 
-// Controls whether web_search/web_fetch are even offered to the model
-// this turn -- unlike requirePhenologyProviderEnabled, this never throws;
-// a producer who hasn't enabled it just doesn't see the tool at all,
-// rather than the model discovering a disabled capability mid-turn.
-async function isWebAccessEnabled(supabase: SupabaseClient): Promise<boolean> {
-  const { data: providerRow, error: providerError } = await supabase
-    .from("data_providers")
-    .select("id")
-    .eq("category", "web")
-    .eq("name", "Anthropic Web Search")
-    .maybeSingle();
-  if (providerError || !providerRow) return false;
-
-  const { data: sourceRow, error: sourceError } = await supabase
-    .from("data_sources")
-    .select("enabled")
-    .eq("provider_id", providerRow.id)
-    .limit(1)
-    .maybeSingle();
-  if (sourceError) return false;
-
-  return sourceRow?.enabled ?? false;
-}
-
 // Reads the producer's own Device location (RLS-scoped via the caller's
 // forwarded JWT, same as every other query this function runs) and, if
 // set, queries USA-NPN for real grapevine phenophase observations in a
@@ -323,7 +298,7 @@ async function fetchGrapePhenology(supabase: SupabaseClient, startDate: string, 
   return response.json();
 }
 
-function buildSystemPrompt(schemaDescription: string, dataChannelContext: string, webAccessEnabled: boolean) {
+function buildSystemPrompt(schemaDescription: string, dataChannelContext: string) {
   return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
 
 You have direct, read-only SQL access to the database via the execute_readonly_query tool. The tables and views below, and what each column actually means, cover the common cases -- read them before writing a query instead of guessing at a column name or what its values look like. If something you need isn't covered here (a variety name someone mentions could be in a free-text nickname column instead of a structured one, for instance), or a filtered search comes up empty or seems off, query information_schema.columns or sample a few real rows before concluding there's no match.
@@ -339,11 +314,9 @@ similarity(column, 'term') > 0.3 (pg_trgm) tolerates a misspelling a plain subst
 You can render an actual picture instead of (or alongside) prose or a table, whenever a real image would answer the question better than words would -- a chart, a diagram, an illustration, whatever fits. To do this, include a fenced code block tagged svg containing valid, self-contained SVG markup (give it a viewBox; don't reference external resources). You decide what to draw and how -- there's no fixed set of chart types to pick from.
 
 For a question about what growth stage the grapes should be at, or general grapevine phenology (bud break, flowering, veraison, ripe fruit) around a given date, use the get_grape_phenology tool for real nearby field observations instead of answering from general knowledge -- it knows what's actually been reported near this vineyard, which is more useful than a generic seasonal guess.
-${
-  webAccessEnabled
-    ? "\nYou can also search and fetch real, current web content when a question genuinely needs it (something recent, or specific to an organization/product/price that could have changed) -- prefer the database and your own knowledge first, and reach for the web only when the question actually depends on something current or external."
-    : ""
-}
+
+You can also search and fetch real, current web content when a question genuinely needs it (something recent, or specific to an organization/product/price that could have changed) -- prefer the database and your own knowledge first, and reach for the web only when the question actually depends on something current or external.
+
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
@@ -448,17 +421,12 @@ Deno.serve(async (req: Request) => {
     // directly (see _shared/supabaseClient.ts).
     const supabase = createUserScopedClient(req);
 
-    const [schemaDescription, dataChannelContext, webAccessEnabled] = await Promise.all([
+    const [schemaDescription, dataChannelContext] = await Promise.all([
       fetchSchemaDescription(supabase),
       fetchDataChannelContext(supabase),
-      isWebAccessEnabled(supabase),
     ]);
-    const systemPrompt = buildSystemPrompt(schemaDescription, dataChannelContext, webAccessEnabled);
-    const tools = [
-      EXECUTE_READONLY_QUERY_TOOL,
-      GET_GRAPE_PHENOLOGY_TOOL,
-      ...(webAccessEnabled ? [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] : []),
-    ];
+    const systemPrompt = buildSystemPrompt(schemaDescription, dataChannelContext);
+    const tools = [EXECUTE_READONLY_QUERY_TOOL, GET_GRAPE_PHENOLOGY_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL];
     const result = await runAgentLoop([...messages], supabase, systemPrompt, tools);
 
     return new Response(JSON.stringify(result), {

@@ -317,8 +317,18 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
           <DeviceLocationPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
         )}
 
-        {provider && (provider.name === 'USA National Phenology Network' || provider.name === 'Anthropic Web Search') && (
+        {provider && provider.name === 'USA National Phenology Network' && (
           <EnableProviderPanel provider={provider} source={providerSources[0] ?? null} onChanged={refresh} />
+        )}
+
+        {provider && provider.name === 'Anthropic Web Search' && (
+          <div className="data-source-form">
+            <h3>{provider.name}</h3>
+            <p className="data-source-status-line">
+              Always available -- the chat can search and fetch real web content whenever a question needs it. No
+              setup, and nothing to turn off; each search is small and capped per reply.
+            </p>
+          </div>
         )}
 
         {provider && provider.name !== 'Device' && provider.name !== 'USA National Phenology Network' && provider.name !== 'Anthropic Web Search' && (

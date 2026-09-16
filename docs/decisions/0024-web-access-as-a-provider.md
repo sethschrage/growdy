@@ -25,3 +25,11 @@ What this ADR actually settles is narrower: not the mechanism, but how a produce
 - A producer who never enables this sees identical chat behavior to today -- two tools, no web access, no exposure to the per-search cost.
 - The real cost of web access is now visible on a producer's own Knowledge Categories screen as something they turned on, not a hidden always-on capability.
 - Real risk surface is unchanged from Anthropic's own documented one: `web_fetch` can only retrieve a URL that already appeared earlier in the conversation (a user message, a prior tool result), never one the model invents itself -- worth re-reading if either tool's version ever changes.
+
+## Update (2026-09-17): always-on, no toggle
+
+Real use showed the opt-in gate wasn't earning its keep for this specific capability. Unlike a Tempest station (an ongoing, per-station cost a producer chooses to take on) or a general per-search-volume worry, `web_search`/`web_fetch` here is already bounded tightly by `max_uses` per turn -- at $10/1,000 searches, a single reply's worst case is a few cents, not an open-ended bill. The opt-in step was pure friction with no real decision behind it: there was never a reason *not* to enable it once found, so requiring a producer to find it and click "Enable" first just delayed a capability everyone wanted anyway.
+
+`chat/index.ts` no longer checks per-producer enablement -- `web_search`/`web_fetch` are always included in the tools array, and the system prompt's web-access guidance is no longer conditional. The `data_providers` row still exists (so "Anthropic Web Search" still shows up under Knowledge Categories -> Web, for discoverability), but its Knowledge Categories screen is now a plain status line, no button -- there's nothing left to toggle. Any `data_sources` row created under the old enable flow is harmless and unused now, not cleaned up by this change.
+
+This doesn't reopen the door to an always-on *unbounded* external cost being hidden by default -- that's still the real thing this ADR's original Decision guards against. It's narrower: for a capability whose worst case is already small and fixed, the opt-in step stopped being a real choice and started being just a delay.
