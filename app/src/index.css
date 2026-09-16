@@ -273,11 +273,16 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: transform 0.2s ease;
 }
 
 .sprout-menu-toggle:active {
   box-shadow: none;
   transform: none;
+}
+
+.sprout-menu-toggle--open {
+  transform: rotate(90deg);
 }
 
 .sprout-menu-bar {
@@ -534,12 +539,17 @@ body {
 
 .feedback-row {
   display: flex;
-  gap: 6px;
+  gap: 10px;
 }
 
+/* Was a 22px circle with zero padding -- well under the ~44px minimum
+   touch target, and a plain 0.4->1 opacity shift on tap was easy to miss
+   on a real phone screen. Reported as "the checkboxes are broken": taps
+   were registering (verified directly), the problem was too-small/too-
+   subtle, not non-functional. */
 .feedback-button {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border-radius: 50%;
   display: flex;
@@ -548,11 +558,12 @@ body {
   background: var(--leaf);
   border-color: var(--leaf-dark);
   box-shadow: 0 2px 0 var(--leaf-dark);
-  opacity: 0.4;
+  opacity: 0.55;
+  transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
 .feedback-button:hover {
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .feedback-button:active {
@@ -561,6 +572,7 @@ body {
 
 .feedback-button--selected {
   opacity: 1;
+  transform: scale(1.15);
 }
 
 .feedback-button--down {

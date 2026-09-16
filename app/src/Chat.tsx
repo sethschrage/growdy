@@ -21,9 +21,22 @@ export function Chat({
   const [error, setError] = useState<string | null>(null)
   const { log } = useConversationLog(session, conversationId ? { id: conversationId } : undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastAssistantRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // A reply that's longer than the screen used to land with its own
+    // *end* in view (scrollIntoView always targeted the bottom sentinel),
+    // skipping straight past the part of the answer someone would
+    // actually read first. Once a reply has actually landed (not just the
+    // "thinking" placeholder), scroll its own top into view instead --
+    // sending a message or waiting still scrolls to the bottom sentinel,
+    // same as before.
+    const lastMessage = messages[messages.length - 1]
+    if (!sending && lastMessage?.role === 'assistant') {
+      lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages, sending])
 
   async function send(event: FormEvent) {
@@ -43,7 +56,15 @@ export function Chat({
     setSending(false)
 
     if (error) {
-      setError(error.message)
+      console.error('chat function invoke failed', error)
+      let message = error.message
+      try {
+        const body = await error.context.json()
+        if (body?.error) message = body.error
+      } catch {
+        // error.context wasn't a JSON response -- fall back to error.message
+      }
+      setError(message)
       return
     }
 
@@ -76,7 +97,11 @@ export function Chat({
       <div className="chat-messages">
         <div className="chat-messages-inner">
           {messages.map((m, i) => (
-            <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
+            <div
+              key={i}
+              ref={i === messages.length - 1 && m.role === 'assistant' ? lastAssistantRef : undefined}
+              className={`chat-message-wrap chat-message-wrap--${m.role}`}
+            >
               <div className={`chat-message chat-message-${m.role}`}>
                 <MessageContent role={m.role} content={m.content} />
               </div>
@@ -89,7 +114,7 @@ export function Chat({
                     aria-pressed={m.feedback === 'up'}
                     onClick={() => setFeedback(i, 'up')}
                   >
-                    <PixelCheck size={14} />
+                    <PixelCheck size={18} />
                   </button>
                   <button
                     type="button"
@@ -98,7 +123,7 @@ export function Chat({
                     aria-pressed={m.feedback === 'down'}
                     onClick={() => setFeedback(i, 'down')}
                   >
-                    <PixelX size={14} />
+                    <PixelX size={18} />
                   </button>
                 </div>
               )}
