@@ -18,15 +18,16 @@ legible to someone reading it later.
    merge here. A plain path never breaks and is just as easy to open from
    the "Files changed" tab.
 4. CI runs automatically (see below). Review the diff.
-5. Merge via the PR (squash merge -- see "Merge strategy"). When working
-   with Claude Code: it reports the PR's summary, CI/mergeability status,
-   and any comments (bot or human) back in chat once the PR is open, so
-   review happens there instead of switching to GitHub -- but it only
-   merges after an explicit go-ahead each time. Checks passing is never
-   itself the go-ahead. The status it reports must reflect every check in
-   a finished state (none still pending) -- a snapshot taken right after
-   opening the PR, before a check has even started, is not a status
-   report, it's a guess that happened not to be wrong yet.
+5. Merge via the PR (squash merge -- see "Merge strategy"). GitHub
+   auto-merge is on for this repo: once opened, a PR merges itself as soon
+   as CI passes, with no separate go-ahead needed per PR. Review happens
+   at the release step instead (see "Releases") -- the CHANGELOG entry and
+   the doc-drift check are where a mistake actually gets caught, not a
+   manual look at every individual PR. This is a deliberate choice, not
+   the default: earlier in this project every PR got an explicit
+   confirmation before merging, until the release cadence and doc-drift
+   habits below were established well enough to move that review to the
+   release instead.
 6. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
