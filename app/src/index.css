@@ -995,138 +995,535 @@ select {
   flex-shrink: 0;
 }
 
-/* Same full-screen chrome as .data-sources-overlay/.observation-form-overlay
-   -- own class family, not shared, matching this codebase's existing
-   pattern (see the comment on .observation-form-overlay). */
-.producer-data-overlay {
+/* "Your Vineyard Data" (ProducerDataView, ProducerDataTree,
+   ProducerDataGrid, PlantingDetail) deliberately breaks from the rest of
+   the app's pixel-art chrome -- plain system-ui type, a dense neutral
+   palette defined as custom properties scoped to .pdv-overlay rather
+   than reusing the farm-theme :root vars. Same reasoning
+   .chat-message-assistant already used for a plain, legible font over
+   the pixel one: a real data-browsing tool reads better dense and
+   modern than playful. */
+.pdv-overlay {
   position: fixed;
   inset: 0;
-  background: var(--parchment);
   z-index: 10;
   display: flex;
   flex-direction: column;
   padding-top: env(safe-area-inset-top);
+  background: #f4f6f8;
+  color: #1c2430;
+  font-family: system-ui, -apple-system, sans-serif;
+  --pdv-border: #d7dce2;
+  --pdv-accent: #2563eb;
+  --pdv-green: #22a55e;
+  --pdv-amber: #e0a423;
+  --pdv-gray: #b8c0c9;
+  --pdv-muted: #6b7684;
 }
 
-.producer-data-header {
+.pdv-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border-bottom: 3px solid var(--wood);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pdv-border);
+  background: #fff;
 }
 
-.producer-data-header h2 {
+.pdv-header h2 {
   margin: 0;
-  color: var(--wood-dark);
+  font-size: 17px;
+  font-weight: 600;
 }
 
-.producer-data-close {
+.pdv-close {
   background: none;
   border: none;
   box-shadow: none;
-  color: var(--wood-dark);
-  font-size: 24px;
+  color: #1c2430;
+  font-size: 22px;
   line-height: 1;
   padding: 4px 8px;
 }
 
-.producer-data-close:active {
+.pdv-close:active {
   box-shadow: none;
   transform: none;
 }
 
-.producer-data-back {
-  align-self: flex-start;
-  background: none;
-  border: none;
+.pdv-mode-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--pdv-border);
+}
+
+.pdv-mode-button {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #eef1f4;
+  color: #47505b;
+  border: 1px solid var(--pdv-border);
+  border-radius: 8px;
   box-shadow: none;
-  color: var(--wood-dark);
-  font-weight: 700;
+}
+
+.pdv-mode-button:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-mode-button--active {
+  background: var(--pdv-accent);
+  color: #fff;
+  border-color: var(--pdv-accent);
+}
+
+.pdv-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+.pdv-empty {
+  color: var(--pdv-muted);
+  font-size: 13px;
   padding: 4px 0;
 }
 
-.producer-data-back:active {
-  box-shadow: none;
-  transform: none;
-}
-
-.producer-data-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 480px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.producer-data-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.producer-data-nav-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  text-align: left;
-  background: var(--panel);
-  border: 2px solid var(--wood);
-  border-radius: 10px;
-  padding: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  box-shadow: none;
-}
-
-.producer-data-nav-item:active {
-  box-shadow: none;
-  transform: none;
-}
-
-.producer-data-planting-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.producer-data-planting-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--panel);
-  border: 2px solid var(--wood);
-  border-radius: 8px;
-  padding: 8px 10px;
+.pdv-error {
+  color: #c0392b;
   font-size: 13px;
 }
 
-.producer-data-planting-position {
-  font-weight: 700;
-  color: var(--wood-dark);
-  min-width: 28px;
+/* Collapsible tree -- replaces the old level-by-level button
+   drill-down. Every node expands in place and stays open alongside its
+   siblings. */
+.pdv-tree {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.producer-data-planting-label {
+.pdv-tree .pdv-tree,
+.pdv-tree .pdv-tree--leaves {
+  padding-left: 16px;
+}
+
+.pdv-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 6px 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c2430;
+  border-radius: 6px;
+}
+
+.pdv-tree-node:hover {
+  background: #eef1f4;
+}
+
+.pdv-tree-node:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-tree-caret {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--pdv-muted);
+  transition: transform 0.12s ease;
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.pdv-tree-caret--open {
+  transform: rotate(90deg);
+}
+
+.pdv-tree-label {
   flex: 1;
-  color: var(--ink);
 }
 
-.producer-data-planting-status {
+.pdv-tree-indent {
+  padding-left: 16px;
+}
+
+.pdv-tree-leaf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 5px 4px;
+  font-size: 13px;
+  color: #1c2430;
+  border-radius: 6px;
+}
+
+.pdv-tree-leaf:hover {
+  background: #eef1f4;
+}
+
+.pdv-tree-leaf:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-tree-leaf-position {
+  font-variant-numeric: tabular-nums;
+  color: var(--pdv-muted);
+  min-width: 24px;
+}
+
+.pdv-tree-leaf-label {
+  flex: 1;
+}
+
+/* Status dots -- shared between the tree's leaves, the grid, and the
+   grid's legend. */
+.pdv-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pdv-dot--planted {
+  background: var(--pdv-green);
+}
+
+.pdv-dot--blocked {
+  background: var(--pdv-amber);
+}
+
+.pdv-dot--open {
+  background: #fff;
+  border: 1.5px solid var(--pdv-gray);
+}
+
+/* Grid view */
+.pdv-grid-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.pdv-grid-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.pdv-grid-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: 12px;
-  color: var(--ink);
-  opacity: 0.75;
+  color: var(--pdv-muted);
+  font-weight: 600;
+}
+
+.pdv-grid-controls select {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--pdv-border);
+  background: #fff;
+  color: #1c2430;
+  font-size: 13px;
+}
+
+.pdv-zoom {
+  min-width: 120px;
+}
+
+.pdv-zoom input[type='range'] {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.pdv-grid-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--pdv-muted);
+}
+
+.pdv-grid-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdv-grid-scroll {
+  overflow: auto;
+  border: 1px solid var(--pdv-border);
+  border-radius: 8px;
+  background: #fff;
+  flex: 1;
+}
+
+.pdv-grid {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  width: max-content;
+}
+
+.pdv-grid-corner {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.pdv-grid-col-label {
+  font-size: 9px;
+  color: var(--pdv-muted);
+  text-align: center;
+  align-self: end;
+}
+
+.pdv-grid-row-label {
+  font-size: 10px;
+  color: var(--pdv-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  position: sticky;
+  left: 0;
+  background: #fff;
+}
+
+.pdv-grid-cell {
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.pdv-grid-cell:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-grid-cell--planted {
+  background: var(--pdv-green);
+}
+
+.pdv-grid-cell--blocked {
+  background: var(--pdv-amber);
+}
+
+.pdv-grid-cell--open {
+  background: #fff;
+  border: 1px solid var(--pdv-gray);
+}
+
+.pdv-grid-cell--empty {
+  background: transparent;
+  cursor: default;
+}
+
+/* Detail panel -- a bottom sheet on mobile, a centered modal from
+   tablet width up. Shared by the tree's leaves and the grid's dots. */
+.pdv-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 32, 0.5);
+  z-index: 11;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .pdv-detail-overlay {
+    align-items: center;
+  }
+}
+
+.pdv-detail-card {
+  background: #fff;
+  color: #1c2430;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  --pdv-border: #d7dce2;
+  --pdv-muted: #6b7684;
+}
+
+@media (min-width: 640px) {
+  .pdv-detail-card {
+    border-radius: 16px;
+    max-height: 80vh;
+  }
+}
+
+.pdv-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--pdv-border);
+}
+
+.pdv-detail-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pdv-detail-close {
+  background: none;
+  border: none;
+  box-shadow: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: #1c2430;
+}
+
+.pdv-detail-close:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-detail-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pdv-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdv-detail-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.pdv-detail-field-label {
+  color: var(--pdv-muted);
+  font-weight: 600;
+}
+
+.pdv-status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.pdv-status-badge--planted {
+  background: #e4f7ea;
+  color: #1a7a3f;
+}
+
+.pdv-status-badge--blocked {
+  background: #fdf1de;
+  color: #96650f;
+}
+
+.pdv-status-badge--open {
+  background: #eef1f4;
+  color: #47505b;
+}
+
+.pdv-detail-subheading {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pdv-muted);
+}
+
+.pdv-observation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdv-observation-item {
+  background: #f4f6f8;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.pdv-observation-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--pdv-muted);
+  margin-bottom: 4px;
+}
+
+.pdv-status-chip {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef1f4;
+}
+
+.pdv-status-chip--pending {
+  background: #fdf1de;
+  color: #96650f;
+}
+
+.pdv-status-chip--rejected {
+  background: #fbe4e2;
+  color: #a3352c;
+}
+
+.pdv-observation-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-line;
 }
 
 .history-overlay {
