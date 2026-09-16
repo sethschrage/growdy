@@ -61,6 +61,7 @@ Supabase, and Anthropic.
 - [0021 -- The chat renders actual pictures, via raw SVG](docs/decisions/0021-chat-renders-svg-graphics.md) -- no fixed chart-type menu; the model writes self-contained SVG in a fenced code block and the frontend sanitizes (DOMPurify) and renders it, the same "one general capability, not a menu of shapes" instinct 0016 already applied to SQL.
 - [0022 -- The chat can write data, confirmed and reversible](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md) -- a general write tool (any DML, never DDL), gated by a real confirm-before-commit click rather than the model's own judgment, with a generic audit trigger and field-level rollback as the actual safety net.
 - [0023 -- Producer memory via embeddings](docs/decisions/0023-producer-memory-via-embeddings.md) -- structured, producer-editable memory entries plus a derived, rebuildable index over past conversations, both searched by one new tool via `pgvector`; memory writes reuse 0022's confirm-and-audit mechanism rather than getting a path of their own.
+- [0024 -- Web access is a toggleable Provider](docs/decisions/0024-web-access-as-a-provider.md) -- Anthropic's own hosted web_search/web_fetch, wired in as an opt-in Provider in the existing Category -> Provider -> Source taxonomy instead of an always-on tool, so a producer sees and controls the real per-search cost the same way they do a weather station.
 
 ## Stack
 
