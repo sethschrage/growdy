@@ -6,6 +6,7 @@ import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
 import { ObservationForm } from './ObservationForm'
 import { ProducerDataView } from './ProducerDataView'
+import { ReleaseNotes } from './ReleaseNotes'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
   PixelBunSlice,
@@ -321,6 +322,7 @@ function SignedIn({ session }: { session: Session }) {
         <ObservationForm session={session} onClose={() => setObservationFormOpen(false)} />
       )}
       {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
+      <ReleaseNotes session={session} />
     </div>
   )
 }
