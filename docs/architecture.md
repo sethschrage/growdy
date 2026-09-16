@@ -26,16 +26,22 @@ flowchart TD
         Auth["Auth -- Google Sign-In"]
         DB["Postgres<br/>tables + views, RLS-scoped"]
         EdgeFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY"]
+        CronFn["Edge Function: sync-scheduled-weather<br/>service_role, pg_cron-triggered"]
     end
+
+    NPN["USA-NPN API<br/>services.usanpn.org"]
 
     GH -->|"migration files, applied manually after merge"| DB
     GH -->|"function code, deployed manually after merge"| EdgeFn
+    GH -->|"function code, deployed manually after merge"| CronFn
     App -->|sign in| Auth
     App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check"| DB
     App -->|"user message"| EdgeFn
     EdgeFn -->|"composed reply"| App
     EdgeFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
-    EdgeFn <-->|"messages + one SQL tool <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    EdgeFn <-->|"messages + two tools (SQL, grape phenology) <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    EdgeFn -->|"live lookup, nothing stored"| NPN
+    CronFn <-->|"service_role -- the one bypass of RLS in this project"| DB
 ```
 
 ## Reading this diagram
@@ -59,6 +65,20 @@ flowchart TD
   [`docs/decisions/0016`](decisions/0016-chat-queries-directly.md) for
   why, and the comment at the top of
   [`supabase/functions/chat/index.ts`](../supabase/functions/chat/index.ts).
+- **`chat` now calls a second, non-Supabase, non-Anthropic external
+  API directly**: `get_grape_phenology` queries USA-NPN's real
+  observation data live, at request time, and returns it to the model
+  as a tool result -- there's nothing to ingest or store, unlike
+  weather (see the next bullet). This is the one edge in this diagram
+  that leaves Supabase and Anthropic entirely.
+- **A second Edge Function, `sync-scheduled-weather`, is the one place
+  in this codebase that uses `service_role`** -- an hourly `pg_cron`
+  job invokes it to keep every enabled data source's weather synced
+  without depending on a producer having the app open. It's a
+  deliberate, narrowly-scoped exception to "every write is RLS-scoped
+  through the caller's own JWT": nobody is signed in when `pg_cron`
+  fires, so there is no caller JWT to forward. See
+  [`docs/decisions/0020`](decisions/0020-scheduled-weather-sync.md).
 - **The app's own direct connection to the database is narrower than it
   looks** -- auth, the producer-id lookup, conversation-history logging
   (`docs/decisions/0011`), and the `app_status` poll (`docs/decisions/0017`).
@@ -82,9 +102,43 @@ flowchart TD
 
 ## History
 
-The chat's shape changed materially in `0016` -- worth keeping the
-prior diagram visible rather than only in `git log -p`, per this file's
-own convention.
+### 2026-09-16 -- before scheduled sync and the phenology tool ([0020](decisions/0020-scheduled-weather-sync.md))
+
+The diagram above gained `sync-scheduled-weather` and its `service_role`
+connection to Postgres, the USA-NPN API as a second external dependency,
+and `chat`'s Anthropic edge went from one tool to two. Before that:
+
+```mermaid
+flowchart TD
+    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
+    CI["db-lint CI<br/>fresh local Postgres per PR"]
+    Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
+    Browser["Producer's browser"]
+
+    GH -->|every PR touching migrations| CI
+    GH -->|"push to main: auto-deploy"| Vercel
+    Browser -->|loads| Vercel
+
+    subgraph App["app/ -- React + Vite, no server of its own"]
+        Client["Client"]
+    end
+    Vercel --> App
+
+    subgraph Supabase["Supabase project: growdybase"]
+        Auth["Auth -- Google Sign-In"]
+        DB["Postgres<br/>tables + views, RLS-scoped"]
+        EdgeFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY"]
+    end
+
+    GH -->|"migration files, applied manually after merge"| DB
+    GH -->|"function code, deployed manually after merge"| EdgeFn
+    App -->|sign in| Auth
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check"| DB
+    App -->|"user message"| EdgeFn
+    EdgeFn -->|"composed reply"| App
+    EdgeFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    EdgeFn <-->|"messages + one SQL tool <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+```
 
 ### Before 0016: client resolves, Edge Function never touches the database
 

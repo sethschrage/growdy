@@ -13,6 +13,95 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-16
+
+This milestone is external data channels going from a design doc to
+something actually running against a real account, and the compounding
+gap between those two states turned out to be the real story: almost
+every bug this batch fixes is something no amount of reading `0019`
+could have caught, because it only existed once real data started
+flowing through a real Tempest station. `data_providers`, `data_sources`,
+and `weather_observations` landed as designed, `ingest-weather` let a
+producer add a station and sync it from their own session, and the chat
+could already answer a weather question the moment a row existed --
+through the same `execute_readonly_query` tool as everything else, no
+new tool required (#93, #94, #96, #97, #98). Deploying that against a
+real station is what actually found the problems: `service_role` had
+never been granted table access to either new table, and
+`weather_observations` had never been granted `UPDATE` at all, meaning
+every upsert had silently failed since the ingestion function's very
+first version -- no observation had ever actually been stored, for
+anyone, until this batch (#101). A producer was also being asked for a
+Tempest "device ID" that isn't visible anywhere in Tempest's own app;
+resolving station ID to device ID server-side closed an open question
+`0019` had explicitly left unanswered (#101).
+
+Wanting weather to stay fresh without depending on someone keeping a
+browser tab open led to `0020`: an hourly `pg_cron` job and one
+narrowly-scoped `service_role` function, the exact fallback `0019` had
+already named if its browser-only trade-off didn't hold up (#100). That,
+too, only revealed its real bugs once it started actually firing on a
+schedule: `pg_net`'s default request timeout was far too short for a
+multi-chunk sync and silently failed every scheduled run for hours before
+anyone noticed (fixed with an explicit, longer timeout), and a subtler
+bug meant the per-source retry loop was recomputing the exact same
+five-day window on every single retry instead of ever advancing --
+backfill for a real station had been stuck making zero net progress
+regardless of how many times it ran, fixed by having each chunk return
+its own updated cursor instead of trusting a stale in-memory copy (#103).
+A non-numeric `observed_at` was also found to abort an entire chunk of
+otherwise-good readings instead of just skipping the one bad row, closing
+a validation gap that existed nowhere else in the ingestion path (#104),
+and a structural warning that used to repeat itself up to ten times over
+now dedupes to one (#102).
+
+Once real data was actually flowing, the screen showing it got renamed
+to match the taxonomy it was always supposed to reflect -- "Data
+Channels" became **Knowledge Categories**, with "Provider" and "Source"
+copy following suit, and its close button's near-invisible contrast
+fixed at the same time (#105) -- and its navigation was restructured
+into an actual three-level drill-down (Category -> Provider -> Sources)
+instead of a flat list with the provider picked from a concatenated
+dropdown label, so the screen reads the same shape the data actually has
+as more categories and providers get added (#107). A default
+`backfill_start` of "5 years ago" that had no real justification anywhere
+was replaced with a fixed floor at Tempest's actual Kickstarter launch,
+so a station's real history no longer gets silently truncated for no
+documented reason (#106).
+
+The chat's own reach grew in two different directions at once. A new
+`location` category with a `Device` provider -- reading the phone or
+browser's own geolocation, the first source with no external credential
+and nothing to backfill -- exists specifically to anchor a "nearby"
+query, and it's what makes the second addition possible: `chat` gained
+a real second tool, `get_grape_phenology`, asking the USA National
+Phenology Network directly for real nearby *Vitis vinifera* field
+observations (bud break, flowering, veraison, ripe fruit) instead of
+answering a growth-stage question from a generic seasonal guess (#109,
+#112). And prompted by a broken plain-text windrose -- exactly the kind
+of answer a chat renders badly as prose -- the chat can now draw an
+actual picture: a fenced `svg` code block in its reply becomes a real,
+sanitized (DOMPurify), inline drawing, with no fixed chart-type menu
+handed to the model -- it decides what to draw and how, the same
+one-general-capability instinct `0016` already applied to letting the
+chat write its own SQL instead of picking from a fixed menu of resolvers
+(`0021`, #110).
+
+The rest of this batch is the smaller, continuous work of a chat app
+actually getting used: teaching the chat the real schema up front instead
+of a bare table list (#90), fixing chat-history formatting, continuing a
+past conversation, exporting it, and a total-count ambiguity in its own
+replies (#99), a placeholder in the message input that had never been
+set (#108), and several rounds of mobile layout fixes -- page-level
+scroll containment, sizing `#root` to the true visual viewport instead of
+the layout one, decorative clouds no longer rendering in front of real
+content, and a stray drop shadow removed from the wordmark (#86-89). The
+menu icon for Knowledge Categories went through two real rounds of
+iteration once the first shape (a spine-and-cover rectangle) turned out
+to read as a window or cabinet rather than a book -- resolved by
+rendering several real candidates and picking the one that actually read
+as an open book, rather than guessing a third time (#111, #113).
+
 ## [0.7.0] - 2026-09-14
 
 This milestone is the chat's second real redesign, and it starts from a

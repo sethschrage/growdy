@@ -92,7 +92,10 @@ erDiagram
         uuid vault_secret_id "nullable"
         boolean enabled
         text context "nullable"
-        text backfill_status "nullable"
+        jsonb config "nullable, e.g. a Device source's last-known lat/long"
+        text backfill_status "nullable, no backfill concept for e.g. Device"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
         timestamptz last_synced_at "nullable"
         text last_error "nullable"
         text last_warning "nullable"
@@ -172,6 +175,14 @@ erDiagram
   the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
+- **`data_sources.vault_secret_id`, `backfill_status`, `backfill_cursor`,
+  and `backfill_start` are only meaningful for a source with an external
+  credential and a history to walk backward through** (Tempest). A source
+  with neither -- like a `location`/`Device` source, which reads the
+  browser's own geolocation with no credential and nothing to backfill --
+  leaves all four null; its state instead lives in `config` (e.g. the last
+  known latitude/longitude and when it was captured) -- see
+  [0019](decisions/0019-external-data-channels.md).
 
 ## History
 
