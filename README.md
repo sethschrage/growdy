@@ -59,6 +59,7 @@ Supabase, and Anthropic.
 - [0019 -- External data channels: Category -> Provider -> Source](docs/decisions/0019-external-data-channels.md) -- how outside data (starting with Tempest weather) gets into Growdy: producer-added sources against admin-curated providers, credentials in Supabase Vault, ingestion through the producer's own session rather than a background service, fully structured columns instead of a raw catch-all.
 - [0020 -- Scheduled weather sync](docs/decisions/0020-scheduled-weather-sync.md) -- revisits 0019's browser-only ingestion once real use showed it wasn't fresh enough: an hourly `pg_cron` job and one narrowly-scoped `service_role` Edge Function, the fallback 0019 had already named.
 - [0021 -- The chat renders actual pictures, via raw SVG](docs/decisions/0021-chat-renders-svg-graphics.md) -- no fixed chart-type menu; the model writes self-contained SVG in a fenced code block and the frontend sanitizes (DOMPurify) and renders it, the same "one general capability, not a menu of shapes" instinct 0016 already applied to SQL.
+- [0022 -- The chat can write data, confirmed and reversible](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md) -- a general write tool (any DML, never DDL), gated by a real confirm-before-commit click rather than the model's own judgment, with a generic audit trigger and field-level rollback as the actual safety net.
 
 ## Stack
 
