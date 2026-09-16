@@ -416,3 +416,35 @@ export function PixelGrid({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
+
+const MAGNIFIER_CELLS = [
+  [1, 0],
+  [2, 0],
+  [3, 0],
+  [0, 1],
+  [4, 1],
+  [0, 2],
+  [4, 2],
+  [0, 3],
+  [4, 3],
+  [1, 4],
+  [2, 4],
+  [3, 4],
+  [5, 5],
+  [6, 6],
+] as const
+
+// The sprout menu's "possible observations" button -- a plain magnifying
+// glass, for the review queue surfaced by scan-conversations-for-
+// observations. Distinct from every other sprout-menu icon (PixelPlus,
+// PixelGrid): this isn't the producer's own data, it's something the app
+// found and is asking them to confirm.
+export function PixelMagnifier({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {MAGNIFIER_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
