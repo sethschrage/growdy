@@ -62,6 +62,7 @@ Supabase, and Anthropic.
 - [0022 -- The chat can write data, confirmed and reversible](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md) -- a general write tool (any DML, never DDL), gated by a real confirm-before-commit click rather than the model's own judgment, with a generic audit trigger and field-level rollback as the actual safety net.
 - [0023 -- Producer memory via embeddings](docs/decisions/0023-producer-memory-via-embeddings.md) -- structured, producer-editable memory entries plus a derived, rebuildable index over past conversations, both searched by one new tool via `pgvector`; memory writes reuse 0022's confirm-and-audit mechanism rather than getting a path of their own.
 - [0024 -- Web access is a toggleable Provider](docs/decisions/0024-web-access-as-a-provider.md) -- Anthropic's own hosted web_search/web_fetch, wired in as an opt-in Provider in the existing Category -> Provider -> Source taxonomy instead of an always-on tool, so a producer sees and controls the real per-search cost the same way they do a weather station.
+- [0025 -- Per-parcel sharing, cascading through its own hierarchy](docs/decisions/0025-parcel-sharing-and-self-serve-creation.md) -- a parcel's owner can share just that parcel (Editor or Viewer role) with another producer, without exposing either side's other parcels or accounts; extends 0001's isolated membership-check function rather than reaching for its planned full-account join table, since the actual need is narrower than that.
 
 ## Stack
 
