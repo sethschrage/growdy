@@ -60,6 +60,7 @@ Supabase, and Anthropic.
 - [0020 -- Scheduled weather sync](docs/decisions/0020-scheduled-weather-sync.md) -- revisits 0019's browser-only ingestion once real use showed it wasn't fresh enough: an hourly `pg_cron` job and one narrowly-scoped `service_role` Edge Function, the fallback 0019 had already named.
 - [0021 -- The chat renders actual pictures, via raw SVG](docs/decisions/0021-chat-renders-svg-graphics.md) -- no fixed chart-type menu; the model writes self-contained SVG in a fenced code block and the frontend sanitizes (DOMPurify) and renders it, the same "one general capability, not a menu of shapes" instinct 0016 already applied to SQL.
 - [0022 -- The chat can write data, confirmed and reversible](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md) -- a general write tool (any DML, never DDL), gated by a real confirm-before-commit click rather than the model's own judgment, with a generic audit trigger and field-level rollback as the actual safety net.
+- [0023 -- Producer memory via embeddings](docs/decisions/0023-producer-memory-via-embeddings.md) -- structured, producer-editable memory entries plus a derived, rebuildable index over past conversations, both searched by one new tool via `pgvector`; memory writes reuse 0022's confirm-and-audit mechanism rather than getting a path of their own.
 
 ## Stack
 
