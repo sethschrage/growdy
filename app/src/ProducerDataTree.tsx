@@ -117,6 +117,85 @@ function RowMeasurements({
   )
 }
 
+// The only place a producer can add a parcel after onboarding -- the
+// wizard (docs/decisions/0026) creates the first one, but skipping that
+// step, or wanting a second parcel later, both land here. Uses
+// supabase.auth.getUser() rather than a passed-down session prop since
+// nothing between here and App already threads one this deep.
+function AddParcel({ onAdded }: { onAdded: (parcel: Parcel) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!adding) {
+    return (
+      <button type="button" className="pdv-add-parcel-toggle" onClick={() => setAdding(true)}>
+        + Add parcel
+      </button>
+    )
+  }
+
+  async function handleSave() {
+    if (!name.trim()) return
+    setSaving(true)
+    setError(null)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setSaving(false)
+      setError('Not signed in.')
+      return
+    }
+    const { data: profile } = await supabase.from('profiles').select('producer_id').eq('id', user.id).single()
+    if (!profile) {
+      setSaving(false)
+      setError('Could not find your producer.')
+      return
+    }
+    const { data, error } = await supabase
+      .from('parcels')
+      .insert({ producer_id: profile.producer_id, name: name.trim() })
+      .select('id, name')
+      .single()
+    setSaving(false)
+    if (error || !data) {
+      setError(error?.message ?? 'Something went wrong.')
+      return
+    }
+    onAdded(data as Parcel)
+    setName('')
+    setAdding(false)
+  }
+
+  return (
+    <form
+      className="pdv-add-parcel-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        handleSave()
+      }}
+    >
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Parcel name"
+        autoFocus
+      />
+      {error && <p className="error">{error}</p>}
+      <div className="pdv-add-parcel-actions">
+        <button type="submit" disabled={saving}>
+          Save
+        </button>
+        <button type="button" onClick={() => setAdding(false)} disabled={saving}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // A real collapsible tree, not a level-by-level button drill-down: every
 // node expands in place and stays expanded alongside its siblings, so
 // comparing two rows (or two plots) means opening both, not bouncing
@@ -199,82 +278,87 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   }
 
   if (parcels === null) return <p className="pdv-empty">Loading...</p>
-  if (parcels.length === 0) return <p className="pdv-empty">No parcels yet.</p>
 
   return (
-    <ul className="pdv-tree" role="tree">
-      {parcels.map((parcel) => {
-        const pOpen = expanded.has(`parcel:${parcel.id}`)
-        const plots = plotsByParcel.get(parcel.id)
-        return (
-          <li key={parcel.id} role="treeitem" aria-expanded={pOpen}>
-            <button type="button" className="pdv-tree-node" onClick={() => toggleParcel(parcel)}>
-              <span className={`pdv-tree-caret${pOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
-              <span className="pdv-tree-label">{parcel.name}</span>
-            </button>
-            {pOpen && (
-              <ul className="pdv-tree" role="group">
-                {plots === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
-                {plots?.length === 0 && <li className="pdv-empty pdv-tree-indent">No plots yet.</li>}
-                {plots?.map((plot) => {
-                  const plOpen = expanded.has(`plot:${plot.id}`)
-                  const rows = rowsByPlot.get(plot.id)
-                  return (
-                    <li key={plot.id} role="treeitem" aria-expanded={plOpen}>
-                      <button type="button" className="pdv-tree-node" onClick={() => togglePlot(plot)}>
-                        <span className={`pdv-tree-caret${plOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
-                        <span className="pdv-tree-label">{plot.name}</span>
-                      </button>
-                      {plOpen && (
-                        <ul className="pdv-tree" role="group">
-                          {rows === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
-                          {rows?.length === 0 && <li className="pdv-empty pdv-tree-indent">No rows yet.</li>}
-                          {rows?.map((row) => {
-                            const rOpen = expanded.has(`row:${row.id}`)
-                            const plantings = plantingsByRow.get(row.id)
-                            return (
-                              <li key={row.id} role="treeitem" aria-expanded={rOpen}>
-                                <button type="button" className="pdv-tree-node" onClick={() => toggleRow(plot, row)}>
-                                  <span className={`pdv-tree-caret${rOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
-                                  <span className="pdv-tree-label">Row {row.number}</span>
-                                </button>
-                                {rOpen && (
-                                  <ul className="pdv-tree pdv-tree--leaves" role="group">
-                                    <li className="pdv-tree-indent">
-                                      <RowMeasurements plot={plot} row={row} onSave={saveRowMeasurements} />
-                                    </li>
-                                    {plantings === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
-                                    {plantings?.length === 0 && (
-                                      <li className="pdv-empty pdv-tree-indent">No active plantings.</li>
-                                    )}
-                                    {plantings?.map((p) => (
-                                      <li key={p.id} role="treeitem">
-                                        <button
-                                          type="button"
-                                          className="pdv-tree-leaf"
-                                          onClick={() => onSelectPlanting(p.id)}
-                                        >
-                                          <span className={`pdv-dot pdv-dot--${plantingStatus(p)}`} />
-                                          <span className="pdv-tree-leaf-position">{p.position ?? '—'}</span>
-                                          <span className="pdv-tree-leaf-label">{plantingLabel(p)}</span>
-                                        </button>
+    <>
+      <AddParcel onAdded={(parcel) => setParcels((prev) => [...(prev ?? []), parcel])} />
+      {parcels.length === 0 && <p className="pdv-empty">No parcels yet.</p>}
+      <ul className="pdv-tree" role="tree">
+        {parcels.map((parcel) => {
+          const pOpen = expanded.has(`parcel:${parcel.id}`)
+          const plots = plotsByParcel.get(parcel.id)
+          return (
+            <li key={parcel.id} role="treeitem" aria-expanded={pOpen}>
+              <button type="button" className="pdv-tree-node" onClick={() => toggleParcel(parcel)}>
+                <span className={`pdv-tree-caret${pOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
+                <span className="pdv-tree-label">{parcel.name}</span>
+              </button>
+              {pOpen && (
+                <ul className="pdv-tree" role="group">
+                  {plots === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
+                  {plots?.length === 0 && <li className="pdv-empty pdv-tree-indent">No plots yet.</li>}
+                  {plots?.map((plot) => {
+                    const plOpen = expanded.has(`plot:${plot.id}`)
+                    const rows = rowsByPlot.get(plot.id)
+                    return (
+                      <li key={plot.id} role="treeitem" aria-expanded={plOpen}>
+                        <button type="button" className="pdv-tree-node" onClick={() => togglePlot(plot)}>
+                          <span className={`pdv-tree-caret${plOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
+                          <span className="pdv-tree-label">{plot.name}</span>
+                        </button>
+                        {plOpen && (
+                          <ul className="pdv-tree" role="group">
+                            {rows === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}
+                            {rows?.length === 0 && <li className="pdv-empty pdv-tree-indent">No rows yet.</li>}
+                            {rows?.map((row) => {
+                              const rOpen = expanded.has(`row:${row.id}`)
+                              const plantings = plantingsByRow.get(row.id)
+                              return (
+                                <li key={row.id} role="treeitem" aria-expanded={rOpen}>
+                                  <button type="button" className="pdv-tree-node" onClick={() => toggleRow(plot, row)}>
+                                    <span className={`pdv-tree-caret${rOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
+                                    <span className="pdv-tree-label">Row {row.number}</span>
+                                  </button>
+                                  {rOpen && (
+                                    <ul className="pdv-tree pdv-tree--leaves" role="group">
+                                      <li className="pdv-tree-indent">
+                                        <RowMeasurements plot={plot} row={row} onSave={saveRowMeasurements} />
                                       </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </li>
-        )
-      })}
-    </ul>
+                                      {plantings === undefined && (
+                                        <li className="pdv-empty pdv-tree-indent">Loading...</li>
+                                      )}
+                                      {plantings?.length === 0 && (
+                                        <li className="pdv-empty pdv-tree-indent">No active plantings.</li>
+                                      )}
+                                      {plantings?.map((p) => (
+                                        <li key={p.id} role="treeitem">
+                                          <button
+                                            type="button"
+                                            className="pdv-tree-leaf"
+                                            onClick={() => onSelectPlanting(p.id)}
+                                          >
+                                            <span className={`pdv-dot pdv-dot--${plantingStatus(p)}`} />
+                                            <span className="pdv-tree-leaf-position">{p.position ?? '—'}</span>
+                                            <span className="pdv-tree-leaf-label">{plantingLabel(p)}</span>
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </>
   )
 }
