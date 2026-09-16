@@ -32,11 +32,22 @@ export function Chat({
     // sending a message or waiting still scrolls to the bottom sentinel,
     // same as before.
     const lastMessage = messages[messages.length - 1]
-    if (!sending && lastMessage?.role === 'assistant') {
-      lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    } else {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const scroll = () => {
+      if (!sending && lastMessage?.role === 'assistant') {
+        lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
     }
+    scroll()
+    // iOS Safari's own address/tab bar can collapse or expand right around
+    // this same moment (e.g. after the keyboard dismisses on send), which
+    // changes the actual visible height out from under a scroll position
+    // computed a moment earlier -- a second corrective pass once that's
+    // had time to settle catches it without depending on exactly when it
+    // happens.
+    const correction = setTimeout(scroll, 400)
+    return () => clearTimeout(correction)
   }, [messages, sending])
 
   async function send(event: FormEvent) {
