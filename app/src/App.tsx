@@ -6,6 +6,7 @@ import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
 import { ObservationCandidatesView } from './ObservationCandidatesView'
 import { ObservationForm } from './ObservationForm'
+import { OnboardingWizard } from './OnboardingWizard'
 import { ProducerDataView } from './ProducerDataView'
 import { ReleaseNotes } from './ReleaseNotes'
 import { useAppStatus, type AppBlock } from './useAppStatus'
@@ -347,6 +348,26 @@ function SignedIn({ session }: { session: Session }) {
   )
 }
 
+// Every screen below this assumes profiles.producer_id exists -- nothing
+// creates that row automatically (see docs/decisions/0026), so this is
+// the one gate deciding between "needs onboarding" and the real app.
+function SessionRouter({ session }: { session: Session }) {
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setHasProfile(data !== null))
+  }, [session.user.id])
+
+  if (hasProfile === null) return null
+  if (!hasProfile) return <OnboardingWizard session={session} onComplete={() => setHasProfile(true)} />
+  return <SignedIn session={session} />
+}
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -368,7 +389,7 @@ function App() {
   if (block) return <BlockedScreen block={block} />
   if (loading) return null
 
-  return session ? <SignedIn session={session} /> : <LoginForm />
+  return session ? <SessionRouter session={session} /> : <LoginForm />
 }
 
 export default App

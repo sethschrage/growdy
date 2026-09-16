@@ -113,6 +113,20 @@ body {
   color: var(--wood-dark);
 }
 
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(320px, 80vw);
+  text-align: left;
+}
+
+.onboarding-intro {
+  margin: 0 0 4px;
+  color: var(--wood-dark);
+  font-size: 14px;
+}
+
 .google-signin-button {
   display: inline-flex;
   align-items: center;
@@ -1121,6 +1135,47 @@ select {
 .pdv-error {
   color: #c0392b;
   font-size: 13px;
+}
+
+.pdv-add-parcel-toggle {
+  background: none;
+  border: 1px dashed var(--pdv-border);
+  box-shadow: none;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pdv-accent);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.pdv-add-parcel-toggle:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.pdv-add-parcel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pdv-add-parcel-form input {
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.pdv-add-parcel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pdv-add-parcel-actions button {
+  font-size: 12px;
+  padding: 4px 10px;
 }
 
 /* Collapsible tree -- replaces the old level-by-level button
