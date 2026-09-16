@@ -107,9 +107,17 @@ erDiagram
         timestamptz observed_at
         numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
     }
+    PARCEL_SHARES {
+        uuid id PK
+        uuid parcel_id FK
+        uuid shared_with_producer_id FK
+        text role "editor or viewer -- see docs/decisions/0025"
+    }
 
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns
+    PARCELS ||--o{ PARCEL_SHARES : "shared via (optional)"
+    PRODUCERS ||--o{ PARCEL_SHARES : "receives (optional)"
     PARCELS ||--o{ PLOTS : "divided into"
     PLOTS ||--o{ PLOT_ROWS : contains
     PARCELS ||--o{ PLANTING : "located in"
@@ -187,8 +195,141 @@ erDiagram
   the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
+- **`parcel_shares` grants access to one specific parcel, not a whole
+  producer account** -- see [0025](decisions/0025-parcel-sharing-and-self-serve-creation.md).
+  There's no `'owner'` value in its `role` column; the real owner is
+  `parcels.producer_id` itself, unchanged. Access cascades down through
+  `plots`, `plot_rows`, and `planting` (all reachable from a parcel), but
+  only reaches an `observations` row when it's tied to a `planting` under
+  that parcel -- a general observation with no `planting_id` stays
+  visible only to the owning producer.
 
 ## History
+
+### 2026-09-16 -- before parcel sharing ([0025](decisions/0025-parcel-sharing-and-self-serve-creation.md))
+
+The diagram above gained `parcel_shares`. Before that, it was:
+
+```mermaid
+erDiagram
+    PRODUCERS {
+        uuid id PK
+        text name
+    }
+    PROFILES {
+        uuid id PK "also FK -> auth.users, Supabase-managed"
+        uuid producer_id FK
+    }
+    PARCELS {
+        uuid id PK
+        uuid producer_id FK
+        text name
+    }
+    PLOTS {
+        uuid id PK
+        uuid parcel_id FK
+        uuid producer_id FK
+        text name
+    }
+    PLOT_ROWS {
+        uuid id PK
+        uuid plot_id FK
+        uuid producer_id FK
+        int number
+        numeric length_meters "nullable"
+        numeric spacing_meters "nullable"
+    }
+    PLANTING {
+        uuid id PK
+        uuid producer_id FK
+        uuid parcel_id FK
+        uuid plot_id FK "nullable"
+        uuid plot_row_id FK "nullable"
+        int position "nullable"
+        geography location "nullable"
+        uuid variety_id FK "nullable"
+        uuid scion_variety_id FK "nullable"
+        uuid rootstock_variety_id FK "nullable"
+        text nickname "nullable"
+        text category "nullable"
+        date planted_date "nullable"
+        date dead_date "nullable"
+        date removed_date "nullable"
+        text removed_reason "nullable"
+    }
+    PLANT_TYPES {
+        uuid id PK
+        uuid proposed_by_producer_id FK "nullable"
+        text name
+        text kind
+        text status
+        text common_name "nullable"
+    }
+    OBSERVATIONS {
+        uuid id PK
+        uuid planting_id FK "nullable"
+        uuid producer_id FK
+        date observed_date "nullable"
+        text note
+        text photo_metadata "nullable"
+        text status
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
+    }
+    DATA_PROVIDERS {
+        uuid id PK
+        text category
+        text name
+        boolean enabled
+        text context "nullable"
+    }
+    DATA_SOURCES {
+        uuid id PK
+        uuid provider_id FK
+        uuid producer_id FK
+        text name
+        text external_id
+        uuid vault_secret_id "nullable -- no credential needed, e.g. Device/USA-NPN"
+        boolean enabled
+        text context "nullable"
+        jsonb config "nullable -- e.g. Device's last-known lat/long"
+        text backfill_status "nullable"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
+        timestamptz last_synced_at "nullable"
+        text last_error "nullable"
+        text last_warning "nullable"
+    }
+    WEATHER_OBSERVATIONS {
+        uuid id PK
+        uuid source_id FK
+        uuid producer_id FK
+        timestamptz observed_at
+        numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
+    }
+
+    PRODUCERS ||--o{ PROFILES : "has members"
+    PRODUCERS ||--o{ PARCELS : owns
+    PARCELS ||--o{ PLOTS : "divided into"
+    PLOTS ||--o{ PLOT_ROWS : contains
+    PARCELS ||--o{ PLANTING : "located in"
+    PLOTS |o--o{ PLANTING : "organizes (optional)"
+    PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
+    PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+    DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
+    DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
+```
 
 ### 2026-09-15 -- before external data channels ([0019](decisions/0019-external-data-channels.md))
 
