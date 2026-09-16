@@ -13,6 +13,57 @@ for the full process.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-16
+
+This milestone is the sprout menu (introduced in `0.8.0`) getting
+refined through real, immediate use -- three quick interaction fixes
+within a day of shipping, followed by the actual redesign of its second
+feature that direct feedback asked for.
+
+Trying the brand-new menu surfaced three issues at once: opening
+sideways felt wrong for a trigger anchored to the header's left edge,
+the hamburger kept showing its closed icon rotated next to its own
+exploded layers once open, and the Knowledge Categories icon -- already
+redesigned twice in `0.8.0` -- still wasn't reading clearly. All three
+got fixed together (#118): the sprout menu now opens downward; the
+hamburger's toggle shows a bun-slice in place of the burger once open,
+doubling as the bar's own trailing bun instead of drawing it twice; and
+the icon became a plain connected-nodes glyph, deliberately not an X or
+checkmark shape, since those already mean negative/positive feedback
+elsewhere in this icon set. Making the hamburger's own toggle swap its
+icon on open surfaced a genuine bug, not just a style change: the same
+click that opens the menu also removes the just-clicked SVG from the
+DOM, so the existing click-outside-closes handler's
+`contains(event.target)` check saw a now-detached node and read *every*
+opening click as "outside," closing the menu on the same click that
+opened it -- fixed with `event.composedPath()` instead, captured before
+the swap happens, for both menus that share this handler shape.
+
+A second real bug turned up within the hour, this time in the sprout
+menu's new downward dropdown itself: it extends into the space
+`.chat-messages` occupies, and both shared the same `z-index`, so
+`.chat-messages` -- painted later in DOM order -- silently intercepted
+every click on the dropdown's own buttons. They were visible and looked
+correct; tapping them did nothing (#119). The fix reused the exact value
+`.chat-input` already needed for the identical reason -- floating above
+scrolled message content -- rather than inventing a new one.
+
+With the menu itself solid, its second feature -- browsing the
+producer's own data -- got the redesign direct feedback actually asked
+for, replacing a level-by-level button drill-down real usage called
+"clunky": a genuine collapsible tree (parcel -> plot -> row -> planting,
+each node expanding in place instead of replacing the whole screen per
+level, fetched and cached lazily), reaching one level deeper into a
+planting's own observations from a shared detail panel without needing
+a fifth tree level; and a separate, zoomable grid of colored status
+dots, one per position, driven directly by `position_status`, for
+reading a whole plot's health at a glance instead of row by row (#120).
+This view deliberately breaks from the rest of the app's pixel-art
+chrome for plain, dense, modern styling on purpose -- a real
+data-browsing tool reads better dense than playful, the same call
+`.chat-message-assistant` already made for a legible font over the
+pixel one.
+
 ## [0.8.0] - 2026-09-15
 
 This milestone draws a line this project hadn't needed before: what's
