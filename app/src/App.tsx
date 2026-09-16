@@ -234,7 +234,7 @@ function SproutMenu({
     <div className="sprout-menu" ref={ref}>
       <button
         type="button"
-        className="sprout-menu-toggle"
+        className={`sprout-menu-toggle${open ? ' sprout-menu-toggle--open' : ''}`}
         aria-label="Features"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
