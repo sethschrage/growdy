@@ -138,9 +138,15 @@ day's migration needed. Confirmed directly against
   `public` schema (should move to `extensions`); two `SECURITY DEFINER`
   functions callable by `anon` -- `get_public_artifact` is intentional
   ([`0027`](decisions/0027-public-artifact-links.md)), `rls_auto_enable`
-  is not something any ADR documents and is worth a maintainer
-  confirming is expected; leaked-password protection disabled in Auth;
-  18 unused indexes (INFO-level, expected at this scale, not urgent).
+  is not defined by any migration in this repo at all (`pg_get_functiondef`
+  shows it owned by `postgres`, not the migration-applying role) -- it's
+  Supabase's own platform-injected event trigger that auto-enables RLS on
+  any new `public` table, a defense-in-depth default, not a growdy
+  artifact. Harmless if called directly outside its event-trigger context
+  (`pg_event_trigger_ddl_commands()` only returns rows during a live DDL
+  event), which is why the linter still flags it as anon-callable; leaked-
+  password protection disabled in Auth; 18 unused indexes (INFO-level,
+  expected at this scale, not urgent).
 - **pg_cron job health** -- `select * from cron.job_run_details order by
   start_time desc` for the two scheduled jobs (`sync-weather-sources-hourly`,
   `scan-conversations-for-observations-6h`), but see the fire-and-forget
