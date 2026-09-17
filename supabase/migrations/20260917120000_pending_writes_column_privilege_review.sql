@@ -1,0 +1,37 @@
+-- ADR 0022's own checklist review, applied to pending_writes itself --
+-- the one table in the write tool's reach that the original checklist
+-- pass never actually looked at, since it's the mechanism's own staging
+-- table rather than producer data the model proposes writes against.
+--
+-- Real gap found and confirmed by scratch-testing before this shipped:
+-- authenticated held a table-wide UPDATE grant on pending_writes (needed
+-- because propose_write_query/confirm_write are both security invoker,
+-- per 0022, so their own internal writes run as the calling producer's
+-- session). That grant covered every column, not just the one the app
+-- actually updates from the client (ConfirmWriteCard's Decline button,
+-- which only ever sets status). Confirmed directly: a raw client-side
+-- update could silently rewrite a pending proposal's own `query` text
+-- after propose_write_query already showed the producer a summary of a
+-- *different* query -- confirm_write re-reads `query` at confirm time,
+-- not at propose time, so the two could end up disconnected. Nothing in
+-- this app's own normal operation does this, but "the grant allows more
+-- than the legitimate use needs" is exactly the gap 0022's column-privilege
+-- review exists to catch, the same principle already applied to
+-- profiles.producer_id.
+--
+-- Column-scoped, not table-wide: INSERT stays as-is (propose_write_query
+-- needs producer_id/query/summary insertable, and RLS's own with_check
+-- already stops a producer from inserting a proposal under someone
+-- else's producer_id). Only UPDATE narrows -- to `status`, the one
+-- column any legitimate caller (Decline, or confirm_write's own
+-- status = 'applied') ever actually sets.
+--
+-- No audit trigger added here, deliberately: pending_writes is the
+-- mechanism's own bookkeeping, not producer data with something to
+-- revert -- the real committed write already gets audited on whichever
+-- table confirm_write's query actually touches. Auditing a proposal's
+-- own create/decline lifecycle would double-log without adding anything
+-- a revert could use, and audit_log is already a fast-growing table
+-- with its own undecided retention question (0022's Consequences).
+revoke update on public.pending_writes from authenticated;
+grant update (status) on public.pending_writes to authenticated;
