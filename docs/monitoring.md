@@ -5,10 +5,14 @@ place a real failure currently ends up. This is the inventory
 [`0019`](decisions/0019-external-data-channels.md) named directly but
 deferred: *"alerts (unprompted, pushed notification) [are] a distinct
 future direction, gated on a real missed incident, not something to
-build a piece of speculatively here."* Nothing here pushes yet -- every
-one of these is a pull: someone has to know to go look. That's the gap
-this document exists to close first, before any actual paging/emailing
-gets built on top of it.
+build a piece of speculatively here."* Sections 1-7 are that inventory --
+every signal is still a pull you can run by hand, and stays accurate on
+its own regardless of whether anything is watching it automatically.
+Section 8 documents the piece built on top of it: a live dashboard and a
+scheduled check that reads sections 1-7 and pushes a notification when
+something changes. It lives outside this repo entirely (see section 8
+for exactly where and why) -- this document is still the one place that
+explains what each signal *means*.
 
 Three different audiences check different parts of this list: a
 producer sees their own pending items and feedback buttons in the app
@@ -170,7 +174,18 @@ already fixed once for `data_sources`/`weather_observations` a day
 earlier; the fix just never carried forward to the tables the next
 day's migration needed. Confirmed directly against
 `information_schema.role_table_grants`. Fixed alongside this doc in
-`20260917020100_scan_conversations_service_role_grants.sql`.
+`20260917020100_scan_conversations_service_role_grants.sql` --
+**incompletely**: the very next scheduled run still failed on every
+conversation with the identical error, because `UPDATE` alone doesn't
+cover it -- Postgres also needs `SELECT` to evaluate the `WHERE id =
+...` clause the update runs against, which the sibling weather-table
+migration had granted alongside `update` and this one didn't. Actually
+fixed in `20260917030100_conversations_service_role_select_grant.sql`,
+confirmed by re-checking `net._http_response.content` on the run after
+that landed. The lesson generalizes: a `grant update` on any table a
+policy-bypassing role writes through a `WHERE`-scoped statement needs
+`select` alongside it, every time, not just when the linter happens to
+catch it.
 
 ## 6. Supabase platform-level
 
@@ -192,12 +207,15 @@ day's migration needed. Confirmed directly against
   password protection disabled in Auth; 18 unused indexes (INFO-level,
   expected at this scale, not urgent).
 - **pg_cron job health** -- `select * from cron.job_run_details order by
-  start_time desc` for the three scheduled jobs (`sync-weather-sources-hourly`,
-  `scan-conversations-for-observations-6h`, `embed-producer-memory-6h`),
-  but see the fire-and-forget trap in section 5 -- always cross-check
-  `net._http_response.content` too, not just `cron.job_run_details.status`
-  (section 4 is a live example of exactly that, for the newest of the
-  three).
+  start_time desc` for the *three* scheduled jobs
+  (`sync-weather-sources-hourly`, `scan-conversations-for-observations-6h`,
+  `embed-producer-memory-6h`), but see the fire-and-forget trap in
+  section 5 -- always cross-check `net._http_response.content` too, not
+  just `cron.job_run_details.status` (section 4 is a live example of
+  exactly that, for the newest of the three: `embed-producer-memory-6h`
+  reads `succeeded` while its own body shows `Voyage embeddings API
+  error (429): ... no payment method on file ...` on most entries -- a
+  Voyage AI billing gap, not a growdy bug).
 - **No backups exist.** Free tier, stated directly in
   [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s "Working directly against the
   live database" section -- a manual `supabase db dump` before any
@@ -217,13 +235,93 @@ day's migration needed. Confirmed directly against
 - **Web analytics** -- available (`get_web_analytics`) but not reviewed
   here; likely not worth watching at current traffic.
 
-## What's still genuinely unsolved
+## 8. The live dashboard and scheduled check -- and where it actually lives
+
+Sections 1-7 now feed an actual running system, built 2026-09-17. Read
+this section before touching it -- it does **not** live in this repo,
+in Supabase, or in Vercel, which makes it invisible to anyone who only
+knows to look at [`docs/architecture.md`](architecture.md)'s three
+deploy paths.
+
+**Where each piece is:**
+
+- **Dashboard**: a private Claude Artifact, "Growdy Watch" --
+  <https://claude.ai/artifact/JVv4C3biUWkPKXruZg88x1>. Requires being
+  signed in as its owner (Seth's claude.ai account) to open; the link
+  alone grants nothing. Its HTML source is committed at
+  [`ops/growdy-watch/index.html`](../ops/growdy-watch/index.html) *for
+  reference and editing* -- that copy is inert on its own (no build
+  step publishes it anywhere); the live page only updates when someone
+  republishes it with the `Artifact` tool against that same URL. Treat
+  the repo copy as the source of truth to edit, and the live URL as the
+  deploy target, same mental model as everything else here, just a
+  different tool than `git push`.
+- **The check itself**: a Claude Code Remote Routine (a scheduled
+  trigger, not a Supabase Edge Function or GitHub Action), named
+  "Growdy Watch hourly check" (the name predates moving it to daily --
+  not worth a cosmetic rename), `trigger_id trig_011dPXbSXhcmAabuPCTCFYQe`,
+  currently daily at 12:17 UTC. It fires by **resuming one specific
+  persistent Claude Code session**
+  (`session_01Xmz8sEKEeuFe8G5WtgL7NM`) rather than spawning a fresh one
+  -- a fresh-session Routine was tried first and silently failed to
+  complete (burned real tokens, never wrote the dashboard) for reasons
+  never fully root-caused, most likely losing access to the
+  Supabase/Vercel MCP tools this session already has configured. **This
+  is the system's real fragility**: if that specific session is ever
+  archived or deleted, the Routine will fire into a dead target with no
+  documented fallback, and nothing in this repo would tell you why the
+  dashboard stopped updating -- you'd have to know to check
+  `list_triggers`/`get_session` on the Claude Code Remote account that
+  owns it. Whoever owns this system should notice if the dashboard's
+  `checked_at` stops advancing.
+- **Notifications**: `PushNotification` (phone via Remote Control, or
+  the terminal) only, no email. Dedup lives in the dashboard's own data
+  store (`meta/alert_state.last_notified_signature`), not in the
+  Routine's prompt -- it only re-notifies when the *set* of non-ok
+  categories changes, not on every run something stays broken.
+
+**The data schema** (all in the dashboard artifact's own `db`
+capability, a JSON document store separate from `growdybase` entirely):
+
+- Collection `checks`, one document per signal, ids
+  `pending_observations` / `pending_candidates` / `pending_plant_types`
+  / `stuck_writes` / `chat_feedback` / `data_sources` / `background_jobs`
+  / `function_errors` / `supabase_advisors` / `vercel` -- matching
+  sections 1, 2, 3, 6, and 7 above (`background_jobs` covers both the
+  scan-conversations trap in section 5 and the embedding-pipeline
+  failures in section 4; there's no separate `embedding_pipeline` card
+  yet -- see "to add a new signal" below if that's worth splitting out).
+  Each: `{status: "ok"|"attention"|"critical", count, summary, items:
+  [{label, detail, timestamp}], checked_at}`.
+- `meta/summary`: `{overall, attention_categories, checked_at}`, drives
+  the dashboard's header pill.
+- `meta/alert_state`: `{last_notified_signature, last_notified_at}`,
+  the notification dedup state described above.
+
+**To add a new signal** (say, splitting the embedding-pipeline backlog
+in section 4 into its own card instead of folding it into
+`background_jobs`): decide its status rubric first, matching the
+`ok`/`attention`/`critical` shape the others use; add the check and the
+corresponding write to the Routine's prompt with `update_trigger` (send
+schedule and prompt changes as separate calls, per that tool's own
+guidance); add a matching entry to the `CATEGORIES` array in
+[`ops/growdy-watch/index.html`](../ops/growdy-watch/index.html) (same
+`{group, id, label, hint}` shape as its neighbors); republish that file
+with the `Artifact` tool against the dashboard's URL (`capabilities`
+carries forward automatically -- no need to redeclare `db`); then
+`fire_trigger` the Routine once by hand so the new category has real
+data instead of sitting on "No data yet" until the next scheduled run.
+
+**Also still genuinely unsolved:**
 
 - The client-side `Chat.tsx:84` invoke failure (section 5) has no
   server-side echo at all -- fixing that for real means adding client
   error reporting (e.g. Sentry), a materially bigger, separate decision,
   not something to back into here.
-- Nothing in sections 1-7 pushes a notification anywhere yet. Building
-  that (an hourly check + email, the shape already discussed) is the
-  natural next step once this list is the one both of us are checking
-  against -- but it's a separate change from this document.
+- Supabase advisors and Vercel deploy/runtime errors (sections 6-7) are
+  checked by the Routine reading them live each run -- there's no
+  cheaper way to watch either that doesn't also need this same
+  Claude-Code-Remote-hosted approach, since neither is something a
+  Supabase Edge Function or GitHub Action can reach on its own without
+  a materially bigger credential (a Supabase Management API token, a
+  Vercel API token) than anything else this project holds.
