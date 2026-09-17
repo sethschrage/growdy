@@ -120,6 +120,14 @@ flowchart TD
   it doesn't know about yet: a newer deploy, or a maintenance window
   flipped on before risky direct work against production. See
   [`docs/decisions/0017`](decisions/0017-app-status-forces-refresh.md).
+- **A fourth surface exists outside this diagram entirely**: a Claude
+  Code Remote session and a claude.ai Artifact dashboard, watching
+  `growdybase` and Vercel and pushing a phone notification when
+  something needs attention. It isn't drawn here because it isn't part
+  of growdy's own deploy paths (nothing about it lives in this repo's
+  CI, Supabase, or Vercel) -- see
+  [`docs/monitoring.md`](monitoring.md#8-the-live-dashboard-and-scheduled-check----and-where-it-actually-lives)
+  for exactly where it runs and its one real fragility.
 
 ## History
 
