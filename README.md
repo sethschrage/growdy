@@ -41,6 +41,13 @@ See [`docs/architecture.md`](docs/architecture.md) for a diagram of where
 each piece runs and how they talk to each other -- the app, Vercel,
 Supabase, and Anthropic.
 
+## Monitoring
+
+See [`docs/monitoring.md`](docs/monitoring.md) for every place in the
+system that needs a human to look at it -- pending review queues, chat
+feedback, data-source health, and the failures that are logged but that
+nothing currently watches.
+
 ## Notable design decisions
 
 - [0001 -- Tenancy membership model](docs/decisions/0001-tenancy-membership-model.md) -- how a user resolves to a producer, isolated behind one swappable RLS helper function.
