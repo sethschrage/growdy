@@ -78,7 +78,51 @@ thing this document exists to surface. Per
 sees their own source's `last_error`/`last_warning` directly in the app;
 a maintainer only sees it by running this query.
 
-## 4. Failures that are logged, but nowhere anyone looks
+## 4. Embedding pipeline health -- a real, currently-active rate limit
+
+[`0023`](decisions/0023-producer-memory-via-embeddings.md)'s own
+Consequences already named this: Voyage/MongoDB's free trial throttles to
+3 RPM / 10K TPM until a payment method is added, and `embed-producer-memory-6h`
+(every 6 hours) has no way to signal that anywhere a human would see it --
+same fire-and-forget shape as the other scheduled jobs in section 6, and
+until now, no query anyone would think to run either. This is that
+query, and the meter it gives you:
+
+```sql
+select
+  count(*) filter (where embedded_at is null or updated_at > embedded_at) as pending,
+  count(*) as total,
+  round(100.0 * count(*) filter (where embedded_at is not null and updated_at <= embedded_at) / nullif(count(*), 0), 0) as pct_embedded
+from public.conversations;
+```
+
+Live right now, confirmed while writing this: **20% embedded (33 of 41
+conversations still pending)**, and the most recent run's own response
+body (`net._http_response.content`, same "don't trust `status =
+'succeeded'`" trap as section 6) shows exactly why -- 3 conversations
+embedded, 17 more hit `Voyage embeddings API error (429)` with the
+same "you have not yet added your payment method" detail, in the same
+single run:
+
+```sql
+select content from net._http_response
+where content like '%embeddedConversations%'
+order by created desc limit 1;
+```
+
+Nothing here pushes any more than the rest of this document does -- this
+is the "meter" asked for, not an alert. It's a percentage a maintainer
+has to go pull, not one that shows up anywhere on its own; an actual
+gauge rendered somewhere (a maintainer view doesn't exist in the app at
+all yet, per the intro above) would be new UI, not documentation, and is
+a separate, bigger decision than adding a query here. Harmless either
+way today -- unembedded rows just retry next run -- but the backlog
+won't meaningfully shrink until a payment method is added to the
+Voyage/MongoDB account, and this is how to see that it hasn't been
+without waiting for a producer to notice `search_memory` coming up
+empty on something recent.
+
+## 5. Failures that are logged, but nowhere anyone looks
 
 This is the category the database signals above don't cover at all:
 every Edge Function catches its own crashes and calls `console.error`,
@@ -128,7 +172,7 @@ day's migration needed. Confirmed directly against
 `information_schema.role_table_grants`. Fixed alongside this doc in
 `20260917020100_scan_conversations_service_role_grants.sql`.
 
-## 5. Supabase platform-level
+## 6. Supabase platform-level
 
 - **Security/performance advisors** (`get_advisors`, or Dashboard ->
   Advisors). [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says to
@@ -148,17 +192,19 @@ day's migration needed. Confirmed directly against
   password protection disabled in Auth; 18 unused indexes (INFO-level,
   expected at this scale, not urgent).
 - **pg_cron job health** -- `select * from cron.job_run_details order by
-  start_time desc` for the two scheduled jobs (`sync-weather-sources-hourly`,
-  `scan-conversations-for-observations-6h`), but see the fire-and-forget
-  trap in section 4 -- always cross-check `net._http_response.content`
-  too, not just `cron.job_run_details.status`.
+  start_time desc` for the three scheduled jobs (`sync-weather-sources-hourly`,
+  `scan-conversations-for-observations-6h`, `embed-producer-memory-6h`),
+  but see the fire-and-forget trap in section 5 -- always cross-check
+  `net._http_response.content` too, not just `cron.job_run_details.status`
+  (section 4 is a live example of exactly that, for the newest of the
+  three).
 - **No backups exist.** Free tier, stated directly in
   [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s "Working directly against the
   live database" section -- a manual `supabase db dump` before any
   direct write is the only safety net. Worth knowing before treating any
   of the above as low-stakes to poke at.
 
-## 6. Vercel (`growdy`, team `seth-schrage`, hobby plan)
+## 7. Vercel (`growdy`, team `seth-schrage`, hobby plan)
 
 - **Deployments** -- every push to `main` auto-deploys to production
   ([`docs/architecture.md`](architecture.md)); a failed build after a
@@ -173,11 +219,11 @@ day's migration needed. Confirmed directly against
 
 ## What's still genuinely unsolved
 
-- The client-side `Chat.tsx:84` invoke failure (section 4) has no
+- The client-side `Chat.tsx:84` invoke failure (section 5) has no
   server-side echo at all -- fixing that for real means adding client
   error reporting (e.g. Sentry), a materially bigger, separate decision,
   not something to back into here.
-- Nothing in sections 1-6 pushes a notification anywhere yet. Building
+- Nothing in sections 1-7 pushes a notification anywhere yet. Building
   that (an hourly check + email, the shape already discussed) is the
   natural next step once this list is the one both of us are checking
   against -- but it's a separate change from this document.
