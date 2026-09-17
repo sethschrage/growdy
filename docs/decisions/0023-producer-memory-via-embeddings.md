@@ -1,6 +1,6 @@
 # 0023. Producer memory: structured entries plus embedded conversation history, searched via pgvector
 
-**Status:** accepted
+**Status:** accepted, not yet implemented -- blocked on a Voyage AI API key (sign up at voyageai.com, add as a Supabase secret). The design below is final; nothing about it is waiting on a further decision, only on that one credential.
 
 ## Context
 
