@@ -11,6 +11,11 @@ Releases are cut in batches, once a group of merged PRs adds up to a real
 milestone -- not one release per PR. See [CONTRIBUTING.md](CONTRIBUTING.md)
 for the full process.
 
+This file is the engineering record -- it's never shown in the app. The
+GitHub Release published alongside each entry here carries its own,
+separate short bullet list written for the producer using the app; that's
+what actually shows up as "What's new."
+
 ## [Unreleased]
 
 ## [0.10.0] - 2026-09-16

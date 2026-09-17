@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import ReactMarkdown from 'react-markdown'
 import { supabase } from './lib/supabaseClient'
 
 type Release = {
@@ -17,6 +18,13 @@ const RELEASES_URL = 'https://api.github.com/repos/sethschrage/growdy/releases'
 // that could drift out of sync with the real history. profiles.last_seen_release
 // is the only piece of state that actually belongs to us: which release a
 // given producer has acknowledged, not what the releases themselves say.
+//
+// The GitHub Release's own body is a short, producer-facing bullet list
+// (see CONTRIBUTING.md) -- deliberately not the same text as CHANGELOG.md's
+// prose entry for the same version, which stays internal engineering
+// history and is never fetched here. Rendered through react-markdown (the
+// same renderer MessageContent already uses) so the bullets actually
+// render as a list, not a paragraph with literal "-" characters in it.
 //
 // The same shape (fetch some content, show it once, remember it's been
 // seen) is exactly what an onboarding wizard would need too -- worth
@@ -69,7 +77,9 @@ export function ReleaseNotes({ session }: { session: Session }) {
                   day: 'numeric',
                 })}
               </p>
-              <p className="release-notes-body">{release.body}</p>
+              <div className="release-notes-body">
+                <ReactMarkdown>{release.body}</ReactMarkdown>
+              </div>
             </div>
           ))}
         </div>
