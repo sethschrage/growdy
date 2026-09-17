@@ -487,3 +487,30 @@ export function PixelMagnifier({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
+
+const PICTURE_CELLS = [
+  [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0],
+  [0, 1], [6, 1],
+  [0, 2], [6, 2],
+  [4, 2],
+  [0, 3], [6, 3],
+  [2, 3],
+  [0, 4], [6, 4],
+  [1, 4], [2, 4], [3, 4],
+  [0, 5], [6, 5],
+  [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
+] as const
+
+// The sprout menu's "shared artifacts" button -- a plain framed picture
+// (a sun and a mountain), the universal image-placeholder glyph. Distinct
+// from PixelGrid (the producer's own structured data): this is graphics
+// the chat drew and the producer chose to keep/share (0027).
+export function PixelPicture({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
+      {PICTURE_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}

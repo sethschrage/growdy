@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import DOMPurify from 'dompurify'
 import { supabase } from './lib/supabaseClient'
+import { sanitizeSvg } from './sanitizeSvg'
 
 // Renders SVG the chat model wrote itself (see docs/decisions -- chat's
 // system prompt now tells it a fenced ```svg block becomes a real picture,
@@ -33,7 +33,7 @@ export function SvgGraphic({
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const clean = DOMPurify.sanitize(code, { USE_PROFILES: { svg: true, svgFilters: true } }).trim()
+  const clean = sanitizeSvg(code)
 
   // Sanitizing stripped everything meaningful (or the model's block wasn't
   // real SVG to begin with) -- fall back to the raw text rather than
