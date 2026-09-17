@@ -114,15 +114,14 @@ where content like '%embeddedConversations%'
 order by created desc limit 1;
 ```
 
-This query is the "meter" -- a percentage a maintainer (or section 8's
-dashboard) has to go pull, not something that pushed itself here on its
-own when this section was first written. It has, since: section 8's
-dashboard is a real, separate system built the same day, and this
-backlog is exactly the kind of signal it's meant to surface -- add it
-there if it isn't already one of its checks, rather than building a
-second, competing gauge. Harmless either way today -- unembedded rows
-just retry next run -- but the backlog won't meaningfully shrink until a
-payment method is added to the Voyage/MongoDB account.
+This query is the "meter." It's now also its own card on section 8's
+dashboard (`embedding_pipeline`, split out of `background_jobs`) rather
+than something a maintainer has to come pull by hand -- the query above
+is what that card's own check runs, and it's still exactly what to run
+here if the dashboard itself is ever unreachable. Harmless either way
+today -- unembedded rows just retry next run -- but the backlog won't
+meaningfully shrink until a payment method is added to the
+Voyage/MongoDB account.
 
 ## 5. Failures that are logged, but nowhere anyone looks
 
@@ -284,31 +283,32 @@ capability, a JSON document store separate from `growdybase` entirely):
 - Collection `checks`, one document per signal, ids
   `pending_observations` / `pending_candidates` / `pending_plant_types`
   / `stuck_writes` / `chat_feedback` / `data_sources` / `background_jobs`
-  / `function_errors` / `supabase_advisors` / `vercel` -- matching
-  sections 1, 2, 3, 6, and 7 above (`background_jobs` covers both the
-  scan-conversations trap in section 5 and the embedding-pipeline
-  failures in section 4; there's no separate `embedding_pipeline` card
-  yet -- see "to add a new signal" below if that's worth splitting out).
-  Each: `{status: "ok"|"attention"|"critical", count, summary, items:
-  [{label, detail, timestamp}], checked_at}`.
+  / `embedding_pipeline` / `function_errors` / `supabase_advisors` /
+  `vercel` -- matching sections 1, 2, 3, 4, 6, and 7 above
+  (`background_jobs` still covers the scan-conversations trap in
+  section 5; `embedding_pipeline` was split out of it on 2026-09-17 as
+  its own card, see below). Each: `{status: "ok"|"attention"|"critical",
+  count, summary, items: [{label, detail, timestamp}], checked_at}`.
 - `meta/summary`: `{overall, attention_categories, checked_at}`, drives
   the dashboard's header pill.
 - `meta/alert_state`: `{last_notified_signature, last_notified_at}`,
   the notification dedup state described above.
 
-**To add a new signal** (say, splitting the embedding-pipeline backlog
-in section 4 into its own card instead of folding it into
-`background_jobs`): decide its status rubric first, matching the
-`ok`/`attention`/`critical` shape the others use; add the check and the
-corresponding write to the Routine's prompt with `update_trigger` (send
-schedule and prompt changes as separate calls, per that tool's own
-guidance); add a matching entry to the `CATEGORIES` array in
+**To add a new signal**, following exactly how `embedding_pipeline`
+itself was added on 2026-09-17 (splitting the section 4 backlog out of
+`background_jobs` into its own card): decide its status rubric first,
+matching the `ok`/`attention`/`critical` shape the others use; add the
+check and the corresponding write to the Routine's prompt with
+`RemoteTrigger action: "update"` (a partial update -- fetch the current
+prompt with `action: "get"` first and edit it, don't reconstruct it from
+scratch); add a matching entry to the `CATEGORIES` array in
 [`ops/growdy-watch/index.html`](../ops/growdy-watch/index.html) (same
 `{group, id, label, hint}` shape as its neighbors); republish that file
 with the `Artifact` tool against the dashboard's URL (`capabilities`
 carries forward automatically -- no need to redeclare `db`); then
-`fire_trigger` the Routine once by hand so the new category has real
-data instead of sitting on "No data yet" until the next scheduled run.
+`RemoteTrigger action: "run"` the Routine once by hand so the new
+category has real data instead of sitting on "No data yet" until the
+next scheduled run.
 
 **Also still genuinely unsolved:**
 
