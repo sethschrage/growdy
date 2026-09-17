@@ -1,0 +1,24 @@
+-- Fix: service_role was never granted table-level access it needs to
+-- actually finish a scan-conversations-for-observations run --
+-- conversations only ever granted select/insert/update to authenticated,
+-- and observation_candidates only ever granted select to authenticated,
+-- both set when each table was created, before anything used service_role
+-- against them. This is the exact same bug class
+-- 20260915050538_service_role_weather_table_grants.sql already fixed for
+-- data_sources/weather_observations the day before -- that lesson just
+-- never carried forward to these two tables the next migration needed.
+--
+-- Confirmed live via docs/monitoring.md: every scan-conversations-for-
+-- observations run since it shipped has failed on every conversation,
+-- both net.http_post's own "succeeded" status and the function's own 200
+-- response notwithstanding -- the actual errors only show up in the
+-- response body (net._http_response.content) or the function's own
+-- console.error output, neither of which anything was watching.
+-- information_schema.role_table_grants showed service_role had no
+-- update on conversations and no insert on observation_candidates --
+-- exactly matching "permission denied for table conversations" (the
+-- scanned_at update, scan-conversations-for-observations/index.ts:112-116)
+-- and "permission denied for table observation_candidates" (the candidate
+-- insert, same file:102-106).
+grant update on public.conversations to service_role;
+grant insert on public.observation_candidates to service_role;
