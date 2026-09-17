@@ -114,17 +114,15 @@ where content like '%embeddedConversations%'
 order by created desc limit 1;
 ```
 
-Nothing here pushes any more than the rest of this document does -- this
-is the "meter" asked for, not an alert. It's a percentage a maintainer
-has to go pull, not one that shows up anywhere on its own; an actual
-gauge rendered somewhere (a maintainer view doesn't exist in the app at
-all yet, per the intro above) would be new UI, not documentation, and is
-a separate, bigger decision than adding a query here. Harmless either
-way today -- unembedded rows just retry next run -- but the backlog
-won't meaningfully shrink until a payment method is added to the
-Voyage/MongoDB account, and this is how to see that it hasn't been
-without waiting for a producer to notice `search_memory` coming up
-empty on something recent.
+This query is the "meter" -- a percentage a maintainer (or section 8's
+dashboard) has to go pull, not something that pushed itself here on its
+own when this section was first written. It has, since: section 8's
+dashboard is a real, separate system built the same day, and this
+backlog is exactly the kind of signal it's meant to surface -- add it
+there if it isn't already one of its checks, rather than building a
+second, competing gauge. Harmless either way today -- unembedded rows
+just retry next run -- but the backlog won't meaningfully shrink until a
+payment method is added to the Voyage/MongoDB account.
 
 ## 5. Failures that are logged, but nowhere anyone looks
 
