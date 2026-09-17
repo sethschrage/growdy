@@ -140,6 +140,39 @@ async function fetchDataChannelContext(supabase: SupabaseClient): Promise<string
   return `Notes on your data channels (weight and interpret accordingly):\n${lines.join("\n")}`;
 }
 
+// The chat can write data too (docs/decisions/0022), wired up here for
+// the first time -- propose_write_query/confirm_write existed at the
+// database level since 0022 shipped, but nothing ever called them.
+// Confirmed by grep before writing this, not assumed. Split across two
+// functions: proposeWrite (below) is the only one chat ever calls itself
+// -- confirm_write is deliberately never a tool the model can invoke; it
+// runs only from a real click in ConfirmWriteCard.tsx, straight from the
+// producer's own browser session, matching 0022's "a real click, not the
+// model's own judgment" requirement to the letter.
+const PROPOSE_WRITE_TOOL = {
+  name: "propose_write_query",
+  description:
+    "Draft a single INSERT, UPDATE, or DELETE statement that changes something in the vineyard database -- correcting a note, logging an observation, saving something to producer memory, anything the producer asks you to change or add. This runs as a real dry run first: a bad foreign key, a NOT NULL violation, or a failed check constraint shows up as an error here, before the producer ever sees anything. Write plain DML with no RETURNING clause of your own (one is added automatically) and no trailing semicolon. After calling this, say in plain language what the change would do, then include a fenced code block tagged confirm-write containing exactly the JSON object this tool returns, {\"proposal_id\": ..., \"summary\": ...} -- that block is what becomes a real confirm/decline button in the app. There is no way for the producer to confirm a write by just replying yes, so never ask them to, and never say a change happened until you actually see a real result back from a confirmed write.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "A single INSERT, UPDATE, or DELETE statement -- no RETURNING clause, no trailing semicolon.",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+async function proposeWrite(supabase: SupabaseClient, query: string): Promise<unknown> {
+  const { data, error } = await supabase.rpc("propose_write_query", { query });
+  if (error) throw new Error(error.message);
+  const row = (data ?? [])[0] as { proposal_id: string; summary: unknown } | undefined;
+  if (!row) throw new Error("propose_write_query returned no proposal");
+  return { proposal_id: row.proposal_id, summary: row.summary };
+}
+
 const EXECUTE_READONLY_QUERY_TOOL = {
   name: "execute_readonly_query",
   description:
@@ -356,6 +389,8 @@ You can also search and fetch real, current web content when a question genuinel
 
 The producer's own memory -- explicit notes and past conversations -- can be searched with search_memory when a question sounds like it references something discussed before. This is a meaning-based search, not a database table: use it instead of guessing from the current conversation alone whenever "didn't we already talk about this" seems likely to be true.
 
+You can also change data, not just read it -- correcting a note, logging an observation, saving something to memory for later, anything the producer asks you to add or fix. Use propose_write_query exactly as its own description says, including the confirm-write block convention -- nothing actually changes until the producer clicks Confirm on that real button, so never describe a write as done before you've seen a genuine confirmed result.
+
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
@@ -416,6 +451,8 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
             );
           } else if (toolUse.name === "search_memory") {
             content = await searchMemory(supabase, toolUse.input.query as string);
+          } else if (toolUse.name === "propose_write_query") {
+            content = await proposeWrite(supabase, toolUse.input.query as string);
           } else {
             throw new Error(`unknown tool: ${toolUse.name}`);
           }
@@ -469,6 +506,7 @@ Deno.serve(async (req: Request) => {
     const systemPrompt = buildSystemPrompt(schemaDescription, dataChannelContext);
     const tools = [
       EXECUTE_READONLY_QUERY_TOOL,
+      PROPOSE_WRITE_TOOL,
       GET_GRAPE_PHENOLOGY_TOOL,
       SEARCH_MEMORY_TOOL,
       WEB_SEARCH_TOOL,

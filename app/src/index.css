@@ -606,6 +606,49 @@ body {
   display: block;
 }
 
+/* The real confirm/decline affordance 0022 requires -- a fenced
+   confirm-write block from the model becomes this, never a plain-text
+   "reply yes" the model could be talked past. */
+.write-confirm-card {
+  border: 3px solid var(--wood);
+  border-radius: 10px;
+  background: var(--parchment);
+  padding: 12px;
+  margin: 4px 0 8px;
+}
+
+.write-confirm-summary {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+.write-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.write-confirm-actions button {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.write-confirm-decline {
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--wood);
+  box-shadow: 0 4px 0 var(--wood);
+}
+
+.write-confirm-status {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .chat-thinking {
   display: flex;
   align-items: center;
