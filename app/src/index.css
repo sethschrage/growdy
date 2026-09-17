@@ -127,6 +127,43 @@ body {
   font-size: 14px;
 }
 
+.public-artifact-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+}
+
+.public-artifact-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--wood-dark);
+  border-bottom: 2px solid var(--wood);
+}
+
+.public-artifact-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.public-artifact-graphic svg {
+  /* A model-written svg often has only a viewBox, no width/height
+     attributes -- width and height both `auto` then has no definite
+     size to resolve from and collapses to 0x0. A definite width lets
+     the viewBox's own aspect ratio resolve height. */
+  width: min(100%, 480px);
+  max-height: calc(100dvh - 120px);
+  height: auto;
+  display: block;
+}
+
 .google-signin-button {
   display: inline-flex;
   align-items: center;
@@ -501,16 +538,70 @@ body {
   transform: none;
 }
 
+.chat-graphic-overlay-actions {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  right: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.chat-graphic-overlay-actions > button {
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.chat-graphic-share-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-graphic-share-link input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.chat-graphic-share-link button {
+  font-size: 12px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.chat-graphic-share-error {
+  position: absolute;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 1;
+  color: var(--cream);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 .chat-graphic-overlay-content {
-  max-width: 100%;
+  width: min(90vw, 480px);
   max-height: 100%;
   cursor: default;
 }
 
 .chat-graphic-overlay-content svg {
-  max-width: 100%;
+  /* A model-written svg often has only a viewBox, no width/height
+     attributes -- width and height both `auto` inside a flex-centered
+     parent then has no definite size to resolve from and collapses to
+     0x0 (confirmed directly). A definite width lets the viewBox's own
+     aspect ratio resolve height. */
+  width: 100%;
   max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  width: auto;
   height: auto;
   display: block;
 }
