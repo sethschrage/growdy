@@ -19,7 +19,10 @@ export function Chat({
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { log } = useConversationLog(session, conversationId ? { id: conversationId } : undefined)
+  const { log, conversationId: loggedConversationId } = useConversationLog(
+    session,
+    conversationId ? { id: conversationId } : undefined,
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
 
@@ -125,7 +128,7 @@ export function Chat({
               className={`chat-message-wrap chat-message-wrap--${m.role}`}
             >
               <div className={`chat-message chat-message-${m.role}`}>
-                <MessageContent role={m.role} content={m.content} />
+                <MessageContent role={m.role} content={m.content} session={session} conversationId={loggedConversationId} />
               </div>
               {m.role === 'assistant' && (
                 <div className="feedback-row">

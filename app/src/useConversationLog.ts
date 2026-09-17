@@ -19,7 +19,11 @@ import type { ChatMessage } from './chatTypes'
 // on the primary key.
 export function useConversationLog(session: Session, existing?: { id: string }) {
   const [producerId, setProducerId] = useState<string | null>(null)
-  const conversationId = useRef(existing?.id ?? crypto.randomUUID())
+  // A lazy useState initializer, not a ref: the id never changes after
+  // mount, but returning it (for a "Share" action on a graphic in this
+  // conversation, see docs/decisions/0027) means it has to be safe to
+  // read during render -- a ref's .current isn't.
+  const [conversationId] = useState(() => existing?.id ?? crypto.randomUUID())
   const started = useRef(Boolean(existing))
 
   useEffect(() => {
@@ -37,7 +41,7 @@ export function useConversationLog(session: Session, existing?: { id: string }) 
     if (!started.current) {
       started.current = true
       await supabase.from('conversations').insert({
-        id: conversationId.current,
+        id: conversationId,
         producer_id: producerId,
         mode: 'ask',
         transcript,
@@ -48,8 +52,8 @@ export function useConversationLog(session: Session, existing?: { id: string }) 
     await supabase
       .from('conversations')
       .update({ mode: 'ask', transcript, updated_at: new Date().toISOString() })
-      .eq('id', conversationId.current)
+      .eq('id', conversationId)
   }
 
-  return { log }
+  return { log, conversationId }
 }
