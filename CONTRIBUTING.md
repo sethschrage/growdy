@@ -16,7 +16,11 @@ legible to someone reading it later.
    absolute link to the head branch works during review but breaks the
    moment that branch is deleted after merge, which happens on every
    merge here. A plain path never breaks and is just as easy to open from
-   the "Files changed" tab.
+   the "Files changed" tab. If the change is visible to a producer using
+   the app, add 1-2 short bullets in plain language near the top of the
+   description -- not a technical summary, a draft of what will eventually
+   go in the release's own bullet list (see "Releases"). Pure refactoring,
+   docs, or infrastructure PRs don't need one.
 4. CI runs automatically (see below). Review the diff.
 5. Merge via the PR (squash merge -- see "Merge strategy"). GitHub
    auto-merge is on for this repo: once opened, a PR merges itself as soon
@@ -201,11 +205,26 @@ add up to a real milestone, at which point:
    and keeps that why running through every paragraph, not just the
    opening line. A paragraph that only lists what changed, without
    saying why it mattered or why that choice was made, needs another
-   pass. Not a categorized bullet list.
-3. A matching git tag and GitHub Release are published. The GitHub
-   Release's title is never just the bare version -- it's `vX.Y.Z --
-   <short theme phrase>`, a noun-phrase pulled from the CHANGELOG entry's
-   own opening theme (e.g. `v0.7.0 -- The chat writes and runs its own
-   SQL`), so the release list itself is legible without opening each one.
+   pass. Not a categorized bullet list. **This is the engineering
+   record** -- it documents *why*, references PR numbers and ADRs by
+   name, and is never shown inside the app.
+3. A matching git tag and GitHub Release are published. **The Release's
+   body is not the CHANGELOG entry** -- it's a separate, short bullet
+   list (four or more bullets), written for the producer using the app,
+   not for another engineer: one real, user-visible change per bullet
+   ("Chat can now search the web when it needs current information," not
+   "wired in `web_search_20260318`"), plain language, no PR numbers, no
+   ADR references, no internal names. Draw from the 1-2 bullets each
+   merged PR's own description already sketched (see "Workflow") rather
+   than re-deriving them from scratch. **This is the only release
+   content a producer ever sees** -- the app's own "What's new" popup
+   (`ReleaseNotes.tsx`) fetches this body directly from GitHub and
+   renders it as-is (markdown, so a real bulleted list). The title is
+   never just the bare version -- it's `vX.Y.Z -- <short theme phrase>`,
+   a noun-phrase pulled from the CHANGELOG entry's own opening theme
+   (e.g. `v0.7.0 -- The chat writes and runs its own SQL`), so the
+   release list itself is legible without opening each one.
 
-See `CHANGELOG.md` for the actual history.
+See [`CHANGELOG.md`](CHANGELOG.md) for the full engineering history, and
+the GitHub Releases page (or the app's own "What's new") for what a
+producer actually sees.
