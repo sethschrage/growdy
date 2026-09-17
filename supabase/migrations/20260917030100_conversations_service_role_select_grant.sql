@@ -1,0 +1,19 @@
+-- Follow-up to 20260917020100: that migration granted service_role
+-- update on conversations, but scan-conversations-for-observations was
+-- still failing on every conversation afterward with "permission denied
+-- for table conversations" on the scanned_at update -- 1 candidate did
+-- get created (the observation_candidates insert grant was sufficient),
+-- confirming the remaining failure was scoped to conversations alone.
+--
+-- Root cause: UPDATE privilege alone isn't enough for `update
+-- conversations set scanned_at = ... where id = $1` -- Postgres also
+-- needs SELECT to evaluate the WHERE clause (and any other columns read
+-- during the statement), the same reason a plain UPDATE grant without
+-- SELECT fails whenever the statement itself has to read a column, not
+-- just write one. 20260915050538_service_role_weather_table_grants.sql
+-- already got this right for data_sources (`grant select, update`) --
+-- 20260917020100 just didn't copy that detail. Confirmed live: the next
+-- scheduled run's net._http_response.content still showed 20/20
+-- conversations failing on this exact update, with the same error text,
+-- after the first grant was applied.
+grant select on public.conversations to service_role;
