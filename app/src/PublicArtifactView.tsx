@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import DOMPurify from 'dompurify'
 import { supabase } from './lib/supabaseClient'
 import { PixelSprout } from './icons'
+import { sanitizeSvg } from './sanitizeSvg'
 
 type Artifact = { title: string | null; content: string; created_at: string }
 
@@ -39,7 +39,7 @@ export function PublicArtifactView({ id }: { id: string }) {
     )
   }
 
-  const clean = DOMPurify.sanitize(state.artifact.content, { USE_PROFILES: { svg: true, svgFilters: true } }).trim()
+  const clean = sanitizeSvg(state.artifact.content)
 
   return (
     <div className="public-artifact-page">

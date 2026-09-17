@@ -23,6 +23,11 @@ The real design question isn't the mechanism (Postgres already has cryptographic
 ## Consequences
 
 - This is the first table in the project `anon` can reach at all, even indirectly -- worth remembering as the bar for any future public-facing feature: a narrow function, never a table grant.
-- A shared link is permanent and un-revocable for now -- there's no delete/unshare path yet, matching the "every row is public" scope decision above. If revocation becomes a real need, it's a `delete` policy for the owner, not a schema change.
 - `get_public_artifact` is flagged by Supabase's advisor as callable by `anon`/`authenticated` -- expected and accepted, the same shape as every other `SECURITY DEFINER` finding already in this project.
 - A producer sharing a graphic built from their own data is trusting themselves with that judgment call, the same way exporting a conversation to a file already does (`HistoryDrawer`) -- this ADR doesn't add a warning or confirmation step beyond the share action itself; that's a UI decision that can change without touching this schema.
+
+## Update: the artifacts panel closes the revocation gap
+
+This ADR originally shipped with links as permanent and un-revocable, naming a `delete` policy for the owner as the fix "if revocation becomes a real need." The panel promised for `0.14.0` (`ArtifactsView`) is that real need -- a producer browsing everything they've ever shared with no way to remove anything is a real gap, not a deferred nice-to-have, once they can actually see the list. Added directly: `delete` RLS for the owner (`user_can_access_producer(producer_id)`, the same check every other policy on this table already uses) and a `grant delete ... to authenticated`. No new risk surface -- the same owner check that already governs `select`/`insert` now also governs `delete`.
+
+`ArtifactsView` itself reuses `ProducerDataView`'s modern visual language (`.pdv-*`) rather than the pixel-art chat chrome, per the original roadmap note for this panel ("a second visual language... deliberately distinct") -- concretely, this means `ArtifactsView` lives inside a `.pdv-overlay` and its detail view reuses `.pdv-detail-*` (the same bottom-sheet/modal `PlantingDetail` already established), rather than inventing a third design language.

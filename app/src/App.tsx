@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { ArtifactsView } from './ArtifactsView'
 import { Chat } from './Chat'
 import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
@@ -21,6 +22,7 @@ import {
   PixelHistory,
   PixelMagnifier,
   PixelNetwork,
+  PixelPicture,
   PixelPlus,
   PixelSprout,
   PixelToppingSlice,
@@ -216,10 +218,12 @@ function SproutMenu({
   onNewObservation,
   onOpenProducerData,
   onOpenObservationCandidates,
+  onOpenArtifacts,
 }: {
   onNewObservation: () => void
   onOpenProducerData: () => void
   onOpenObservationCandidates: () => void
+  onOpenArtifacts: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -283,6 +287,17 @@ function SproutMenu({
           >
             <PixelMagnifier size={20} />
           </button>
+          <button
+            type="button"
+            className="menu-icon-button"
+            aria-label="Shared artifacts"
+            onClick={() => {
+              onOpenArtifacts()
+              setOpen(false)
+            }}
+          >
+            <PixelPicture size={20} />
+          </button>
         </div>
       )}
     </div>
@@ -296,6 +311,7 @@ function SignedIn({ session }: { session: Session }) {
   const [observationFormOpen, setObservationFormOpen] = useState(false)
   const [producerDataOpen, setProducerDataOpen] = useState(false)
   const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
+  const [artifactsOpen, setArtifactsOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
 
   return (
@@ -306,6 +322,7 @@ function SignedIn({ session }: { session: Session }) {
             onNewObservation={() => setObservationFormOpen(true)}
             onOpenProducerData={() => setProducerDataOpen(true)}
             onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
+            onOpenArtifacts={() => setArtifactsOpen(true)}
           />
         </div>
         <AccountMenu
@@ -344,6 +361,7 @@ function SignedIn({ session }: { session: Session }) {
       {observationCandidatesOpen && (
         <ObservationCandidatesView session={session} onClose={() => setObservationCandidatesOpen(false)} />
       )}
+      {artifactsOpen && <ArtifactsView onClose={() => setArtifactsOpen(false)} />}
       <ReleaseNotes session={session} />
     </div>
   )
