@@ -18,6 +18,75 @@ what actually shows up as "What's new."
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-17
+
+This batch closes the loop 0.10.0 opened. Chat could write, browse the
+web, and mine old conversations for observations, but the account that
+does all of that had no real beginning -- nothing had ever created a
+producer for a brand-new sign-in, and a real one hit that gap directly.
+The graphics chat can draw could only ever be seen inside chat itself,
+with no way to hand one to someone who isn't a producer at all. Both
+close here, along with a couple of small things that had been sitting
+half-finished since the last release.
+
+[`0026`](docs/decisions/0026-producer-onboarding.md) (#140) is the
+onboarding gap closed: `create_producer_and_profile`, a `SECURITY
+DEFINER` RPC (the same narrow-purpose shape `add_data_source` already
+established), is now the only way a producer and profile get created
+from the client -- `authenticated` has no `INSERT` grant on either
+table, and none was added. A new `SessionRouter` decides onboarding vs.
+the real app based on whether a profile exists yet; the wizard itself
+asks for a vineyard name and, optionally, a first parcel. Building it
+surfaced a second, unrelated gap: `0025`'s self-serve parcel creation
+had a working `INSERT` policy but no form anywhere ever called it --
+fixed alongside, with a standing "+ Add parcel" button, not just a
+one-time wizard screen.
+
+Two loose ends from 0.10.0's own bug-fix list got closed too (#139):
+the chat's "thinking" indicator is now a four-frame pixel sprout
+growing into bloom instead of a generic dot pulse, and `plot_rows`
+picked up its third measurement (`end_post_count`) alongside a real
+write path for all three -- `length_meters`/`spacing_meters` had
+existed since early on with no way to ever set them, since
+`authenticated` only ever held `SELECT`.
+
+Real use also showed the opt-in gate on web search (`0024`) wasn't
+earning its keep (#141): `web_search`/`web_fetch` cost is already
+bounded tightly per turn, so requiring a producer to find and enable it
+first was pure friction with no real decision behind it. It's always on
+now, no toggle -- the same posture the read-only SQL tool and phenology
+lookup already have.
+
+The bigger new thread is [`0027`](docs/decisions/0027-public-artifact-links.md)
+(#142, #143): a chat-drawn graphic can now be shared via an unguessable
+link, no login needed to view it -- the first thing in this project a
+signed-out visitor can ever reach. The real design question wasn't the
+mechanism (Postgres already has cryptographically random `uuid`s), it
+was avoiding turning that into an enumerable list -- solved with a
+single narrow function, `get_public_artifact(id)`, not an RLS grant to
+`anon`, since a table grant could be turned into `GET
+/artifacts?select=*` and a function lookup by exact id can't. A new
+panel lets a producer browse, copy the link to, and delete everything
+they've shared, reusing the same modern visual language `ProducerDataView`
+already established rather than the pixel-art chat chrome. Building the
+public view also surfaced a real, previously-unnoticed bug in the
+already-shipped full-screen chat graphic (`0021`): a model-written svg
+with only a `viewBox` (no `width`/`height`) collapses to 0x0 inside a
+flex-centered container when both CSS dimensions are `auto` -- fixed in
+both places once found.
+
+Last, the release process itself changed (#144, #145): the GitHub
+Release body a producer actually sees in the app's "What's new" popup
+had been the CHANGELOG's own internal prose, verbatim, every time --
+ADR numbers and PR references meant for another engineer, not for
+Virgil. Going forward the Release body is its own short bullet list,
+this entry is the first to follow that split. Fixing this also surfaced
+a real bug in the CI setup from earlier the same day: making `lint` a
+required check on `main` meant any PR that didn't touch a migration
+could never get that check to report at all, leaving it permanently
+blocked rather than passing -- fixed by always running the workflow and
+skipping its real work internally instead of gating the trigger itself.
+
 ## [0.10.0] - 2026-09-16
 
 This is the batch where chat stopped being read-only. Growdy could
