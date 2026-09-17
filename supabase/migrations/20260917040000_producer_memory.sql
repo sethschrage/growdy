@@ -245,7 +245,6 @@ set search_path = public, vault, extensions
 as $$
 declare
   expected_secret text;
-  i int;
 begin
   select decrypted_secret into expected_secret
   from vault.decrypted_secrets
@@ -257,6 +256,9 @@ begin
 
   delete from public.conversation_embeddings where conversation_id = p_conversation_id;
 
+  -- FOR ... IN <range> LOOP declares its own loop variable -- an explicit
+  -- `i int;` above it shadows that one and sits unused, which is exactly
+  -- what supabase db lint's plpgsql check flagged.
   for i in 1 .. array_length(p_chunks, 1) loop
     insert into public.conversation_embeddings (conversation_id, producer_id, chunk_text, embedding)
     values (p_conversation_id, p_producer_id, p_chunks[i], p_embeddings[i]);
