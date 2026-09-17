@@ -1,22 +1,43 @@
 name: Database lint
 
+# No path filter at the trigger level -- this job is now a required
+# status check on main (see CONTRIBUTING.md), and a path-filtered
+# trigger means the check never runs at all for a PR that doesn't touch
+# a migration, which a required check can never be satisfied by (GitHub
+# just leaves the PR permanently blocked, waiting on a check that will
+# never report). Runs on every PR instead, and the lint steps themselves
+# are skipped internally when nothing under supabase/migrations/
+# changed, so a non-migration PR still gets a fast, real "success"
+# without paying for the Supabase stack it doesn't need.
 on:
   pull_request:
-    paths:
-      - "supabase/migrations/**"
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for migration changes
+        id: changes
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^supabase/migrations/'; then
+            echo "migrations_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "migrations_changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: supabase/setup-cli@v1
+        if: steps.changes.outputs.migrations_changed == 'true'
         with:
           version: latest
 
       - name: Start local Supabase stack (applies migrations)
+        if: steps.changes.outputs.migrations_changed == 'true'
         run: supabase db start
 
       - name: Lint schema
+        if: steps.changes.outputs.migrations_changed == 'true'
         run: supabase db lint --schema public,private --level warning --fail-on warning
