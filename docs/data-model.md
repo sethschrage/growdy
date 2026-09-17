@@ -77,6 +77,7 @@ erDiagram
         text mode
         jsonb transcript
         timestamptz scanned_at "nullable -- see docs/decisions/0025 follow-up work"
+        timestamptz embedded_at "nullable -- see docs/decisions/0023"
     }
     OBSERVATION_CANDIDATES {
         uuid id PK
@@ -129,6 +130,20 @@ erDiagram
         text title "nullable"
         text content "raw svg, sanitized at render time"
     }
+    PRODUCER_MEMORY {
+        uuid id PK
+        uuid producer_id FK
+        text content
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+        text source "manual or model-suggested"
+    }
+    CONVERSATION_EMBEDDINGS {
+        uuid id PK
+        uuid conversation_id FK
+        uuid producer_id FK
+        text chunk_text
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+    }
 
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns
@@ -152,6 +167,8 @@ erDiagram
     CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
     DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
     DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
+    PRODUCERS ||--o{ PRODUCER_MEMORY : "remembers (0023)"
+    CONVERSATIONS ||--o{ CONVERSATION_EMBEDDINGS : "chunked into (0023)"
 ```
 
 ## Reading this diagram
@@ -250,6 +267,159 @@ erDiagram
   private/unshared state modeled yet.
 
 ## History
+
+### 2026-09-17 -- before producer memory ([0023](decisions/0023-producer-memory-via-embeddings.md))
+
+The diagram above gained `conversations.embedded_at`, `producer_memory`, and `conversation_embeddings`. Before that, it was:
+
+```mermaid
+erDiagram
+    PRODUCERS {
+        uuid id PK
+        text name
+    }
+    PROFILES {
+        uuid id PK "also FK -> auth.users, Supabase-managed"
+        uuid producer_id FK
+    }
+    PARCELS {
+        uuid id PK
+        uuid producer_id FK
+        text name
+    }
+    PLOTS {
+        uuid id PK
+        uuid parcel_id FK
+        uuid producer_id FK
+        text name
+    }
+    PLOT_ROWS {
+        uuid id PK
+        uuid plot_id FK
+        uuid producer_id FK
+        int number
+        numeric length_meters "nullable"
+        numeric spacing_meters "nullable"
+        int end_post_count "nullable"
+    }
+    PLANTING {
+        uuid id PK
+        uuid producer_id FK
+        uuid parcel_id FK
+        uuid plot_id FK "nullable"
+        uuid plot_row_id FK "nullable"
+        int position "nullable"
+        geography location "nullable"
+        uuid variety_id FK "nullable"
+        uuid scion_variety_id FK "nullable"
+        uuid rootstock_variety_id FK "nullable"
+        text nickname "nullable"
+        text category "nullable"
+        date planted_date "nullable"
+        date dead_date "nullable"
+        date removed_date "nullable"
+        text removed_reason "nullable"
+    }
+    PLANT_TYPES {
+        uuid id PK
+        uuid proposed_by_producer_id FK "nullable"
+        text name
+        text kind
+        text status
+        text common_name "nullable"
+    }
+    OBSERVATIONS {
+        uuid id PK
+        uuid planting_id FK "nullable"
+        uuid producer_id FK
+        date observed_date "nullable"
+        text note
+        text photo_metadata "nullable"
+        text status
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
+        timestamptz scanned_at "nullable -- see docs/decisions/0025 follow-up work"
+    }
+    OBSERVATION_CANDIDATES {
+        uuid id PK
+        uuid conversation_id FK
+        uuid producer_id FK
+        text summary
+        text status "pending, confirmed, or dismissed"
+    }
+    DATA_PROVIDERS {
+        uuid id PK
+        text category
+        text name
+        boolean enabled
+        text context "nullable"
+    }
+    DATA_SOURCES {
+        uuid id PK
+        uuid provider_id FK
+        uuid producer_id FK
+        text name
+        text external_id
+        uuid vault_secret_id "nullable -- no credential needed, e.g. Device/USA-NPN"
+        boolean enabled
+        text context "nullable"
+        jsonb config "nullable -- e.g. Device's last-known lat/long"
+        text backfill_status "nullable"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
+        timestamptz last_synced_at "nullable"
+        text last_error "nullable"
+        text last_warning "nullable"
+    }
+    WEATHER_OBSERVATIONS {
+        uuid id PK
+        uuid source_id FK
+        uuid producer_id FK
+        timestamptz observed_at
+        numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
+    }
+    PARCEL_SHARES {
+        uuid id PK
+        uuid parcel_id FK
+        uuid shared_with_producer_id FK
+        text role "editor or viewer -- see docs/decisions/0025"
+    }
+    ARTIFACTS {
+        uuid id PK "also the public link -- see docs/decisions/0027"
+        uuid producer_id FK
+        uuid conversation_id FK "nullable"
+        text title "nullable"
+        text content "raw svg, sanitized at render time"
+    }
+
+    PRODUCERS ||--o{ PROFILES : "has members"
+    PRODUCERS ||--o{ PARCELS : owns
+    PARCELS ||--o{ PARCEL_SHARES : "shared via (optional)"
+    PRODUCERS ||--o{ PARCEL_SHARES : "receives (optional)"
+    PRODUCERS ||--o{ OBSERVATION_CANDIDATES : "reviews"
+    CONVERSATIONS ||--o{ OBSERVATION_CANDIDATES : "scanned into"
+    PRODUCERS ||--o{ ARTIFACTS : "shares"
+    CONVERSATIONS |o--o{ ARTIFACTS : "generated (optional)"
+    PARCELS ||--o{ PLOTS : "divided into"
+    PLOTS ||--o{ PLOT_ROWS : contains
+    PARCELS ||--o{ PLANTING : "located in"
+    PLOTS |o--o{ PLANTING : "organizes (optional)"
+    PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
+    PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+    DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
+    DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
+```
 
 ### 2026-09-17 -- before public artifacts ([0027](decisions/0027-public-artifact-links.md))
 

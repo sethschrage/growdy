@@ -23,6 +23,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createUserScopedClient } from "../_shared/supabaseClient.ts";
+import { embedTexts, toVectorLiteral } from "../_shared/voyage.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
@@ -44,6 +45,7 @@ const SCHEMA_RELATIONS = [
   "weather_observations",
   "data_sources",
   "data_providers",
+  "producer_memory",
 ];
 
 const SCHEMA_DESCRIPTION_QUERY = `
@@ -187,6 +189,41 @@ const GET_GRAPE_PHENOLOGY_TOOL = {
   },
 };
 
+// Producer memory (docs/decisions/0023) -- unlike execute_readonly_query,
+// this can't be "write whatever SQL answers it": turning query text into
+// a vector needs a real external API call (Voyage) the model can't make
+// inline, the same reason get_grape_phenology earned its own tool rather
+// than being folded into SQL. Searches both producer_memory (explicit,
+// producer- or model-written notes) and conversation_embeddings (chunked
+// past conversations) in one ranked result.
+const SEARCH_MEMORY_TOOL = {
+  name: "search_memory",
+  description:
+    "Search the producer's own memory -- both explicit notes (theirs or ones you've suggested before) and past conversations -- for anything semantically related to a query, the way a person would recall \"didn't we already talk about this.\" Use this when a question sounds like it might reference something discussed before, or when the producer references a past conversation you don't have in the current context. This is a meaning-based search, not exact keyword matching, so phrase the query the way you'd naturally ask the question, not as a list of keywords.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "A natural-language question or topic to search for." },
+    },
+    required: ["query"],
+  },
+};
+
+// Embeds query via Voyage (input_type: query -- distinct from how
+// producer_memory/conversation content itself gets embedded as
+// "document", per Voyage's own documented best practice), then ranks
+// both corpora by vector distance, RLS-scoped exactly like any other
+// read via the caller's own forwarded JWT.
+async function searchMemory(supabase: SupabaseClient, query: string): Promise<unknown> {
+  const [vector] = await embedTexts([query], "query");
+  const { data, error } = await supabase.rpc("search_memory_by_embedding", {
+    p_query_embedding: toVectorLiteral(vector),
+    p_limit: 5,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 const USANPN_BASE = "https://services.usanpn.org/npn_portal/";
 // Honor-system self-identification USA-NPN's API asks callers for --
 // same disclosure style the rnpn R client uses in its own requests.
@@ -317,6 +354,8 @@ For a question about what growth stage the grapes should be at, or general grape
 
 You can also search and fetch real, current web content when a question genuinely needs it (something recent, or specific to an organization/product/price that could have changed) -- prefer the database and your own knowledge first, and reach for the web only when the question actually depends on something current or external.
 
+The producer's own memory -- explicit notes and past conversations -- can be searched with search_memory when a question sounds like it references something discussed before. This is a meaning-based search, not a database table: use it instead of guessing from the current conversation alone whenever "didn't we already talk about this" seems likely to be true.
+
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
@@ -375,6 +414,8 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
               toolUse.input.start_date as string,
               toolUse.input.end_date as string,
             );
+          } else if (toolUse.name === "search_memory") {
+            content = await searchMemory(supabase, toolUse.input.query as string);
           } else {
             throw new Error(`unknown tool: ${toolUse.name}`);
           }
@@ -426,7 +467,13 @@ Deno.serve(async (req: Request) => {
       fetchDataChannelContext(supabase),
     ]);
     const systemPrompt = buildSystemPrompt(schemaDescription, dataChannelContext);
-    const tools = [EXECUTE_READONLY_QUERY_TOOL, GET_GRAPE_PHENOLOGY_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL];
+    const tools = [
+      EXECUTE_READONLY_QUERY_TOOL,
+      GET_GRAPE_PHENOLOGY_TOOL,
+      SEARCH_MEMORY_TOOL,
+      WEB_SEARCH_TOOL,
+      WEB_FETCH_TOOL,
+    ];
     const result = await runAgentLoop([...messages], supabase, systemPrompt, tools);
 
     return new Response(JSON.stringify(result), {
