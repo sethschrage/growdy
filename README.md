@@ -64,6 +64,7 @@ Supabase, and Anthropic.
 - [0024 -- Web access is a toggleable Provider](docs/decisions/0024-web-access-as-a-provider.md) -- Anthropic's own hosted web_search/web_fetch, wired in as an opt-in Provider in the existing Category -> Provider -> Source taxonomy instead of an always-on tool, so a producer sees and controls the real per-search cost the same way they do a weather station.
 - [0025 -- Per-parcel sharing, cascading through its own hierarchy](docs/decisions/0025-parcel-sharing-and-self-serve-creation.md) -- a parcel's owner can share just that parcel (Editor or Viewer role) with another producer, without exposing either side's other parcels or accounts; extends 0001's isolated membership-check function rather than reaching for its planned full-account join table, since the actual need is narrower than that.
 - [0026 -- Self-serve producer onboarding](docs/decisions/0026-producer-onboarding.md) -- a brand-new sign-in with no `profiles` row now gets a real wizard (create a producer, optionally a first parcel) instead of the silent gap that had existed since day one; a `SECURITY DEFINER` RPC is the only path in, since `authenticated` has no INSERT on either table.
+- [0027 -- Sharing a chat graphic via an unguessable public link](docs/decisions/0027-public-artifact-links.md) -- the first signed-out-reachable surface in the app; a narrow `get_public_artifact(id)` function, not an RLS grant to `anon`, since a table grant could be turned into a listable collection and a function lookup by exact id can't.
 
 ## Stack
 

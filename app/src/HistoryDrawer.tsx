@@ -37,7 +37,7 @@ function exportConversation(conversation: Conversation) {
 // Mounted only while open (App.tsx renders it conditionally), so a fresh
 // mount is what resets state on each open -- no imperative reset needed.
 export function HistoryDrawer({
-  session: _session,
+  session,
   onClose,
   onContinue,
 }: {
@@ -76,7 +76,7 @@ export function HistoryDrawer({
               {selected.transcript.map((m, i) => (
                 <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
                   <div className={`chat-message chat-message-${m.role}`}>
-                    <MessageContent role={m.role} content={m.content} />
+                    <MessageContent role={m.role} content={m.content} session={session} conversationId={selected.id} />
                   </div>
                 </div>
               ))}

@@ -8,6 +8,7 @@ import { ObservationCandidatesView } from './ObservationCandidatesView'
 import { ObservationForm } from './ObservationForm'
 import { OnboardingWizard } from './OnboardingWizard'
 import { ProducerDataView } from './ProducerDataView'
+import { PublicArtifactView } from './PublicArtifactView'
 import { ReleaseNotes } from './ReleaseNotes'
 import { useAppStatus, type AppBlock } from './useAppStatus'
 import {
@@ -368,6 +369,13 @@ function SessionRouter({ session }: { session: Session }) {
   return <SignedIn session={session} />
 }
 
+// Checked before anything else in App -- a shared public link
+// (docs/decisions/0027) has to work for a signed-out visitor regardless
+// of session state or even the app's own maintenance/version block,
+// since it's a self-contained read with nothing to do with being signed
+// in to Growdy at all.
+const PUBLIC_ARTIFACT_PATH = /^\/a\/([^/]+)$/
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -385,6 +393,9 @@ function App() {
 
     return () => data.subscription.unsubscribe()
   }, [])
+
+  const publicArtifactMatch = PUBLIC_ARTIFACT_PATH.exec(window.location.pathname)
+  if (publicArtifactMatch) return <PublicArtifactView id={publicArtifactMatch[1]} />
 
   if (block) return <BlockedScreen block={block} />
   if (loading) return null

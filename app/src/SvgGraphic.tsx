@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import DOMPurify from 'dompurify'
+import { supabase } from './lib/supabaseClient'
 
 // Renders SVG the chat model wrote itself (see docs/decisions -- chat's
 // system prompt now tells it a fenced ```svg block becomes a real picture,
@@ -17,8 +19,20 @@ import DOMPurify from 'dompurify'
 // (a 100-position row map, say). Tapping it opens the same sanitized
 // markup full-screen instead of re-rendering a different, "zoomed"
 // version -- one sanitize call, two sizes of the same output.
-export function SvgGraphic({ code }: { code: string }) {
+export function SvgGraphic({
+  code,
+  session,
+  conversationId,
+}: {
+  code: string
+  session: Session
+  conversationId: string | null
+}) {
   const [expanded, setExpanded] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const clean = DOMPurify.sanitize(code, { USE_PROFILES: { svg: true, svgFilters: true } }).trim()
 
   // Sanitizing stripped everything meaningful (or the model's block wasn't
@@ -27,6 +41,43 @@ export function SvgGraphic({ code }: { code: string }) {
   // there.
   if (!clean || !clean.includes('<svg')) {
     return <pre className="chat-graphic-fallback">{code}</pre>
+  }
+
+  // Stores the raw model output, not the sanitized copy (see
+  // docs/decisions/0027) -- both the inline view and the public link
+  // sanitize on every read, the same way this component already does,
+  // rather than trusting a stored "already safe" flag forever.
+  async function handleShare() {
+    setSharing(true)
+    setShareError(null)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('producer_id')
+      .eq('id', session.user.id)
+      .single()
+    if (!profile) {
+      setSharing(false)
+      setShareError('Could not find your producer.')
+      return
+    }
+    const { data, error } = await supabase
+      .from('artifacts')
+      .insert({ producer_id: profile.producer_id, conversation_id: conversationId, content: code })
+      .select('id')
+      .single()
+    setSharing(false)
+    if (error || !data) {
+      setShareError(error?.message ?? 'Something went wrong.')
+      return
+    }
+    setShareUrl(`${window.location.origin}/a/${data.id}`)
+  }
+
+  async function handleCopy() {
+    if (!shareUrl) return
+    await navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -45,6 +96,20 @@ export function SvgGraphic({ code }: { code: string }) {
       <p className="chat-graphic-hint">Tap to enlarge</p>
       {expanded && (
         <div className="chat-graphic-overlay" onClick={() => setExpanded(false)}>
+          <div className="chat-graphic-overlay-actions" onClick={(e) => e.stopPropagation()}>
+            {shareUrl ? (
+              <div className="chat-graphic-share-link">
+                <input type="text" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} />
+                <button type="button" onClick={handleCopy}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={handleShare} disabled={sharing}>
+                {sharing ? 'Sharing...' : 'Share'}
+              </button>
+            )}
+          </div>
           <button
             type="button"
             className="chat-graphic-overlay-close"
@@ -53,6 +118,7 @@ export function SvgGraphic({ code }: { code: string }) {
           >
             &times;
           </button>
+          {shareError && <p className="error chat-graphic-share-error">{shareError}</p>}
           <div
             className="chat-graphic-overlay-content"
             onClick={(e) => e.stopPropagation()}
