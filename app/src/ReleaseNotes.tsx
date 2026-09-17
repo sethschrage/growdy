@@ -26,6 +26,14 @@ const RELEASES_URL = 'https://api.github.com/repos/sethschrage/growdy/releases'
 // same renderer MessageContent already uses) so the bullets actually
 // render as a list, not a paragraph with literal "-" characters in it.
 //
+// Only the single latest release ever shows here -- fetching the full
+// history and rendering every release since profiles.last_seen_release
+// was tried first and was immediately too long to be worth reading, even
+// with short bullets, once more than one release had gone by. A producer
+// who skips several releases just sees what's newest, not everything
+// they missed in between; that trade-off was made deliberately, not
+// overlooked.
+//
 // The same shape (fetch some content, show it once, remember it's been
 // seen) is exactly what an onboarding wizard would need too -- worth
 // generalizing into a shared component once there's a second real case,
@@ -60,28 +68,26 @@ export function ReleaseNotes({ session }: { session: Session }) {
     setLastSeen(latest.tag_name)
   }
 
-  if (!shouldShow) return null
+  if (!shouldShow || !latest) return null
 
   return (
     <div className="release-notes-overlay">
       <div className="release-notes-panel">
         <h2>What's new</h2>
         <div className="release-notes-list">
-          {releases!.map((release) => (
-            <div key={release.tag_name} className="release-notes-item">
-              <h3>{release.name || release.tag_name}</h3>
-              <p className="release-notes-date">
-                {new Date(release.published_at).toLocaleDateString(undefined, {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-              <div className="release-notes-body">
-                <ReactMarkdown>{release.body}</ReactMarkdown>
-              </div>
+          <div className="release-notes-item">
+            <h3>{latest.name || latest.tag_name}</h3>
+            <p className="release-notes-date">
+              {new Date(latest.published_at).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+            <div className="release-notes-body">
+              <ReactMarkdown>{latest.body}</ReactMarkdown>
             </div>
-          ))}
+          </div>
         </div>
         <button type="button" onClick={dismiss} disabled={dismissing}>
           {dismissing ? 'Saving...' : 'Got it'}
