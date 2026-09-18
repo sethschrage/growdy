@@ -90,6 +90,26 @@ function exifLocation(exif: PhotoExif | null): PhotoLocation | null {
   return { latitude: exif.gpsLatitude, longitude: exif.gpsLongitude, accuracyM: null }
 }
 
+// Backing out of the camera is a decision, not a failure, but the plugin
+// reports it by throwing -- "User cancelled photos app" -- which arrives
+// at a catch block indistinguishable from a real fault and gets painted
+// red. A producer who changed their mind should see nothing at all.
+//
+// Matched on the message because the plugin gives no error code to check
+// and the wording differs by platform and picker. Anything that doesn't
+// look like a cancellation is rethrown untouched: a genuine failure --
+// permission denied, no camera, out of space -- still has to reach the
+// producer, and swallowing everything here would hide it.
+async function getPhotoOrNull(options: Parameters<typeof Camera.getPhoto>[0]) {
+  try {
+    return await Camera.getPhoto(options)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (/cancel/i.test(message) || /no image (picked|selected)/i.test(message)) return null
+    throw err
+  }
+}
+
 // `source` is honoured on native only. On web the browser's own file
 // dialog covers both cases, and on a phone browser it offers the camera
 // itself.
@@ -98,7 +118,7 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
     return await pickFromFileInput()
   }
 
-  const photo = await Camera.getPhoto({
+  const photo = await getPhotoOrNull({
     resultType: CameraResultType.Uri,
     source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
     quality: 90,
@@ -112,7 +132,7 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
     // in the library.
     saveToGallery: source === 'camera',
   })
-  if (!photo.webPath) return null
+  if (!photo?.webPath) return null
 
   const response = await fetch(photo.webPath)
   const original = await response.blob()
