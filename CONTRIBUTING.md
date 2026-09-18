@@ -15,6 +15,14 @@ the doc it governs, in the same session it's settled, as its own PR.
 **If a rule isn't in git, it isn't a rule.** It's a preference, and it
 will quietly stop being followed without anyone deciding to drop it.
 
+Writing a rule down isn't the same as it being read, though.
+[`AGENTS.md`](AGENTS.md) carries the handful that get skipped most often,
+for any coding agent working in this repo. [`CLAUDE.md`](CLAUDE.md) sits
+beside it and only points there, because Claude Code auto-loads that
+filename; another tool wanting its own entry point gets another pointer,
+not another copy. `AGENTS.md` is a pointer too: when a rule here changes
+and `AGENTS.md` mentions it, both move in the same PR.
+
 ## Workflow
 
 1. Create a feature branch (`feat/...`, `fix/...`, `docs/...`).
@@ -31,18 +39,36 @@ will quietly stop being followed without anyone deciding to drop it.
    description -- not a technical summary, a draft of what will eventually
    go in the release's own bullet list (see "Releases"). Pure refactoring,
    docs, or infrastructure PRs don't need one.
-4. CI runs automatically (see below). Review the diff.
-5. Merge via the PR (squash merge -- see "Merge strategy"). GitHub
+4. **Update every base doc the change makes stale, in the same PR.**
+   Not at release time -- by then the person who knew what changed has
+   moved on, and the drift is found by whoever is cutting the release,
+   if at all. This is the step agents and humans both skip most often,
+   so it's mechanical: before opening the PR, ask of each of
+   `README.md` (does the Stack table still describe what runs?),
+   `docs/architecture.md` (does the diagram still show what talks to
+   what? if not, move the old one to `## History` first -- see
+   "Diagrams"), `docs/data-model.md`, `docs/monitoring.md`, and any ADR
+   this change amends or contradicts. Most PRs make none of them stale
+   and the answer is a quick no. The ones that do are exactly the PRs
+   where nobody will remember a month later. A PR that changes what the
+   project *is* -- a new client, a new deploy path, a new external
+   dependency -- has almost certainly made at least one of them wrong.
+5. CI runs automatically (see below). Review the diff.
+6. Merge via the PR (squash merge -- see "Merge strategy"). GitHub
    auto-merge is on for this repo: once opened, a PR merges itself as soon
    as CI passes, with no separate go-ahead needed per PR. Review happens
-   at the release step instead (see "Releases") -- the CHANGELOG entry and
-   the doc-drift check are where a mistake actually gets caught, not a
-   manual look at every individual PR. This is a deliberate choice, not
+   at the release step instead (see "Releases") -- the CHANGELOG entry
+   is where a mistake actually gets caught, not a manual look at every
+   individual PR. That makes step 4 load-bearing rather than tidy-up:
+   with no per-PR review, an unnoticed doc change is merged by the time
+   anyone would have looked, and the release check becomes a backstop
+   for what step 4 missed rather than the place drift is meant to be
+   found. This is a deliberate choice, not
    the default: earlier in this project every PR got an explicit
    confirmation before merging, until the release cadence and doc-drift
    habits below were established well enough to move that review to the
    release instead.
-6. **Only after merge**, apply any migration or deploy any Edge Function
+7. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
 

@@ -83,8 +83,9 @@ failures that are logged but that nothing currently watches.
 | File storage | Supabase Storage -- reserved for photo attachments, deliberately not wired up yet (see [`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md)) |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
 | Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
+| iOS | Capacitor shell wrapping the same build, in `app/ios/` -- **not shipped**: no App Store listing, and Sign in with Apple is required before submission (see [`docs/decisions/0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)) |
 | Hosting | [Vercel](https://app-blue-ten-25.vercel.app), connected to this GitHub repo -- auto-deploys production from `main`, preview builds per branch/PR |
-| Auth | Google Sign-In via Supabase Auth -- Testing status, explicit test-user allow-list |
+| Auth | Google Sign-In via Supabase Auth -- Testing status, explicit test-user allow-list. Web uses the OAuth redirect; iOS uses a native ID token, since the redirect can't complete inside the shell (`0029`) |
 | Server-side logic | Supabase Edge Functions, in `supabase/functions/` -- the only place a secret (like an API key) ever lives |
 | AI | Anthropic Claude (Sonnet) -- writes and runs its own read-only SQL, see [`docs/decisions/0016`](docs/decisions/0016-chat-queries-directly.md) |
 
