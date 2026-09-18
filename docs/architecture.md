@@ -265,8 +265,6 @@ The chat's shape changed materially in `0016` -- worth keeping the
 prior diagram visible rather than only in `git log -p`, per this file's
 own convention.
 
-### Before 0016: client resolves, Edge Function never touches the database
-
 ```mermaid
 flowchart TD
     GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]

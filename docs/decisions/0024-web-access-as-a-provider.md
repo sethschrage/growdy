@@ -1,6 +1,6 @@
-# 0024. Web access is a toggleable Provider, not an always-on tool
+# 0024. Web access is a Provider in the Category -> Provider -> Source taxonomy
 
-**Status:** accepted
+**Status:** accepted. Originally shipped opt-in (toggleable, not always-on) -- see Decision below for that reasoning -- but real use reversed that specific call within a day; see "Update (2026-09-17)" for why. The taxonomy placement itself (a Provider, not a special-cased tool) is unchanged.
 
 ## Context
 
