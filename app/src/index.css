@@ -877,6 +877,24 @@ textarea:focus {
   outline-offset: 1px;
 }
 
+/* iOS zooms the whole page when a field takes focus at under 16px, and
+   a zoomed page drags a position:fixed overlay's controls off-screen
+   with it -- which is how the New Observation form became impossible to
+   close on a phone: the zoom put its own close button past the right
+   edge. Reported from a real device; the form's own wiring was fine.
+   16px is the threshold iOS uses, so this is a floor, not a type
+   choice. Scoped to coarse pointers so the denser desktop sizing
+   survives, and applied to the controls rather than their containers
+   because `font: inherit` above means an input picks up whatever its
+   parent set -- .observation-field's 14px being the one that bit. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 button {
   font: inherit;
   font-weight: 700;
