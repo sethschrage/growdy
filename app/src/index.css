@@ -179,6 +179,7 @@ body {
 }
 
 .app-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -186,11 +187,25 @@ body {
   background: var(--sky);
 }
 
+/* Floats over the content instead of taking a row above it, so a
+   conversation can scroll up under the Dynamic Island rather than
+   stopping at a hard edge. .chat-messages reserves the height through
+   --header-height (set in App.tsx) so nothing rests underneath it. */
 .app-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  pointer-events: none;
+}
+
+.app-header > * {
+  pointer-events: auto;
 }
 
 .app-header-left {
@@ -368,6 +383,7 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px;
+  padding-top: calc(var(--header-height, 64px) + 8px);
   /* Reserves the floating compose bar's real height, measured and set as
      --compose-height by Chat.tsx, plus the offset and safe area it sits
      above. The 90px fallback only applies before the first measurement. */
