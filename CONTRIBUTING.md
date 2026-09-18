@@ -189,8 +189,18 @@ diary of every WIP commit.
 
 ## Releases
 
-Versions are not cut per PR. Several PRs accumulate on `main` until they
-add up to a real milestone, at which point:
+Versions are not cut per PR. **The trigger is producer-visible impact,
+not a schedule or a PR count**: as soon as a merged PR ships a feature
+or a real change in behavior a producer would notice -- not a bug fix
+-- a release gets cut so the "What's new" popup actually reaches them
+close to when it shipped, not whenever a batch happens to feel big
+enough. Bug fixes, small internal enhancements, refactors, docs, and
+infrastructure-only PRs don't trigger one on their own; they keep
+merging and simply ride along in whichever release is already due
+next. Several of those can still accumulate between releases -- this
+isn't one release per feature PR -- but a real feature never sits
+unreleased (and unannounced in the app) waiting for enough small stuff
+to pile up alongside it. When it's time to cut one:
 
 1. Check `README.md`, this file, `docs/data-model.md`, and any ADR with a
    placeholder or "not yet decided" left in it against what actually
