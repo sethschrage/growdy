@@ -241,6 +241,13 @@ export function Chat({
           <div ref={messagesEndRef} />
         </div>
       </div>
+      {/* Strip and form share one fixed container. The form used to be
+          fixed on its own, so a sibling rendered before it still landed
+          at the end of the flex column -- underneath the floating bar
+          and half off the bottom of the screen, which is exactly what it
+          did on a phone. Positioning the pair, not the bar, keeps them
+          together whatever the strip's height turns out to be. */}
+      <div className="chat-compose">
       {pendingPhoto && (
         <div className="chat-pending-photo">
           <img src={pendingPhoto.previewUrl} alt="Photo about to be sent" />
@@ -290,6 +297,7 @@ export function Chat({
           <PixelArrow size={18} />
         </button>
       </form>
+      </div>
     </div>
   )
 }
