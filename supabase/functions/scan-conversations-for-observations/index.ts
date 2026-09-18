@@ -15,6 +15,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
+import { messageText, type TranscriptMessage } from "../_shared/transcript.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -55,8 +56,15 @@ function anthropicKey() {
   return Deno.env.get("ANTHROPIC_GROWDY_KEY")!;
 }
 
-async function classifyConversation(transcript: { role: string; content: string }[]): Promise<ClassifyResult> {
-  const conversationText = transcript.map((m) => `${m.role}: ${m.content}`).join("\n\n");
+async function classifyConversation(transcript: TranscriptMessage[]): Promise<ClassifyResult> {
+  // messageText drops image blocks rather than interpolating them as
+  // "[object Object]", which would have looked like valid input and
+  // quietly produced no observations for any conversation with a photo.
+  const conversationText = transcript
+    .map((m) => ({ role: m.role, text: messageText(m) }))
+    .filter((m) => m.text.length > 0)
+    .map((m) => `${m.role}: ${m.text}`)
+    .join("\n\n");
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
