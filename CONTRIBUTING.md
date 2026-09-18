@@ -234,6 +234,26 @@ to pile up alongside it. When it's time to cut one:
    a noun-phrase pulled from the CHANGELOG entry's own opening theme
    (e.g. `v0.7.0 -- The chat writes and runs its own SQL`), so the
    release list itself is legible without opening each one.
+   **Group the bullets under `Frontend` / `Backend` / `Infra` headers**
+   (omit any that don't apply that release) -- a bullet's category is
+   decided by where the change is actually visible, not by what kind of
+   code changed: `Frontend` is a new or changed screen, button, or
+   in-chat element a producer can see and use directly; `Backend` is a
+   real capability or behavior change reachable through *existing* UI
+   (a smarter chat answer, a new tool it can use) with nothing new to
+   click; `Infra` is real but has zero producer-visible effect on its
+   own (a security fix, a schema change, a scheduled job, CI). Verify
+   the split against the actual frontend code (`app/src/`) rather than
+   assuming a feature shipped with a UI just because its ADR or PR
+   title describes it that way -- confirmed necessary directly: `0025`'s
+   parcel sharing has had a real database mechanism since `0.10.0` and
+   still has no UI anywhere in the app as of `0.12.0`, reachable only by
+   asking the chat to do it once the write tool itself became real.
+   Small, purely cosmetic bug fixes can be collapsed into one closing
+   "General improvements and bug fixes" line instead of one bullet each;
+   a bug fix worth a producer knowing about on its own (a security fix,
+   something that was silently broken) still gets its own bullet under
+   whichever category it affects.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full engineering history, and
 the GitHub Releases page (or the app's own "What's new") for what a
