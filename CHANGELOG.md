@@ -7,9 +7,8 @@ just the opening line: the what supports the why, it isn't the point
 of the sentence on its own. Prose, not a categorized list. Versioning
 follows [Semantic Versioning](https://semver.org/).
 
-Releases are cut in batches, once a group of merged PRs adds up to a real
-milestone -- not one release per PR. See [CONTRIBUTING.md](CONTRIBUTING.md)
-for the full process.
+Not one release per PR -- see [CONTRIBUTING.md](CONTRIBUTING.md) for what
+actually triggers a release and the full process.
 
 This file is the engineering record -- it's never shown in the app. The
 GitHub Release published alongside each entry here carries its own,
@@ -17,6 +16,80 @@ separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
 ## [Unreleased]
+
+## [0.12.0] - 2026-09-18
+
+This batch finishes two things `0.10.0` already described as done and,
+per a docs coherency pass that checked the whole release history
+against what actually shipped, weren't: the chat's write tool had no
+way to actually reach a producer, and the six-hourly scan for missed
+observations had been silently failing on every single run since it
+shipped, both errors invisible to the normal signals anyone would have
+checked. Both are now genuinely fixed, corrections recorded directly on
+`0.10.0`'s own entry rather than edited away. Alongside that, the chat
+gained a real capability `0.10.0` never promised at all: a memory that
+persists across conversations.
+
+[`0022`](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md)'s
+write tool is now actually reachable (#152): `propose_write_query`
+joined `execute_readonly_query` as a real `chat` tool, and a fenced
+`confirm-write` code block renders as an actual Confirm/Decline
+card (`ConfirmWriteCard.tsx`), the same mechanism `0021` already taught
+the frontend for a `svg` block. Two real bugs surfaced building it: a
+`language-(\w+)` regex that didn't match a hyphen was silently
+truncating `confirm-write` to `confirm`, and react-markdown wraps a
+fenced block's rendered output in its own `<pre>` even after a custom
+component replaces the contents -- invisible for `svg` (which ignores
+`white-space`) but broke this card's text wrapping until both got a
+matching `pre` override. `parcel_shares` got its own onboarding pass
+through `0022`'s per-table checklist (#153) -- no `producer_id` column
+of its own, so its audit trigger resolves the owner via a join to
+`parcels` instead, which surfaced a real bug of its own: deleting a
+parcel cascades to its shares, and by the time the trigger fires for
+that cascade, the parent `parcels` row is already invisible to a plain
+`select` -- fixed by skipping the audit insert rather than crashing the
+delete. A later re-review of the same checklist, applied this time to
+`pending_writes` itself rather than a producer-data table, found
+`authenticated` held a broader `UPDATE` grant than the one real client
+use (Decline) needed -- a raw update could have silently rewritten a
+pending proposal's query after its summary was already shown, closed
+by narrowing the grant to `status` alone (#158).
+
+[`0023`](docs/decisions/0023-producer-memory-via-embeddings.md) is the
+new capability: `search_memory`, a chat tool that embeds a question via
+Voyage AI and runs a `pgvector` similarity search across two corpora --
+a structured `producer_memory` table a producer can also write to
+directly (through `0022`'s same confirm/decline path), and a
+rebuildable `conversation_embeddings` index over past transcripts, kept
+current by a new six-hourly scheduled job rather than embedded
+synchronously on every turn (#150). Voyage/MongoDB's free-trial rate
+limit (3 RPM/10K TPM) is real and already hit by that job -- harmless
+today since unembedded rows just retry, but worth a payment method
+before it matters for `search_memory`'s own live query embedding.
+
+The scan-conversations fix (#149, #151) is named on `0.10.0`'s own
+entry above rather than repeated here. Finding it, plus the still-open
+embedding rate limit, came from actually building monitoring for this
+project for the first time: `docs/monitoring.md` is now a real
+inventory of every place that needs a human to look at it, and a
+scheduled check plus a live dashboard ("Growdy Watch," hosted outside
+this repo entirely -- see `docs/monitoring.md`'s own section 8) now
+reads that inventory daily and pushes a notification when something
+changes (#153-#157). A smaller fix rode along: the "what's new" popup
+was showing every past release a producer had missed instead of just
+the latest one (#147).
+
+Last, the release process itself changed again, the same way it did in
+`0.11.0`: a release now gets cut whenever a real feature ships, not
+once a batch happens to feel big enough -- this exact batch, sitting
+unreleased for a full day while real capabilities inside it went
+unannounced, is why (#160). A full audit of every PR, release, and doc
+against each other and against live production state also caught and
+fixed a handful of doc-only drift: `0024`'s own title still claimed web
+access was toggleable a day after it became always-on, and
+`docs/data-model.md`'s diagram was missing `pending_writes` and
+`audit_log` entirely despite three later updates to the same file
+(#159).
 
 ## [0.11.0] - 2026-09-17
 
@@ -123,6 +196,19 @@ own limits in the ADR itself: it can't undo a real-world action a write
 triggered, and it doesn't help with DDL at all -- rollback is a safety
 net for mistakes in the data, not a general undo button.
 
+**Correction added 2026-09-17, found during a docs coherency pass:** the
+paragraph above describes `propose_write_query`/`confirm_write` as a
+live capability, and at the database level it was -- but a producer
+had no actual way to trigger it: neither tool was wired into `chat`'s
+own tool loop, and no confirm/decline UI existed anywhere in the app.
+PR #130's own title candidly called it a "lean version." The real,
+producer-reachable write tool didn't ship until #152, 2026-09-17,
+after `0.11.0` had already been tagged -- see
+[0022](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md)'s
+own status line. Left the paragraph above as written, same as every
+other correction in this file, rather than editing history to read as
+though it was accurate at the time.
+
 Chat also picked up a second source of answers outside its own
 database: [`0024`](docs/decisions/0024-web-access-as-a-provider.md)
 (#129, #131) wires Anthropic's own hosted web search and web fetch in as
@@ -174,18 +260,20 @@ candidate the producer confirms or dismisses themselves (0025 follow-up,
 #137). Nothing ever reaches `observations` without that click; this is a
 recovery net for things already said, not a second submission path.
 
-**Correction added 2026-09-17, found during a docs coherency pass:** the
-paragraph above describes `propose_write_query`/`confirm_write` as a
-live capability, and at the database level it was -- but a producer
-had no actual way to trigger it: neither tool was wired into `chat`'s
-own tool loop, and no confirm/decline UI existed anywhere in the app.
-PR #130's own title candidly called it a "lean version." The real,
-producer-reachable write tool didn't ship until #152, 2026-09-17,
-after `0.11.0` had already been tagged -- see
-[0022](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md)'s
-own status line. Left the paragraph above as written, same as every
-other correction in this file, rather than editing history to read as
-though it was accurate at the time.
+**Correction added 2026-09-18, found while cutting the next release:**
+the paragraph above describes this scheduled scan as working, and it
+was designed to -- but every single run of it, every six hours since
+it shipped, failed on every single conversation with `permission
+denied for table conversations`/`observation_candidates`, and both the
+`pg_cron` job status and the Edge Function's own HTTP response looked
+clean regardless, because `service_role` was never granted `select`
+alongside its `update`/`insert` on those tables. Caught while writing
+[`docs/monitoring.md`](docs/monitoring.md), fixed in
+`20260917020100_scan_conversations_service_role_grants.sql` and,
+completely, in `20260917030100_conversations_service_role_select_grant.sql`
+(#149, #151) -- confirmed against a real run afterward:
+`{"scanned":20,"candidatesCreated":1,"errors":[]}`. Left the paragraph
+above as written, same as every other correction in this file.
 
 ## [0.9.0] - 2026-09-16
 
