@@ -17,6 +17,29 @@ what actually shows up as "What's new."
 
 ## [Unreleased]
 
+Rewriting every past release under the new `Frontend`/`Backend`/`Infra`
+split (0.12.0's own follow-up) forced a direct check of each bullet
+against the real frontend code rather than trusting an ADR's own
+description, and that check found a real, previously-unnoticed gap:
+[`0025`](docs/decisions/0025-parcel-sharing-and-self-serve-creation.md)'s
+parcel sharing had a working database mechanism since `0.10.0` and no UI
+anywhere in the app to actually use it. Fixing that surfaced something
+worse underneath it -- `parcels`' own `select` policy was never updated
+to the same `user_can_access_parcel` check `plots`/`plot_rows`/`planting`
+already got when this ADR shipped, so a share recipient could see a
+shared parcel's plots, rows, and plantings but never the parcel row they
+belong to. Confirmed directly (reading `user_can_access_producer`'s own
+definition shows it never references `parcel_shares` at all), then
+verified empirically with a scratch-created recipient and an unrelated
+stranger before shipping the fix -- one gains access, the other still
+correctly gets none. A real UI now sits on top of a cascade that
+actually works: two narrow functions, `share_parcel` (by the recipient's
+sign-in email, the only client-safe way to identify them, since
+producers/profiles RLS blocks a direct lookup) and `get_parcel_shares`
+(honoring this ADR's own "a share reveals only its own row" privacy
+rule), plus a "Share" control and a "Shared by X" badge in
+`ProducerDataTree.tsx`.
+
 ## [0.12.0] - 2026-09-18
 
 This batch finishes two things `0.10.0` already described as done and,
