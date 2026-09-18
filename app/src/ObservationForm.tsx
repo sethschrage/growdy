@@ -146,11 +146,19 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
     if (!producerId || !note.trim()) return
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.from('observations').insert({
-      producer_id: producerId,
-      planting_id: planting?.id ?? null,
-      observed_date: observedDate || null,
-      note: note.trim(),
+    // Files a candidate rather than an observation (0030). A note the
+    // producer typed themselves is the case where review protects least
+    // -- they are the ground truth for their own vineyard -- but it goes
+    // through the same door as everything else, so there is one way in
+    // rather than one way plus an exception.
+    const { error } = await supabase.rpc('create_observation_candidate', {
+      p_summary: note.trim(),
+      p_note: note.trim(),
+      p_observed_date: observedDate || null,
+      p_planting_id: planting?.id ?? null,
+      p_photo_path: null,
+      p_conversation_id: null,
+      p_source: 'producer',
     })
     setSubmitting(false)
     if (error) {
@@ -200,11 +208,12 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
           {error && <p className="error">{error}</p>}
           {savedCount > 0 && !error && (
             <p className="observation-form-status">
-              Saved{savedCount > 1 ? ` (${savedCount})` : ''} -- pending review.
+              Sent for review{savedCount > 1 ? ` (${savedCount})` : ''} -- approve it in Review
+              observations and it joins your log.
             </p>
           )}
           <button type="submit" disabled={submitting || !producerId}>
-            {submitting ? 'Saving...' : 'Save observation'}
+            {submitting ? 'Sending...' : 'Send for review'}
           </button>
         </form>
       </div>

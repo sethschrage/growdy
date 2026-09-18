@@ -22,7 +22,9 @@ And the queue that `0028` found broken is not the only one in the project. `obse
 
 **Confirming becomes one transaction.** `confirm_observation_candidate` replaces the two client statements that insert the observation and then mark the candidate, with nothing holding them together: a failure in between left an observation whose candidate still read `pending`, so confirming again produced a duplicate. It is idempotent on non-pending candidates, so a double-tap on a slow connection is a no-op rather than an error a producer has to interpret.
 
-**Nothing is revoked yet.** Four paths insert observations today -- `LogObservationCard`, `ObservationForm`, the candidate confirm, and `0022`'s write tool, which lists `observations` as writable. Revoking the grant before those move would break each of them in turn, so this migration only expands. The `INSERT` grant on `observations` is withdrawn in the last PR of this sequence, once every caller goes through the queue.
+**Nothing is revoked in the first migration.** Four paths inserted observations directly -- `LogObservationCard`, `ObservationForm`, the candidate confirm, and `0022`'s write tool, which reaches `observations` through the caller's own grant. Revoking before those moved would have broken each in turn, so the opening migration only expanded and the withdrawal came last, once every caller went through the queue.
+
+**Now closed.** `authenticated` holds no `INSERT` grant on `observations` and the insert policy is gone, so `confirm_observation_candidate` is the only writer left -- `security definer`, running after a producer has looked at the row. The queue is no longer the way observations happen to be created; it is the only way they can be.
 
 ## Consequences
 
