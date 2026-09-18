@@ -1,6 +1,6 @@
 # 0025. Per-parcel sharing, cascading through the hierarchy it owns, plus self-serve parcel creation
 
-**Status:** accepted. The mechanism shipped first; a real UI and one real bug in the cascade it depended on were found and closed later -- see Consequences.
+**Status:** parcel sharing withdrawn by 0028, UI and all -- the mechanism shipped in 0.10.0, got a real UI (plus a genuine fix to the RLS cascade it depended on) hours before UAT, and was then removed outright because parcels became the thing Growdy sells. Self-serve parcel creation, the other half of this ADR, was removed by 0028 as well, for the same reason.
 
 ## Context
 

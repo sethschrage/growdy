@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
 
-type Parcel = { id: string; name: string; producer_id: string }
-type ParcelShare = {
-  share_id: string
-  party_producer_id: string
-  party_name: string
-  party_email: string | null
-  role: 'editor' | 'viewer'
-}
+type Parcel = { id: string; name: string }
 type Plot = { id: string; name: string }
 type PlotRow = {
   id: string
@@ -48,9 +41,9 @@ function rowMeasurementsSummary(row: PlotRow): string {
 
 // A row's physical measurements (length, spacing, end-post count) --
 // nullable, editor/owner-only (see the plot_rows RLS policy for why a
-// viewer share can read but not set these). This is the first editable
+// producer's own rows). This is the first editable
 // field anywhere in this read-only tree, so it gets its own small inline
-// form rather than a shared "edit mode" the rest of the tree doesn't need.
+// form rather than an "edit mode" the rest of the tree doesn't need.
 function RowMeasurements({
   plot,
   row,
@@ -124,171 +117,6 @@ function RowMeasurements({
   )
 }
 
-// The only place a producer can add a parcel after onboarding -- the
-// wizard (docs/decisions/0026) creates the first one, but skipping that
-// step, or wanting a second parcel later, both land here. Uses
-// supabase.auth.getUser() rather than a passed-down session prop since
-// nothing between here and App already threads one this deep.
-function AddParcel({ onAdded }: { onAdded: (parcel: Parcel) => void }) {
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  if (!adding) {
-    return (
-      <button type="button" className="pdv-add-parcel-toggle" onClick={() => setAdding(true)}>
-        + Add parcel
-      </button>
-    )
-  }
-
-  async function handleSave() {
-    if (!name.trim()) return
-    setSaving(true)
-    setError(null)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setSaving(false)
-      setError('Not signed in.')
-      return
-    }
-    const { data: profile } = await supabase.from('profiles').select('producer_id').eq('id', user.id).single()
-    if (!profile) {
-      setSaving(false)
-      setError('Could not find your producer.')
-      return
-    }
-    const { data, error } = await supabase
-      .from('parcels')
-      .insert({ producer_id: profile.producer_id, name: name.trim() })
-      .select('id, name, producer_id')
-      .single()
-    setSaving(false)
-    if (error || !data) {
-      setError(error?.message ?? 'Something went wrong.')
-      return
-    }
-    onAdded(data as Parcel)
-    setName('')
-    setAdding(false)
-  }
-
-  return (
-    <form
-      className="pdv-add-parcel-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        handleSave()
-      }}
-    >
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Parcel name"
-        autoFocus
-      />
-      {error && <p className="error">{error}</p>}
-      <div className="pdv-add-parcel-actions">
-        <button type="submit" disabled={saving}>
-          Save
-        </button>
-        <button type="button" onClick={() => setAdding(false)} disabled={saving}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
-
-// Only ever rendered for a parcel the current producer owns -- 0025's own
-// design has just the owner manage who has access, never a share-holder.
-// Resolves "the other producer" by their sign-in email through
-// share_parcel/get_parcel_shares, since there's no other client-safe way
-// to identify them: producers/profiles RLS deliberately blocks a direct
-// cross-producer lookup (see the migration these RPCs shipped in).
-function ShareParcelPanel({
-  parcel,
-  shares,
-  onChange,
-}: {
-  parcel: Parcel
-  shares: ParcelShare[] | undefined
-  onChange: () => Promise<void>
-}) {
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'editor' | 'viewer'>('viewer')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleShare() {
-    if (!email.trim()) return
-    setSaving(true)
-    setError(null)
-    const { error } = await supabase.rpc('share_parcel', {
-      p_parcel_id: parcel.id,
-      p_recipient_email: email.trim(),
-      p_role: role,
-    })
-    setSaving(false)
-    if (error) {
-      setError(error.message)
-      return
-    }
-    setEmail('')
-    await onChange()
-  }
-
-  async function handleRevoke(shareId: string) {
-    await supabase.from('parcel_shares').delete().eq('id', shareId)
-    await onChange()
-  }
-
-  return (
-    <div className="pdv-share-panel">
-      {shares === undefined && <p className="pdv-empty">Loading...</p>}
-      {shares?.length === 0 && <p className="pdv-empty">Not shared with anyone yet.</p>}
-      {shares && shares.length > 0 && (
-        <ul className="pdv-share-list">
-          {shares.map((s) => (
-            <li key={s.share_id} className="pdv-share-item">
-              <span className="pdv-share-email">{s.party_email ?? s.party_name}</span>
-              <span className="pdv-share-role">{s.role}</span>
-              <button type="button" className="pdv-share-revoke" onClick={() => handleRevoke(s.share_id)}>
-                Revoke
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form
-        className="pdv-share-form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          handleShare()
-        }}
-      >
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Their sign-in email"
-        />
-        <select value={role} onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}>
-          <option value="viewer">Viewer</option>
-          <option value="editor">Editor</option>
-        </select>
-        <button type="submit" disabled={saving}>
-          {saving ? 'Sharing...' : 'Share'}
-        </button>
-      </form>
-      {error && <p className="error">{error}</p>}
-    </div>
-  )
-}
-
 // A real collapsible tree, not a level-by-level button drill-down: every
 // node expands in place and stays expanded alongside its siblings, so
 // comparing two rows (or two plots) means opening both, not bouncing
@@ -301,57 +129,14 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   const [rowsByPlot, setRowsByPlot] = useState<Map<string, PlotRow[]>>(new Map())
   const [plantingsByRow, setPlantingsByRow] = useState<Map<string, Planting[]>>(new Map())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [myProducerId, setMyProducerId] = useState<string | null>(null)
-  const [sharesByParcel, setSharesByParcel] = useState<Map<string, ParcelShare[]>>(new Map())
-  const [shareOpen, setShareOpen] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     supabase
       .from('parcels')
-      .select('id, name, producer_id')
+      .select('id, name')
       .order('name')
       .then(({ data }) => setParcels((data as Parcel[]) ?? []))
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase
-        .from('profiles')
-        .select('producer_id')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => setMyProducerId(data?.producer_id ?? null))
-    })
   }, [])
-
-  // Every parcel that isn't mine is one shared with me (the parcels RLS
-  // fix that made this cascade actually work is what makes this query
-  // return anything at all for those) -- load who shared it and what
-  // role I hold, so the badge next to it isn't just "shared," blank.
-  useEffect(() => {
-    if (!parcels || myProducerId === null) return
-    for (const parcel of parcels) {
-      if (parcel.producer_id !== myProducerId && !sharesByParcel.has(parcel.id)) {
-        supabase
-          .rpc('get_parcel_shares', { p_parcel_id: parcel.id })
-          .then(({ data }) => setSharesByParcel((prev) => new Map(prev).set(parcel.id, (data as ParcelShare[]) ?? [])))
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parcels, myProducerId])
-
-  async function loadShares(parcelId: string) {
-    const { data } = await supabase.rpc('get_parcel_shares', { p_parcel_id: parcelId })
-    setSharesByParcel((prev) => new Map(prev).set(parcelId, (data as ParcelShare[]) ?? []))
-  }
-
-  function toggleShare(parcel: Parcel) {
-    setShareOpen((prev) => {
-      const next = new Set(prev)
-      if (next.has(parcel.id)) next.delete(parcel.id)
-      else next.add(parcel.id)
-      return next
-    })
-    if (!sharesByParcel.has(parcel.id)) loadShares(parcel.id)
-  }
 
   function toggle(key: string) {
     setExpanded((prev) => {
@@ -417,36 +202,17 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
 
   return (
     <>
-      <AddParcel onAdded={(parcel) => setParcels((prev) => [...(prev ?? []), parcel])} />
       {parcels.length === 0 && <p className="pdv-empty">No parcels yet.</p>}
       <ul className="pdv-tree" role="tree">
         {parcels.map((parcel) => {
           const pOpen = expanded.has(`parcel:${parcel.id}`)
           const plots = plotsByParcel.get(parcel.id)
-          const isMine = myProducerId !== null && parcel.producer_id === myProducerId
-          const shares = sharesByParcel.get(parcel.id)
           return (
             <li key={parcel.id} role="treeitem" aria-expanded={pOpen}>
-              <div className="pdv-tree-node-row">
-                <button type="button" className="pdv-tree-node" onClick={() => toggleParcel(parcel)}>
-                  <span className={`pdv-tree-caret${pOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
-                  <span className="pdv-tree-label">{parcel.name}</span>
-                </button>
-                {isMine ? (
-                  <button type="button" className="pdv-share-trigger" onClick={() => toggleShare(parcel)}>
-                    Share
-                  </button>
-                ) : (
-                  shares?.[0] && (
-                    <span className="pdv-shared-badge">
-                      Shared by {shares[0].party_name} · {shares[0].role}
-                    </span>
-                  )
-                )}
-              </div>
-              {isMine && shareOpen.has(parcel.id) && (
-                <ShareParcelPanel parcel={parcel} shares={shares} onChange={() => loadShares(parcel.id)} />
-              )}
+              <button type="button" className="pdv-tree-node" onClick={() => toggleParcel(parcel)}>
+                <span className={`pdv-tree-caret${pOpen ? ' pdv-tree-caret--open' : ''}`}>&#9656;</span>
+                <span className="pdv-tree-label">{parcel.name}</span>
+              </button>
               {pOpen && (
                 <ul className="pdv-tree" role="group">
                   {plots === undefined && <li className="pdv-empty pdv-tree-indent">Loading...</li>}

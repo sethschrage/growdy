@@ -7,7 +7,7 @@ import { HistoryDrawer, type Conversation } from './HistoryDrawer'
 import { DataSourcesView } from './DataSourcesView'
 import { ObservationCandidatesView } from './ObservationCandidatesView'
 import { ObservationForm } from './ObservationForm'
-import { OnboardingWizard } from './OnboardingWizard'
+import { ObservationLogView } from './ObservationLogView'
 import { ProducerDataView } from './ProducerDataView'
 import { PublicArtifactView } from './PublicArtifactView'
 import { ReleaseNotes } from './ReleaseNotes'
@@ -216,11 +216,13 @@ function AccountMenu({
 // its right.
 function SproutMenu({
   onNewObservation,
+  onOpenObservationLog,
   onOpenProducerData,
   onOpenObservationCandidates,
   onOpenArtifacts,
 }: {
   onNewObservation: () => void
+  onOpenObservationLog: () => void
   onOpenProducerData: () => void
   onOpenObservationCandidates: () => void
   onOpenArtifacts: () => void
@@ -268,6 +270,17 @@ function SproutMenu({
           <button
             type="button"
             className="menu-icon-button"
+            aria-label="Observation log"
+            onClick={() => {
+              onOpenObservationLog()
+              setOpen(false)
+            }}
+          >
+            <PixelHistory size={18} />
+          </button>
+          <button
+            type="button"
+            className="menu-icon-button"
             aria-label="Your vineyard data"
             onClick={() => {
               onOpenProducerData()
@@ -309,6 +322,7 @@ function SignedIn({ session }: { session: Session }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [dataSourcesOpen, setDataSourcesOpen] = useState(false)
   const [observationFormOpen, setObservationFormOpen] = useState(false)
+  const [observationLogOpen, setObservationLogOpen] = useState(false)
   const [producerDataOpen, setProducerDataOpen] = useState(false)
   const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
   const [artifactsOpen, setArtifactsOpen] = useState(false)
@@ -320,6 +334,7 @@ function SignedIn({ session }: { session: Session }) {
         <div className="app-header-left">
           <SproutMenu
             onNewObservation={() => setObservationFormOpen(true)}
+            onOpenObservationLog={() => setObservationLogOpen(true)}
             onOpenProducerData={() => setProducerDataOpen(true)}
             onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
             onOpenArtifacts={() => setArtifactsOpen(true)}
@@ -357,6 +372,7 @@ function SignedIn({ session }: { session: Session }) {
       {observationFormOpen && (
         <ObservationForm session={session} onClose={() => setObservationFormOpen(false)} />
       )}
+      {observationLogOpen && <ObservationLogView onClose={() => setObservationLogOpen(false)} />}
       {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
       {observationCandidatesOpen && (
         <ObservationCandidatesView session={session} onClose={() => setObservationCandidatesOpen(false)} />
@@ -369,7 +385,25 @@ function SignedIn({ session }: { session: Session }) {
 
 // Every screen below this assumes profiles.producer_id exists -- nothing
 // creates that row automatically (see docs/decisions/0026), so this is
-// the one gate deciding between "needs onboarding" and the real app.
+// still the one gate deciding whether a signed-in account has a producer
+// at all. What changed is what happens when it doesn't.
+//
+// 0026's self-serve wizard used to run here: name your vineyard,
+// optionally add a first parcel. It was withdrawn in UAT. Two reasons,
+// and the second is the real one. It could not be tested by the only
+// account that exists -- the gate is "has a profile", the owner has one,
+// so the wizard was unreachable for the person who had to sign it off.
+// And the shape of it is about to be wrong anyway: parcels are becoming
+// the thing Growdy sells, and the seat someone buys, so the first run of
+// a new account is going to be a purchase and a GIS-drawn boundary, not
+// a text box asking for a vineyard name.
+//
+// Rather than leave a wizard that creates the wrong shape of account, an
+// account with no producer now says so plainly and stops. Growdy has one
+// producer and a waiting list of nobody, so this costs nothing today,
+// and it fails honestly instead of half-working. create_producer_and_profile
+// is deliberately left in the database: it is how a producer gets created
+// by hand in the meantime, and the purchase flow will want it back.
 function SessionRouter({ session }: { session: Session }) {
   const [hasProfile, setHasProfile] = useState<boolean | null>(null)
 
@@ -383,8 +417,28 @@ function SessionRouter({ session }: { session: Session }) {
   }, [session.user.id])
 
   if (hasProfile === null) return null
-  if (!hasProfile) return <OnboardingWizard session={session} onComplete={() => setHasProfile(true)} />
+  if (!hasProfile) return <NoProducerScreen />
   return <SignedIn session={session} />
+}
+
+// The honest dead end described above. Signing out is the only action,
+// because it's the only one that would actually help.
+function NoProducerScreen() {
+  return (
+    <div className="login-screen">
+      <div className="login-content">
+        <span className="app-icon" role="img" aria-label="growdy">
+          <PixelSprout size={56} />
+        </span>
+        <h1>growdy</h1>
+        <p>This account isn't attached to a vineyard yet.</p>
+        <p>Growdy isn't open for self-serve sign-up at the moment. If you're expecting access, get in touch and we'll set you up.</p>
+        <button type="button" onClick={() => supabase.auth.signOut()}>
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // Checked before anything else in App -- a shared public link

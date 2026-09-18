@@ -1,6 +1,6 @@
 # 0009. Observation submission is a chat, not a form -- on purpose
 
-**Status:** superseded by 0016
+**Status:** superseded by 0016; review gate removed by 0028
 
 ## Context
 

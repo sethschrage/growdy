@@ -16,7 +16,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
 
 // Bounds one run's worst-case cost/runtime the same way
@@ -45,6 +44,17 @@ const CLASSIFY_TOOL = {
 
 type ClassifyResult = { is_observation: boolean; summary: string };
 
+// Growdy has its own Anthropic key rather than sharing one
+// general-purpose key, and the old ANTHROPIC_API_KEY secret is being
+// deleted, so there is deliberately no fallback to it: a fallback to a
+// secret that no longer exists can only turn a missing-secret failure
+// into a confusing one. Read at call time rather than as a module
+// const so a missing secret surfaces as a failed request the logs
+// name, not a crash while the function is still booting.
+function anthropicKey() {
+  return Deno.env.get("ANTHROPIC_GROWDY_KEY")!;
+}
+
 async function classifyConversation(transcript: { role: string; content: string }[]): Promise<ClassifyResult> {
   const conversationText = transcript.map((m) => `${m.role}: ${m.content}`).join("\n\n");
 
@@ -52,7 +62,7 @@ async function classifyConversation(transcript: { role: string; content: string 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
+      "x-api-key": anthropicKey(),
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({

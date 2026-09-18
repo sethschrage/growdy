@@ -25,9 +25,15 @@ the rest -- direct SQL, the Supabase dashboard, or Vercel's dashboard.
 Three independent tables hold rows waiting on a human decision. None of
 them notify anyone; a row can sit forever.
 
+`observations` used to be a fourth, and the worst of them: its `status`
+column defaulted to `pending` with nothing anywhere able to approve a
+row. [0028](decisions/0028-what-uat-removed.md) removed the column
+rather than build the approver -- an observation now counts the moment
+it is logged, and a producer deletes what they don't want. There is
+nothing left to watch here, which is the point.
+
 | Table | Column | Values | Who resolves it, how |
 |---|---|---|---|
-| `observations` | `status` | `pending` (default) / `approved` / `rejected` | **Nobody, via any UI.** [`20260913045735_observations_status_and_transcript.sql:13-14`](../supabase/migrations/20260913045735_observations_status_and_transcript.sql) says outright: "No update policy for status yet... approving/rejecting happens by hand via direct SQL." Confirmed still true -- no later migration ever grants `update` on this column. Every observation ever submitted (structured form or, historically, chat) sits `pending` until a maintainer runs SQL. |
 | `observation_candidates` | `status` | `pending` (default) / `confirmed` / `dismissed` | The producer, in-app, via the review queue populated by the 6-hourly `scan-conversations-for-observations` job ([`20260916200228_observation_candidates.sql`](../supabase/migrations/20260916200228_observation_candidates.sql)). |
 | `plant_types` | `status` | `pending` (default) / `canonical` / `rejected` | **Nobody, via any UI either.** [`20260913003426_plant_types.sql:20-22`](../supabase/migrations/20260913003426_plant_types.sql) -- any producer typing a new variety/scion/rootstock name implicitly proposes one; a maintainer promotes it to `canonical` (visible to everyone) with a plain `UPDATE`, "no automated/self-service promotion exists yet." |
 | `pending_writes` | `status` | `pending` (default) / `applied` / `declined` | The producer, in the same chat session, by clicking confirm/decline on a chat-drafted write ([`20260916173224_write_tool_audit_and_rollback.sql:17-24`](../supabase/migrations/20260916173224_write_tool_audit_and_rollback.sql)). A row stuck `pending` well past a normal session length (minutes, not hours) means the confirm/decline path itself broke, not that a producer is still deciding. |
@@ -35,8 +41,7 @@ them notify anyone; a row can sit forever.
 Check counts any time with:
 
 ```sql
-select 'observations pending' as signal, count(*) from public.observations where status = 'pending'
-union all select 'observation_candidates pending', count(*) from public.observation_candidates where status = 'pending'
+select 'observation_candidates pending' as signal, count(*) from public.observation_candidates where status = 'pending'
 union all select 'plant_types pending', count(*) from public.plant_types where status = 'pending'
 union all select 'pending_writes stuck', count(*) from public.pending_writes where status = 'pending' and created_at < now() - interval '1 hour';
 ```
@@ -132,11 +137,11 @@ table, never anything polled. Real call sites:
 
 | File:line | What it logs | Reaches `data_sources.last_error`? |
 |---|---|---|
-| [`chat/index.ts:436`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
-| [`chat/index.ts:401`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
-| [`chat/index.ts:85,121`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed | n/a |
-| [`scan-conversations-for-observations/index.ts:120`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
-| [`scan-conversations-for-observations/index.ts:88`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
+| [`chat/index.ts:568`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
+| [`chat/index.ts:514`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
+| [`chat/index.ts:86,122`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed | n/a |
+| [`scan-conversations-for-observations/index.ts:130`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
+| [`scan-conversations-for-observations/index.ts:98`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/Chat.tsx:84`](../app/src/Chat.tsx) | `chat function invoke failed` | **No, and never can be** -- this is the browser's own console. A total network failure calling the Edge Function never reaches any server-side log at all. Known, accepted blind spot. |
 
@@ -281,14 +286,16 @@ deploy paths.
 capability, a JSON document store separate from `growdybase` entirely):
 
 - Collection `checks`, one document per signal, ids
-  `pending_observations` / `pending_candidates` / `pending_plant_types`
+  `pending_candidates` / `pending_plant_types`
   / `stuck_writes` / `chat_feedback` / `data_sources` / `background_jobs`
   / `embedding_pipeline` / `function_errors` / `supabase_advisors` /
   `vercel` -- matching sections 1, 2, 3, 4, 6, and 7 above
   (`background_jobs` still covers the scan-conversations trap in
   section 5; `embedding_pipeline` was split out of it on 2026-09-17 as
-  its own card, see below). Each: `{status: "ok"|"attention"|"critical",
-  count, summary, items: [{label, detail, timestamp}], checked_at}`.
+  its own card, see below; `pending_observations` was retired when 0028
+  removed the column behind it). Each: `{status:
+  "ok"|"attention"|"critical", count, summary, items: [{label, detail,
+  timestamp}], checked_at}`.
 - `meta/summary`: `{overall, attention_categories, checked_at}`, drives
   the dashboard's header pill.
 - `meta/alert_state`: `{last_notified_signature, last_notified_at}`,
