@@ -18,11 +18,11 @@
 -- observations has been waiting on coordinates for 3,004 plantings that
 -- are all still NULL; photos carry their own from the first one taken.
 alter table public.observation_candidates
-  add column if not exists photo_location geography(Point, 4326),
+  add column if not exists photo_location extensions.geography(Point, 4326),
   add column if not exists photo_location_accuracy_m real;
 
 alter table public.observations
-  add column if not exists photo_location geography(Point, 4326),
+  add column if not exists photo_location extensions.geography(Point, 4326),
   add column if not exists photo_location_accuracy_m real;
 
 -- Accuracy travels with the point because it varies by an order of
@@ -84,9 +84,18 @@ begin
      photo_location, photo_location_accuracy_m)
   values
     (v_producer_id, p_conversation_id, trim(p_summary), p_note, p_observed_date, p_planting_id, p_photo_path, p_source,
+     -- Fully qualified: PostGIS lives in `extensions`, and this function
+     -- pins search_path to public/private the way every security definer
+     -- function here does. Adding `extensions` to that path would work
+     -- and would also widen what an unqualified name inside a definer
+     -- function can resolve to, for one cast's convenience. db-lint
+     -- caught the unqualified version -- "type geography does not exist"
+     -- -- before it reached production.
      case
        when p_photo_latitude is null or p_photo_longitude is null then null
-       else st_setsrid(st_makepoint(p_photo_longitude, p_photo_latitude), 4326)::geography
+       else extensions.st_setsrid(
+              extensions.st_makepoint(p_photo_longitude, p_photo_latitude), 4326
+            )::extensions.geography
      end,
      p_photo_accuracy_m)
   returning id into v_candidate_id;
