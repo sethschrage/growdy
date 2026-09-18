@@ -269,6 +269,16 @@ const SEARCH_MEMORY_TOOL = {
 // "document", per Voyage's own documented best practice), then ranks
 // both corpora by vector distance, RLS-scoped exactly like any other
 // read via the caller's own forwarded JWT.
+async function searchMemory(supabase: SupabaseClient, query: string): Promise<unknown> {
+  const [vector] = await embedTexts([query], "query");
+  const { data, error } = await supabase.rpc("search_memory_by_embedding", {
+    p_query_embedding: toVectorLiteral(vector),
+    p_limit: 5,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 // Looking at a photo again, on demand, instead of carrying it in the
 // transcript forever.
 //
@@ -322,16 +332,6 @@ const VIEW_PHOTO_TOOL = {
     required: ["path"],
   },
 };
-
-async function searchMemory(supabase: SupabaseClient, query: string): Promise<unknown> {
-  const [vector] = await embedTexts([query], "query");
-  const { data, error } = await supabase.rpc("search_memory_by_embedding", {
-    p_query_embedding: toVectorLiteral(vector),
-    p_limit: 5,
-  });
-  if (error) throw new Error(error.message);
-  return data ?? [];
-}
 
 const USANPN_BASE = "https://services.usanpn.org/npn_portal/";
 // Honor-system self-identification USA-NPN's API asks callers for --
