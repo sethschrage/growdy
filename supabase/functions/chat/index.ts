@@ -269,6 +269,60 @@ const SEARCH_MEMORY_TOOL = {
 // "document", per Voyage's own documented best practice), then ranks
 // both corpora by vector distance, RLS-scoped exactly like any other
 // read via the caller's own forwarded JWT.
+// Looking at a photo again, on demand, instead of carrying it in the
+// transcript forever.
+//
+// An attached photo is shown to the model once, on the turn it arrives,
+// and the transcript keeps only text (see the handler below for why a
+// stored image block or base64 is a trap). The cost of that is real: by
+// the next turn the model is reasoning about its own earlier
+// description rather than the image, which invites confident
+// elaboration on something it can no longer see.
+//
+// This closes that without paying for it every turn. Nothing is
+// re-sent by default, so a conversation with five photos still costs
+// five photo-views in total rather than five on every message; when the
+// model actually needs to look -- the producer asked, or it is
+// comparing against a photo from earlier in the season -- it calls this
+// and gets a freshly signed URL. No expiry problem, because nothing is
+// stored.
+//
+// Access is not this function's to decide. The client is built from the
+// caller's own JWT, so createSignedUrl runs under their RLS: a path
+// belonging to another producer fails here the same way it would from
+// the browser, and the model asking for one gets an error rather than a
+// photo.
+async function viewPhoto(supabase: SupabaseClient, path: string): Promise<unknown> {
+  const { data, error } = await supabase.storage
+    .from("observation-photos")
+    .createSignedUrl(path, 300);
+  if (error || !data?.signedUrl) {
+    throw new Error(`Could not open that photo: ${error?.message ?? "no signed URL"}`);
+  }
+  return {
+    __contentBlocks: [
+      { type: "image", source: { type: "url", url: data.signedUrl } },
+      { type: "text", text: `This is the photo stored at ${path}.` },
+    ],
+  };
+}
+
+const VIEW_PHOTO_TOOL = {
+  name: "view_photo",
+  description:
+    "Look at a vineyard photo the producer has already uploaded, by its storage path. Use this whenever you need to see a photo rather than rely on a description of it -- the producer has asked you to look again at one from earlier in this conversation, or you want to compare against a photo attached to a past observation (observations.photo_metadata holds the path). Only the current producer's own photos can be opened; a path belonging to anyone else fails.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description: "The storage path of the photo, as given to you with an attached image or found in observations.photo_metadata.",
+      },
+    },
+    required: ["path"],
+  },
+};
+
 async function searchMemory(supabase: SupabaseClient, query: string): Promise<unknown> {
   const [vector] = await embedTexts([query], "query");
   const { data, error } = await supabase.rpc("search_memory_by_embedding", {
@@ -422,7 +476,13 @@ You can also search and fetch real, current web content when a question genuinel
 
 The producer's own memory -- explicit notes and past conversations -- can be searched with search_memory when a question sounds like it references something discussed before. This is a meaning-based search, not a database table: use it instead of guessing from the current conversation alone whenever "didn't we already talk about this" seems likely to be true.
 
-When what the producer is telling you is a field observation -- something they saw, did, or measured out there, the kind of thing that belongs in the record rather than just this conversation -- offer to log it, in the message where you've worked out what it actually says. Include a fenced code block tagged log-observation containing a JSON object: {"note": the observation in the producer's own terms, as one clear sentence, "observed_date": the date it happened as YYYY-MM-DD if you know it or null, "planting_id": the specific planting's id if the observation is about one identifiable vine, otherwise null}. That block becomes a real "Log this observation" button on your message. Ask first if you genuinely can't tell whether something is an observation or just conversation, but don't interrogate a producer who has plainly told you what they saw -- work out the date and the planting from what they said and what you can look up, offer the button, and let them tap it. Never claim it's logged; the button does that, and it says so itself once tapped. Don't offer one for something already logged in this conversation, and don't use propose_write_query to insert an observation -- this is the path for that now.
+A producer can attach a photo from their vineyard, and when they do you are looking at their own ground, not a stock image -- so read it with everything you already know about this operation in view. Say what is actually visible first, in concrete terms (what part of the plant, how many, what the damage or growth actually looks like), and only then what you think it means. Keep those two separable in your wording, because the first is evidence and the second is a judgement that could be wrong, and both end up in the producer's permanent record. Use the database and the tools to place it -- which block, which variety, what the weather has been doing, whether this was discussed before -- rather than describing it as though it arrived from nowhere. Be as long as the photo warrants; a description that carries real detail is worth more later than a tidy one-liner, and it is what a search over past photos will actually match on.
+
+Offer the log-observation block for a photo the same way you would for something described in words, and include "photo_path" set to the storage path given to you with the image. Say plainly when you are unsure what you are seeing -- a confident wrong reading gets embedded into this producer's memory and quietly informs how you read the next photo, which is worse than saying you cannot tell.
+
+An attached photo is in front of you only on the turn it arrives. On any later turn you are working from your own earlier description of it, which is exactly when it is tempting to elaborate on detail you can no longer actually see. Don't: call view_photo with its path and look again. Do the same before comparing a photo to an earlier one -- past photos are reachable through observations.photo_metadata, so a question about how a block has changed across the season is one you can answer by looking at both rather than by trusting two descriptions written weeks apart.
+
+When what the producer is telling you is a field observation -- something they saw, did, or measured out there, the kind of thing that belongs in the record rather than just this conversation -- offer to log it, in the message where you've worked out what it actually says. Include a fenced code block tagged log-observation containing a JSON object: {"note": the observation in the producer's own terms, as one clear sentence, "observed_date": the date it happened as YYYY-MM-DD if you know it or null, "planting_id": the specific planting's id if the observation is about one identifiable vine, otherwise null, "photo_path": the storage path of the photo this came from if there was one, otherwise omit it}. That block becomes a real "Log this observation" button on your message. Ask first if you genuinely can't tell whether something is an observation or just conversation, but don't interrogate a producer who has plainly told you what they saw -- work out the date and the planting from what they said and what you can look up, offer the button, and let them tap it. Never claim it's logged; the button does that, and it says so itself once tapped. Don't offer one for something already logged in this conversation, and don't use propose_write_query to insert an observation -- this is the path for that now.
 
 You can also change other data, not just read it -- correcting a note, saving something to memory for later, anything the producer asks you to add or fix. Use propose_write_query exactly as its own description says, including the confirm-write block convention -- nothing actually changes until the producer clicks Confirm on that real button, so never describe a write as done before you've seen a genuine confirmed result.
 
@@ -488,6 +548,8 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
             content = await searchMemory(supabase, toolUse.input.query as string);
           } else if (toolUse.name === "propose_write_query") {
             content = await proposeWrite(supabase, toolUse.input.query as string);
+          } else if (toolUse.name === "view_photo") {
+            content = await viewPhoto(supabase, toolUse.input.path as string);
           } else {
             throw new Error(`unknown tool: ${toolUse.name}`);
           }
@@ -496,10 +558,17 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
           content = { error: String(err) };
           isError = true;
         }
+        // Every other tool answers with JSON text. view_photo answers
+        // with real content blocks, because an image cannot be
+        // stringified into a tool result and still be looked at.
+        const blocks =
+          content && typeof content === "object" && "__contentBlocks" in content
+            ? (content as { __contentBlocks: unknown[] }).__contentBlocks
+            : null;
         return {
           type: "tool_result",
           tool_use_id: toolUse.id,
-          content: JSON.stringify(content),
+          content: blocks ?? JSON.stringify(content),
           is_error: isError,
         };
       }),
@@ -526,7 +595,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, photoPath } = await req.json();
 
     // The Anthropic API rejects any key it doesn't recognise on a
     // message, so nothing the client happens to keep alongside a turn
@@ -536,7 +605,7 @@ Deno.serve(async (req: Request) => {
     // that had ever been thumbed. Narrowing to role/content here rather
     // than only at the call site means the next field the client adds
     // can't resurrect the same bug.
-    const conversationMessages = (messages ?? []).map(
+    const conversationMessages: { role: string; content: unknown }[] = (messages ?? []).map(
       ({ role, content }: { role: string; content: string }) => ({ role, content }),
     );
 
@@ -545,6 +614,47 @@ Deno.serve(async (req: Request) => {
     // to exactly the signed-in producer, the same as if the browser ran it
     // directly (see _shared/supabaseClient.ts).
     const supabase = createUserScopedClient(req);
+
+    // A photo is shown to the model for this one request and never
+    // stored in the transcript. The client keeps sending plain text; the
+    // image block is built here, attached to the turn being answered,
+    // and discarded with the response.
+    //
+    // That asymmetry is deliberate. Anthropic accepts an image URL,
+    // which is tempting to persist -- but a signed URL expires, and the
+    // whole transcript is re-sent on every later turn, so a stored image
+    // block would turn every old conversation into a 400 the moment its
+    // URL aged out. Storing base64 instead would be worse: it rides
+    // along on every subsequent request and gets embedded as text by the
+    // memory job. The path is the durable reference; the URL is
+    // disposable.
+    //
+    // Five minutes is longer than the request needs and short enough
+    // that a leaked URL is worth little. createSignedUrl runs through
+    // the caller's own JWT, so RLS decides whether they may sign it at
+    // all -- a path under someone else's producer simply fails here.
+    if (photoPath && typeof photoPath === "string") {
+      const { data: signed, error: signError } = await supabase.storage
+        .from("observation-photos")
+        .createSignedUrl(photoPath, 300);
+      if (signError || !signed?.signedUrl) {
+        throw new Error(`Could not read that photo: ${signError?.message ?? "no signed URL"}`);
+      }
+      const lastUserIndex = conversationMessages.map((m: { role: string }) => m.role).lastIndexOf("user");
+      if (lastUserIndex >= 0) {
+        const original = conversationMessages[lastUserIndex].content;
+        conversationMessages[lastUserIndex] = {
+          role: "user",
+          content: [
+            ...(typeof original === "string" && original.trim()
+              ? [{ type: "text", text: original }]
+              : []),
+            { type: "image", source: { type: "url", url: signed.signedUrl } },
+            { type: "text", text: `The attached photo is stored at ${photoPath}.` },
+          ],
+        };
+      }
+    }
 
     const [schemaDescription, dataChannelContext] = await Promise.all([
       fetchSchemaDescription(supabase),
@@ -556,6 +666,7 @@ Deno.serve(async (req: Request) => {
       PROPOSE_WRITE_TOOL,
       GET_GRAPE_PHENOLOGY_TOOL,
       SEARCH_MEMORY_TOOL,
+      VIEW_PHOTO_TOOL,
       WEB_SEARCH_TOOL,
       WEB_FETCH_TOOL,
     ];

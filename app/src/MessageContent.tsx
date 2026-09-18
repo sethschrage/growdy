@@ -58,7 +58,7 @@ export function MessageContent({
         return <ConfirmWriteCard code={String(children)} />
       }
       if (language === 'log-observation') {
-        return <LogObservationCard code={String(children)} session={session} conversationId={conversationId} />
+        return <LogObservationCard code={String(children)} conversationId={conversationId} />
       }
       return (
         <code className={className} {...props}>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 
 // A fenced ```log-observation block in the model's own reply becomes a
@@ -16,16 +15,25 @@ import { supabase } from './lib/supabaseClient'
 // appears on the message where that lands, and logs what was agreed,
 // with no second journey.
 //
-// It writes straight to observations rather than through
-// propose_write_query. That's only honest now that there is no review
-// step: an observation counts as data the moment it's logged, and the
-// producer removes it from the observation log if it was wrong (0009's
-// amendment). A confirm/decline round trip to produce a row the producer
-// can delete in one tap was ceremony without a purpose.
+// It used to write straight to observations, which was honest while
+// there was no review step. `0030` put one back for every source, so
+// this now files a candidate through create_observation_candidate and
+// the producer approves it in the queue. The button is still the moment
+// the observation is agreed -- it just proposes rather than commits, and
+// says so, because a button that claims "logged" when the row is
+// awaiting review is the same lie 0022's dry-run trap taught us to
+// avoid.
+//
+// A photo-backed draft carries photo_path: the storage object the model
+// was shown. Nothing but the path travels -- the image itself never
+// enters the transcript (see the chat function), so a conversation
+// re-sent on a later turn can't drag an expired URL or a megabyte of
+// base64 along with it.
 type ObservationDraft = {
   note: string
   observed_date?: string | null
   planting_id?: string | null
+  photo_path?: string | null
 }
 
 function parseDraft(code: string): ObservationDraft | null {
@@ -38,13 +46,14 @@ function parseDraft(code: string): ObservationDraft | null {
   }
 }
 
+// No session prop any more: create_observation_candidate resolves the
+// producer from auth.uid() server-side, so the component has nothing to
+// look up and nothing to be handed.
 export function LogObservationCard({
   code,
-  session,
   conversationId,
 }: {
   code: string
-  session: Session
   conversationId: string | null
 }) {
   const [status, setStatus] = useState<'pending' | 'logging' | 'logged' | 'error'>('pending')
@@ -66,29 +75,27 @@ export function LogObservationCard({
   const note = draft.note.trim()
   const observedDate = draft.observed_date ?? null
   const plantingId = draft.planting_id ?? null
+  const photoPath = draft.photo_path ?? null
 
+  // No profile lookup any more: create_observation_candidate reads the
+  // producer from the caller's own profile, so a client can't file
+  // against somebody else's producer even by accident. The summary is
+  // the queue's one-line label and the note is what the observation
+  // becomes -- the same string here, since the model wrote one clear
+  // sentence, but they are separate columns because a photo analysis
+  // will want a longer note than a queue row should show.
   async function handleLog() {
     setStatus('logging')
     setErrorMessage(null)
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('producer_id')
-      .eq('id', session.user.id)
-      .single()
-
-    if (!profile?.producer_id) {
-      setStatus('error')
-      setErrorMessage('Could not find your producer.')
-      return
-    }
-
-    const { error } = await supabase.from('observations').insert({
-      producer_id: profile.producer_id,
-      planting_id: plantingId,
-      observed_date: observedDate,
-      note,
-      conversation_id: conversationId,
+    const { error } = await supabase.rpc('create_observation_candidate', {
+      p_summary: note,
+      p_note: note,
+      p_observed_date: observedDate,
+      p_planting_id: plantingId,
+      p_photo_path: photoPath,
+      p_conversation_id: conversationId,
+      p_source: photoPath ? 'photo' : 'chat_tool',
     })
 
     if (error) {
@@ -107,7 +114,9 @@ export function LogObservationCard({
       </div>
       <p className="log-observation-note">{note}</p>
       {status === 'logged' ? (
-        <p className="log-observation-done">Logged. It's in your observation log, and you can delete it from there.</p>
+        <p className="log-observation-done">
+          Sent for review. Approve it in Review observations and it joins your observation log.
+        </p>
       ) : (
         <div className="log-observation-actions">
           <button
@@ -116,7 +125,7 @@ export function LogObservationCard({
             onClick={handleLog}
             disabled={status === 'logging'}
           >
-            {status === 'logging' ? 'Logging...' : 'Log this observation'}
+            {status === 'logging' ? 'Sending...' : 'Send for review'}
           </button>
         </div>
       )}
