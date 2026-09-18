@@ -28,6 +28,28 @@ export function Chat({
   )
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
+  const composeRef = useRef<HTMLDivElement>(null)
+
+  // The compose bar floats over the messages, so the scroll area has to
+  // reserve exactly as much room as the bar actually occupies. That used
+  // to be a hardcoded 90px, which was already ~12px short on a phone
+  // with a home indicator (6px offset + ~34px safe area + ~62px bar) and
+  // became badly wrong once an attached photo added a strip on top --
+  // the tail of a reply, and its feedback buttons, ended up behind the
+  // bar with no way to scroll to them. Measuring it means the strip
+  // appearing or disappearing can't leave anything unreachable.
+  useEffect(() => {
+    const node = composeRef.current
+    if (!node) return
+    const apply = () => {
+      node.style.setProperty('--compose-height', `${node.offsetHeight}px`)
+      node.parentElement?.style.setProperty('--compose-height', `${node.offsetHeight}px`)
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     // A reply that's longer than the screen used to land with its own
@@ -247,7 +269,7 @@ export function Chat({
           and half off the bottom of the screen, which is exactly what it
           did on a phone. Positioning the pair, not the bar, keeps them
           together whatever the strip's height turns out to be. */}
-      <div className="chat-compose">
+      <div className="chat-compose" ref={composeRef}>
       {pendingPhoto && (
         <div className="chat-pending-photo">
           <img src={pendingPhoto.previewUrl} alt="Photo about to be sent" />
