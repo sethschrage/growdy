@@ -237,15 +237,17 @@ erDiagram
   (`app/src/ObservationLogView.tsx`). That is safe because `audit_log`
   keeps the whole deleted row (see `audit_row_change()` below), so the
   correction is reversible in a way "never approved" never was. Review
-  is coming back in front of that, though not on this table --
+  is back in front of that, though not on this table --
   [0030](decisions/0030-every-observation-through-one-queue.md) makes
-  `observation_candidates` the only way in, so deletion becomes the
-  correction *after* approval rather than instead of it. Four paths
-  write here today and each moves to the queue in turn: the structured
-  form (`app/src/ObservationForm.tsx`), a confirmed
-  `observation_candidates` row, the "Log this observation" button a chat
-  reply can offer, and 0022's write tool. The `INSERT` grant stays until
-  the last of them has moved, so nothing breaks midway.
+  `observation_candidates` the only way in, so deletion is the
+  correction *after* approval rather than instead of it. All four paths
+  that used to insert directly now file a candidate instead: the
+  structured form (`app/src/ObservationForm.tsx`), the "Log this
+  observation" button a chat reply can offer, 0022's write tool, and the
+  6-hourly scanner. `authenticated` no longer holds an `INSERT` grant at
+  all; the only remaining writer is `confirm_observation_candidate`,
+  which is `security definer` and runs after a producer has looked at
+  the row.
 - **`observations.planting_id` is nullable** -- a note doesn't have to be
   about one specific plant; a general one (a task done, something seen,
   not tied to a position) is logged with no planting at all -- see
