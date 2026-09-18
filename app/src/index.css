@@ -2205,3 +2205,32 @@ select {
   font-size: 13px;
   padding: 8px 12px;
 }
+
+/* The camera/library chooser, stacked above the compose bar so it shares
+   the same floating group and can't be pushed off-screen by it. */
+.chat-photo-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--soil);
+  border: 3px solid var(--leaf);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.chat-photo-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 44px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.chat-pending-photo-location {
+  display: block;
+  margin-top: 2px;
+  font-weight: 700;
+}
