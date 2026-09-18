@@ -1466,6 +1466,100 @@ select {
   padding: 4px 10px;
 }
 
+/* Parcel sharing -- a small text trigger next to a parcel's own tree
+   node (owner) or a read-only badge (recipient), matching the same
+   plain, dense styling this view already uses instead of the pixel-art
+   chrome elsewhere in the app. See docs/decisions/0025. */
+.pdv-tree-node-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdv-tree-node-row .pdv-tree-node {
+  flex: 1;
+}
+
+.pdv-share-trigger {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pdv-accent);
+  flex-shrink: 0;
+}
+
+.pdv-shared-badge {
+  font-size: 11px;
+  color: var(--pdv-muted);
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.pdv-share-panel {
+  padding: 6px 0 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdv-share-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pdv-share-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.pdv-share-email {
+  flex: 1;
+  color: #1c2430;
+}
+
+.pdv-share-role {
+  color: var(--pdv-muted);
+  text-transform: capitalize;
+}
+
+.pdv-share-revoke {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: #c0392b;
+}
+
+.pdv-share-form {
+  display: flex;
+  gap: 6px;
+}
+
+.pdv-share-form input {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.pdv-share-form select {
+  font-size: 12px;
+}
+
+.pdv-share-form button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
 /* Status dots -- shared between the tree's leaves, the grid, and the
    grid's legend. */
 .pdv-dot {

@@ -265,10 +265,16 @@ erDiagram
   producer account** -- see [0025](decisions/0025-parcel-sharing-and-self-serve-creation.md).
   There's no `'owner'` value in its `role` column; the real owner is
   `parcels.producer_id` itself, unchanged. Access cascades down through
-  `plots`, `plot_rows`, and `planting` (all reachable from a parcel), but
-  only reaches an `observations` row when it's tied to a `planting` under
-  that parcel -- a general observation with no `planting_id` stays
-  visible only to the owning producer.
+  `parcels` itself, `plots`, `plot_rows`, and `planting` (all reachable
+  from a parcel), but only reaches an `observations` row when it's tied
+  to a `planting` under that parcel -- a general observation with no
+  `planting_id` stays visible only to the owning producer. Creating or
+  inspecting a share goes through two narrow functions,
+  `share_parcel(parcel_id, recipient_email, role)` and
+  `get_parcel_shares(parcel_id)`, the same `get_public_artifact`-style
+  shape used anywhere a client needs to resolve something RLS otherwise
+  blocks a direct cross-producer lookup for -- there's no other way to
+  turn a typed-in email into `shared_with_producer_id`.
 - **`observation_candidates` is a review queue, not a second submission
   path** -- a scheduled job (0025 follow-up work) reads conversations with
   `scanned_at` null or stale against `updated_at`, asks Claude whether
