@@ -12,21 +12,23 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
 import { embedTexts, toVectorLiteral } from "../_shared/voyage.ts";
+import { messageText, type TranscriptMessage } from "../_shared/transcript.ts";
 
 const MAX_ITEMS_PER_RUN = 20;
 
 type PendingMemoryEntry = { id: string; content: string };
-type PendingConversation = { id: string; producer_id: string; transcript: { role: string; content: string }[] };
+type PendingConversation = { id: string; producer_id: string; transcript: TranscriptMessage[] };
 
 // One chunk per message, formatted as "role: content" so a chunk reads
 // sensibly on its own even without the rest of the conversation around
 // it -- matches how scan-conversations-for-observations already formats
 // transcript content for the model. Empty/trivial messages are skipped
 // rather than embedded as noise.
-function chunkTranscript(transcript: { role: string; content: string }[]): string[] {
+function chunkTranscript(transcript: TranscriptMessage[]): string[] {
   return transcript
-    .filter((m) => m.content && m.content.trim().length > 0)
-    .map((m) => `${m.role}: ${m.content.trim()}`);
+    .map((m) => ({ role: m.role, text: messageText(m) }))
+    .filter((m) => m.text.length > 0)
+    .map((m) => `${m.role}: ${m.text}`);
 }
 
 async function embedPendingMemoryEntries(supabase: ReturnType<typeof createAdminClient>, triggerSecret: string) {

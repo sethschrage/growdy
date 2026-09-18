@@ -236,11 +236,16 @@ erDiagram
   and a producer deletes what they don't want from the observation log
   (`app/src/ObservationLogView.tsx`). That is safe because `audit_log`
   keeps the whole deleted row (see `audit_row_change()` below), so the
-  correction is reversible in a way "never approved" never was. Three
-  paths write here, all under the producer's own RLS session: the
-  structured form (`app/src/ObservationForm.tsx`), a confirmed
-  `observation_candidates` row, and the "Log this observation" button a
-  chat reply can offer.
+  correction is reversible in a way "never approved" never was. Review
+  is coming back in front of that, though not on this table --
+  [0030](decisions/0030-every-observation-through-one-queue.md) makes
+  `observation_candidates` the only way in, so deletion becomes the
+  correction *after* approval rather than instead of it. Four paths
+  write here today and each moves to the queue in turn: the structured
+  form (`app/src/ObservationForm.tsx`), a confirmed
+  `observation_candidates` row, the "Log this observation" button a chat
+  reply can offer, and 0022's write tool. The `INSERT` grant stays until
+  the last of them has moved, so nothing breaks midway.
 - **`observations.planting_id` is nullable** -- a note doesn't have to be
   about one specific plant; a general one (a task done, something seen,
   not tied to a position) is logged with no planting at all -- see
@@ -272,17 +277,29 @@ erDiagram
   under a parcel therefore resolves through `parcels.producer_id` alone,
   which is the plain tenancy rule
   [0001](decisions/0001-tenancy-membership-model.md) started with.
-- **`observation_candidates` is a review queue, not a second submission
-  path** -- a scheduled job (0025 follow-up work) reads conversations with
-  `scanned_at` null or stale against `updated_at`, asks Claude whether
-  each one describes a real field observation, and inserts a candidate
-  only on a positive match. A producer can only update its `status` (to
-  `confirmed` or `dismissed`) and `reviewed_at`; confirming inserts a
-  normal `observations` row through the app itself rather than this table
-  writing to `observations` directly. Its own `status` column is
-  unrelated to the one `observations` used to have, and survives 0028 --
-  it tracks whether a *suggestion* has been dealt with, which is a real
-  queue with a real actor.
+- **`observation_candidates` is becoming the only submission path** --
+  it began as a review queue for one source: a scheduled job reads
+  conversations with `scanned_at` null or stale against `updated_at`,
+  asks Claude whether each describes a real field observation, and
+  inserts a candidate on a positive match.
+  [0030](decisions/0030-every-observation-through-one-queue.md) widens it
+  to every source. `conversation_id` is nullable (a typed note has no
+  conversation behind it), `note`, `observed_date`, `planting_id` and
+  `photo_path` sit alongside `summary` so confirming builds a whole
+  observation rather than copying a one-line summary, and `source`
+  records which path proposed the row (`chat_scan`, `photo`, `producer`,
+  `chat_tool`) because that is what decides how much scrutiny it
+  deserves at review. Its `status` column is unrelated to the one
+  `observations` used to have and survives 0028 -- the difference 0028
+  cared about is that this queue has a real actor who can reach it.
+- **`confirm_observation_candidate()` is how a candidate becomes an
+  observation**, replacing two client statements that inserted the
+  observation and then marked the candidate with nothing holding them
+  together -- a failure in between left a confirmed-but-still-pending
+  candidate, so confirming again duplicated the row. It is idempotent on
+  anything not `pending`. `create_observation_candidate()` is the mirror
+  image, taking the producer from the caller's profile rather than an
+  argument so a caller cannot file against somebody else's producer.
 - **`pending_writes` and `audit_log` back the chat's write tool** -- see
   [0022](decisions/0022-chat-writes-data-with-audit-and-rollback.md).
   `pending_writes` is a proposed DML statement (already dry-run
