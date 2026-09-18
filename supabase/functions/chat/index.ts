@@ -269,6 +269,60 @@ const SEARCH_MEMORY_TOOL = {
 // "document", per Voyage's own documented best practice), then ranks
 // both corpora by vector distance, RLS-scoped exactly like any other
 // read via the caller's own forwarded JWT.
+// Looking at a photo again, on demand, instead of carrying it in the
+// transcript forever.
+//
+// An attached photo is shown to the model once, on the turn it arrives,
+// and the transcript keeps only text (see the handler below for why a
+// stored image block or base64 is a trap). The cost of that is real: by
+// the next turn the model is reasoning about its own earlier
+// description rather than the image, which invites confident
+// elaboration on something it can no longer see.
+//
+// This closes that without paying for it every turn. Nothing is
+// re-sent by default, so a conversation with five photos still costs
+// five photo-views in total rather than five on every message; when the
+// model actually needs to look -- the producer asked, or it is
+// comparing against a photo from earlier in the season -- it calls this
+// and gets a freshly signed URL. No expiry problem, because nothing is
+// stored.
+//
+// Access is not this function's to decide. The client is built from the
+// caller's own JWT, so createSignedUrl runs under their RLS: a path
+// belonging to another producer fails here the same way it would from
+// the browser, and the model asking for one gets an error rather than a
+// photo.
+async function viewPhoto(supabase: SupabaseClient, path: string): Promise<unknown> {
+  const { data, error } = await supabase.storage
+    .from("observation-photos")
+    .createSignedUrl(path, 300);
+  if (error || !data?.signedUrl) {
+    throw new Error(`Could not open that photo: ${error?.message ?? "no signed URL"}`);
+  }
+  return {
+    __contentBlocks: [
+      { type: "image", source: { type: "url", url: data.signedUrl } },
+      { type: "text", text: `This is the photo stored at ${path}.` },
+    ],
+  };
+}
+
+const VIEW_PHOTO_TOOL = {
+  name: "view_photo",
+  description:
+    "Look at a vineyard photo the producer has already uploaded, by its storage path. Use this whenever you need to see a photo rather than rely on a description of it -- the producer has asked you to look again at one from earlier in this conversation, or you want to compare against a photo attached to a past observation (observations.photo_metadata holds the path). Only the current producer's own photos can be opened; a path belonging to anyone else fails.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description: "The storage path of the photo, as given to you with an attached image or found in observations.photo_metadata.",
+      },
+    },
+    required: ["path"],
+  },
+};
+
 async function searchMemory(supabase: SupabaseClient, query: string): Promise<unknown> {
   const [vector] = await embedTexts([query], "query");
   const { data, error } = await supabase.rpc("search_memory_by_embedding", {
@@ -426,6 +480,8 @@ A producer can attach a photo from their vineyard, and when they do you are look
 
 Offer the log-observation block for a photo the same way you would for something described in words, and include "photo_path" set to the storage path given to you with the image. Say plainly when you are unsure what you are seeing -- a confident wrong reading gets embedded into this producer's memory and quietly informs how you read the next photo, which is worse than saying you cannot tell.
 
+An attached photo is in front of you only on the turn it arrives. On any later turn you are working from your own earlier description of it, which is exactly when it is tempting to elaborate on detail you can no longer actually see. Don't: call view_photo with its path and look again. Do the same before comparing a photo to an earlier one -- past photos are reachable through observations.photo_metadata, so a question about how a block has changed across the season is one you can answer by looking at both rather than by trusting two descriptions written weeks apart.
+
 When what the producer is telling you is a field observation -- something they saw, did, or measured out there, the kind of thing that belongs in the record rather than just this conversation -- offer to log it, in the message where you've worked out what it actually says. Include a fenced code block tagged log-observation containing a JSON object: {"note": the observation in the producer's own terms, as one clear sentence, "observed_date": the date it happened as YYYY-MM-DD if you know it or null, "planting_id": the specific planting's id if the observation is about one identifiable vine, otherwise null, "photo_path": the storage path of the photo this came from if there was one, otherwise omit it}. That block becomes a real "Log this observation" button on your message. Ask first if you genuinely can't tell whether something is an observation or just conversation, but don't interrogate a producer who has plainly told you what they saw -- work out the date and the planting from what they said and what you can look up, offer the button, and let them tap it. Never claim it's logged; the button does that, and it says so itself once tapped. Don't offer one for something already logged in this conversation, and don't use propose_write_query to insert an observation -- this is the path for that now.
 
 You can also change other data, not just read it -- correcting a note, saving something to memory for later, anything the producer asks you to add or fix. Use propose_write_query exactly as its own description says, including the confirm-write block convention -- nothing actually changes until the producer clicks Confirm on that real button, so never describe a write as done before you've seen a genuine confirmed result.
@@ -492,6 +548,8 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
             content = await searchMemory(supabase, toolUse.input.query as string);
           } else if (toolUse.name === "propose_write_query") {
             content = await proposeWrite(supabase, toolUse.input.query as string);
+          } else if (toolUse.name === "view_photo") {
+            content = await viewPhoto(supabase, toolUse.input.path as string);
           } else {
             throw new Error(`unknown tool: ${toolUse.name}`);
           }
@@ -500,10 +558,17 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
           content = { error: String(err) };
           isError = true;
         }
+        // Every other tool answers with JSON text. view_photo answers
+        // with real content blocks, because an image cannot be
+        // stringified into a tool result and still be looked at.
+        const blocks =
+          content && typeof content === "object" && "__contentBlocks" in content
+            ? (content as { __contentBlocks: unknown[] }).__contentBlocks
+            : null;
         return {
           type: "tool_result",
           tool_use_id: toolUse.id,
-          content: JSON.stringify(content),
+          content: blocks ?? JSON.stringify(content),
           is_error: isError,
         };
       }),
@@ -601,6 +666,7 @@ Deno.serve(async (req: Request) => {
       PROPOSE_WRITE_TOOL,
       GET_GRAPE_PHENOLOGY_TOOL,
       SEARCH_MEMORY_TOOL,
+      VIEW_PHOTO_TOOL,
       WEB_SEARCH_TOOL,
       WEB_FETCH_TOOL,
     ];
