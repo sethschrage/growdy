@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { canUseNativeCamera, pickPhoto, uploadPhoto, PHOTO_BUCKET } from './lib/photo'
+import {
+  canUseNativeCamera,
+  pickPhoto,
+  uploadPhoto,
+  PHOTO_BUCKET,
+  type PhotoLocation,
+} from './lib/photo'
 import { exifObservedDate } from './lib/exif'
 import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from './icons'
 import { MessageContent } from './MessageContent'
@@ -25,8 +31,16 @@ export function Chat({
     path: string
     previewUrl: string
     takenOn: string | null
+    location: PhotoLocation | null
   } | null>(null)
   const [attaching, setAttaching] = useState(false)
+  // Where each photo attached in this session was taken, keyed by its
+  // storage path. The model's reply carries the path back in its
+  // log-observation block, but not the coordinates -- they never went to
+  // the model and shouldn't, since a position is a fact about the
+  // capture rather than something to be inferred from an image. This is
+  // how the card gets them at the moment it files a candidate.
+  const photoLocationsRef = useRef(new Map<string, PhotoLocation>())
   const { log, conversationId: loggedConversationId } = useConversationLog(
     session,
     conversationId ? { id: conversationId } : undefined,
@@ -123,9 +137,10 @@ export function Chat({
       // exactly the case where guessing gets it wrong and nobody
       // notices.
       const takenOn = exifObservedDate(picked.exif?.dateTimeOriginal)
+      if (picked.location) photoLocationsRef.current.set(path, picked.location)
       setPendingPhoto((previous) => {
         if (previous) URL.revokeObjectURL(previous.previewUrl)
-        return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn }
+        return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn, location: picked.location }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not attach that photo.')
@@ -238,7 +253,13 @@ export function Chat({
               className={`chat-message-wrap chat-message-wrap--${m.role}`}
             >
               <div className={`chat-message chat-message-${m.role}`}>
-                <MessageContent role={m.role} content={m.content} session={session} conversationId={loggedConversationId} />
+                <MessageContent
+                  role={m.role}
+                  content={m.content}
+                  session={session}
+                  conversationId={loggedConversationId}
+                  photoLocationFor={(path) => photoLocationsRef.current.get(path) ?? null}
+                />
               </div>
               {m.role === 'assistant' && (
                 <div className="feedback-row">

@@ -1,4 +1,5 @@
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { Geolocation } from '@capacitor/geolocation'
 import { Capacitor } from '@capacitor/core'
 import { supabase } from './supabaseClient'
 import { readExif, type PhotoExif } from './exif'
@@ -44,7 +45,50 @@ async function downscale(blob: Blob): Promise<Blob> {
 
 export const canUseNativeCamera = Capacitor.isNativePlatform()
 
-export type PickedPhoto = { blob: Blob; exif: PhotoExif | null }
+export type PhotoLocation = { latitude: number; longitude: number; accuracyM: number | null }
+export type PickedPhoto = { blob: Blob; exif: PhotoExif | null; location: PhotoLocation | null }
+
+// Where the camera was, which is a different fact from what the photo is
+// about. Most photos never get a planting attached -- weed pressure
+// across a block, standing water, something odd at the fence line -- and
+// for those this is the only spatial information that will ever exist.
+//
+// Read from the device rather than from the photo's own EXIF: iOS
+// strips location from a camera capture unless the app holds location
+// authorization, and the camera plugin documents nothing about GPS at
+// all, so trusting EXIF here would mean a field that silently stays
+// empty. Asking the device is explicit and testable.
+//
+// Only for captures. A photo picked from the library was taken
+// somewhere else, possibly weeks ago, so the phone's position now says
+// nothing about it -- that case falls back to whatever GPS the file
+// itself carries.
+//
+// A refusal or a timeout returns null rather than throwing. Location is
+// worth having and never worth blocking on: a producer who declined the
+// permission, or is standing somewhere without a fix, should still be
+// able to attach a photo.
+async function currentLocation(): Promise<PhotoLocation | null> {
+  if (!canUseNativeCamera) return null
+  try {
+    const position = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 8000,
+    })
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracyM: position.coords.accuracy ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function exifLocation(exif: PhotoExif | null): PhotoLocation | null {
+  if (!exif || exif.gpsLatitude === undefined || exif.gpsLongitude === undefined) return null
+  return { latitude: exif.gpsLatitude, longitude: exif.gpsLongitude, accuracyM: null }
+}
 
 // `source` is honoured on native only. On web the browser's own file
 // dialog covers both cases, and on a phone browser it offers the camera
@@ -72,13 +116,20 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
 
   const response = await fetch(photo.webPath)
   const original = await response.blob()
+  // Asked for alongside the capture, not before it -- a producer who
+  // cancels the camera should never have been prompted for location.
+  const location = source === 'camera' ? await currentLocation() : null
   // Read before downscaling. Drawing to a canvas produces a new JPEG
   // from pixels alone, so whatever EXIF the original carried is gone by
   // the time the upload happens -- this is the only moment it exists.
   const exif = photo.exif
     ? nativeExif(photo.exif)
     : await readExif(original)
-  return { blob: await downscale(original), exif }
+  return {
+    blob: await downscale(original),
+    exif,
+    location: location ?? exifLocation(exif),
+  }
 }
 
 // The plugin hands back a parsed object rather than raw bytes, and keys
@@ -119,7 +170,7 @@ function pickFromFileInput(): Promise<PickedPhoto | null> {
       const file = input.files?.[0]
       if (!file) return resolve(null)
       const exif = await readExif(file)
-      resolve({ blob: await downscale(file), exif })
+      resolve({ blob: await downscale(file), exif, location: exifLocation(exif) })
     }
     input.click()
   })

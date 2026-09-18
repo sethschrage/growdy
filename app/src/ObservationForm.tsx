@@ -159,6 +159,12 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
       p_photo_path: null,
       p_conversation_id: null,
       p_source: 'producer',
+      // Explicit nulls rather than relying on defaults: PostgREST picks a
+      // function by the argument names it is handed, and leaving some out
+      // makes resolution depend on an overload set staying tidy.
+      p_photo_latitude: null,
+      p_photo_longitude: null,
+      p_photo_accuracy_m: null,
     })
     setSubmitting(false)
     if (error) {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './lib/supabaseClient'
+import type { PhotoLocation } from './lib/photo'
 
 // A fenced ```log-observation block in the model's own reply becomes a
 // real "Log this" button on that message -- the third instance of the
@@ -52,9 +53,11 @@ function parseDraft(code: string): ObservationDraft | null {
 export function LogObservationCard({
   code,
   conversationId,
+  photoLocationFor,
 }: {
   code: string
   conversationId: string | null
+  photoLocationFor?: (path: string) => PhotoLocation | null
 }) {
   const [status, setStatus] = useState<'pending' | 'logging' | 'logged' | 'error'>('pending')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -88,6 +91,11 @@ export function LogObservationCard({
     setStatus('logging')
     setErrorMessage(null)
 
+    // Where the camera was, kept apart from what the photo is about.
+    // planting_id answers the second; most photos never have one, and
+    // for those this is the only spatial fact there will ever be.
+    const location = photoPath && photoLocationFor ? photoLocationFor(photoPath) : null
+
     const { error } = await supabase.rpc('create_observation_candidate', {
       p_summary: note,
       p_note: note,
@@ -96,6 +104,9 @@ export function LogObservationCard({
       p_photo_path: photoPath,
       p_conversation_id: conversationId,
       p_source: photoPath ? 'photo' : 'chat_tool',
+      p_photo_latitude: location?.latitude ?? null,
+      p_photo_longitude: location?.longitude ?? null,
+      p_photo_accuracy_m: location?.accuracyM ?? null,
     })
 
     if (error) {
