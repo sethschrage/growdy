@@ -174,6 +174,19 @@ candidate the producer confirms or dismisses themselves (0025 follow-up,
 #137). Nothing ever reaches `observations` without that click; this is a
 recovery net for things already said, not a second submission path.
 
+**Correction added 2026-09-17, found during a docs coherency pass:** the
+paragraph above describes `propose_write_query`/`confirm_write` as a
+live capability, and at the database level it was -- but a producer
+had no actual way to trigger it: neither tool was wired into `chat`'s
+own tool loop, and no confirm/decline UI existed anywhere in the app.
+PR #130's own title candidly called it a "lean version." The real,
+producer-reachable write tool didn't ship until #152, 2026-09-17,
+after `0.11.0` had already been tagged -- see
+[0022](docs/decisions/0022-chat-writes-data-with-audit-and-rollback.md)'s
+own status line. Left the paragraph above as written, same as every
+other correction in this file, rather than editing history to read as
+though it was accurate at the time.
+
 ## [0.9.0] - 2026-09-16
 
 This milestone is the sprout menu (introduced in `0.8.0`) getting
