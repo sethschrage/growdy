@@ -171,8 +171,19 @@ without RLS), fails the PR.
 Any decision where a reasonable person could have gone a different way,
 and where the reasoning is worth preserving, gets a short ADR in
 `docs/decisions/`, using [`docs/decisions/template.md`](docs/decisions/template.md).
-Not every change needs one -- most migrations don't -- but anything that
-took real back-and-forth to settle does.
+Not every change needs one -- most migrations don't.
+
+Effort is not the trigger. Plenty of ordinary work takes a long time to
+get right: a bug with one correct answer, buried three layers down in
+somebody else's SDK, can eat a whole afternoon and still leave nothing
+to decide. That belongs in a comment next to the code it explains, so
+the next person reading that line doesn't repeat the afternoon.
+
+What earns an ADR is a live alternative -- a fork where the other branch
+was defensible and someone could reasonably propose taking it later. A
+decision like that is worth writing down even if it was settled in a
+minute, because the cost is re-litigating it in six months, not the time
+it took today.
 
 ## Commit messages
 
