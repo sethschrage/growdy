@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
 
   for (const conversation of conversations ?? []) {
     try {
-      const transcript = (conversation.transcript ?? []) as { role: string; content: string }[];
+      const transcript = (conversation.transcript ?? []) as TranscriptMessage[];
       if (transcript.length > 0) {
         const result = await classifyConversation(transcript);
         if (result.is_observation && result.summary.trim()) {

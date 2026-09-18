@@ -177,11 +177,23 @@ auto-merge on nothing prompted anyone while they still remembered what
 changed. It moved to `CONTRIBUTING.md` Workflow step 4, with `AGENTS.md`
 and a PR-template section as the mechanisms that make it hard to skip.
 
-Two things UAT surfaced remain open and unfixed by this batch: memory
-recall still cannot work while Voyage rejects the embedding job for want
-of a payment method, and artifact share links built from
-`window.location.origin` resolve to `capacitor://localhost` inside the
-shell, which `0029` records rather than fixes.
+Two things UAT surfaced remain open and unfixed by this batch: the
+embedding backlog, and artifact share links built from
+`window.location.origin`, which resolve to `capacitor://localhost` inside
+the shell and which `0029` records rather than fixes.
+
+**Correction, same day.** This entry originally said memory recall "still
+cannot work" while Voyage rejected the embedding job. That was wrong when
+it was written, inherited from `0.12.0`'s entry rather than checked:
+`producer_memory` held one row and it was embedded, so recall worked.
+What was actually backlogged was conversation chunks -- 28 of 47 -- a
+secondary surface. The throttle is gone too: adding a payment method to
+the Voyage account lifted the 3 RPM free-trial limit, two manual runs
+cleared the backlog to 47 of 47 with zero errors, and the 200M free token
+grant still applies, so it cost nothing. The whole corpus is ~29K tokens,
+0.015% of that grant. Left in rather than edited away, because a release
+entry that quietly changes what it claimed is worse than one that shows
+it was wrong.
 
 ## [0.12.0] - 2026-09-18
 
