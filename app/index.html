@@ -6,6 +6,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2b6cb0" />
     <meta name="app-version" content="%VITE_APP_VERSION%" />
+
+    <!--
+      Installed to the iOS home screen, growdy runs with no Safari chrome at
+      all -- which is the point, since it is used standing in a vineyard.
+      apple-mobile-web-app-capable is what Safari still reads; the
+      unprefixed one is the standard that replaced it, and the manifest's
+      "display": "standalone" says the same thing a third time. All three,
+      because which one a given iOS version honours has moved.
+
+      status-bar-style black-translucent hands the app the whole screen,
+      status bar included, so it is the app's job to keep content clear of
+      the notch and the home indicator. index.css already does that through
+      env(safe-area-inset-*) in eighteen places -- and those values read 0
+      in an ordinary Safari tab, where Safari's own bars occupy that space,
+      so this is the first time that work does anything at all.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="growdy" />
     <title>growdy</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
