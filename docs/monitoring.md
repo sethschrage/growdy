@@ -5,12 +5,12 @@ place a real failure currently ends up. This is the inventory
 [`0019`](decisions/0019-external-data-channels.md) named directly but
 deferred: *"alerts (unprompted, pushed notification) [are] a distinct
 future direction, gated on a real missed incident, not something to
-build a piece of speculatively here."* Sections 1-7 are that inventory --
+build a piece of speculatively here."* Sections 1-8 are that inventory --
 every signal is still a pull you can run by hand, and stays accurate on
 its own regardless of whether anything is watching it automatically.
-Section 8 documents the piece built on top of it: a live dashboard and a
+Section 9 documents the piece built on top of it: a live dashboard and a
 scheduled check that reads sections 1-7 and pushes a notification when
-something changes. It lives outside this repo entirely (see section 8
+something changes. It lives outside this repo entirely (see section 9
 for exactly where and why) -- this document is still the one place that
 explains what each signal *means*.
 
@@ -119,7 +119,7 @@ where content like '%embeddedConversations%'
 order by created desc limit 1;
 ```
 
-This query is the "meter." It's now also its own card on section 8's
+This query is the "meter." It's now also its own card on section 9's
 dashboard (`embedding_pipeline`, split out of `background_jobs`) rather
 than something a maintainer has to come pull by hand -- the query above
 is what that card's own check runs, and it's still exactly what to run
@@ -237,7 +237,43 @@ catch it.
 - **Web analytics** -- available (`get_web_analytics`) but not reviewed
   here; likely not worth watching at current traffic.
 
-## 8. The live dashboard and scheduled check -- and where it actually lives
+## 8. GitHub repo settings -- silent, and nothing watches them
+
+Unlike everything above, this section has no signal at all: a wrong
+setting here produces no log line, no error and no failed check. It
+surfaces as work quietly not happening. The dashboard in section 9 does
+not cover it; the only check is the command below.
+
+**Auto-merge depends on a *required* status check, not just a passing
+one.** [`CONTRIBUTING.md`](../CONTRIBUTING.md) has auto-merge on for
+every PR, which relies on GitHub seeing a PR as genuinely
+blocked-pending-checks. With no check marked *required* on `main`,
+GitHub treats a running check as merely "unstable" and enabling
+auto-merge fails two different ways depending on timing -- `Pull request
+is in unstable status` while CI runs, `Pull request is in clean status`
+once it passes. Neither message names the cause. `lint` was made a
+required check on `main` to fix it (Settings -> Branches -> edit the
+`main` rule -> "Require status checks to pass before merging"), with
+"Require branches to be up to date" left off deliberately, since strict
+mode forces a rebase on every PR whenever `main` moves.
+
+Verify current state -- `contexts` must be non-empty:
+
+```
+gh api repos/sethschrage/growdy/branches/main/protection/required_status_checks
+gh api repos/sethschrage/growdy --jq '{allow_auto_merge, allow_squash_merge, delete_branch_on_merge}'
+```
+
+Confirmed 2026-09-18: `contexts: ["lint"]`, `strict: false`, and all
+three repo flags true.
+
+**A `clean status` refusal is not always a bug.** If CI has already
+finished and passed, there is nothing left for auto-merge to wait on and
+GitHub declines it correctly -- merge directly instead. The failure
+worth investigating is the same message appearing *while* checks are
+still running, which means the required check has gone missing again.
+
+## 9. The live dashboard and scheduled check -- and where it actually lives
 
 Sections 1-7 now feed an actual running system, built 2026-09-17. Read
 this section before touching it -- it does **not** live in this repo,
