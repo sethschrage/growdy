@@ -1,4 +1,4 @@
-# 0028. Shipping growdy to iOS as a Capacitor shell, with native sign-in
+# 0029. Shipping growdy to iOS as a Capacitor shell, with native sign-in
 
 **Status:** accepted
 
@@ -10,7 +10,9 @@ Two questions had to be answered, and only two. Everything else about this chang
 
 ## Decision
 
-**A Capacitor shell wrapping the existing web build, not a native rewrite and not a PWA.** The entire app -- chat, the write tool, artifacts, producer data -- is React that already works. A native rewrite would mean maintaining two implementations of every feature for the sake of a wrapper, and this project has exactly one developer. A PWA was the other direction: cheaper still, but it forecloses the App Store, push notifications, and the native capabilities a field app will plausibly want (camera for observations, geolocation, background sync), and Apple's install flow for one is poor enough that producers wouldn't find it. Capacitor keeps one codebase, keeps the Vercel deploy exactly as `0008` describes it, and leaves the native door open. `app/ios/` is a real Xcode project checked into the repo; `npx cap sync` copies `dist/` into it.
+**A Capacitor shell wrapping the existing web build, not a native rewrite.** The entire app -- chat, the write tool, artifacts, producer data -- is React that already works. A native rewrite would mean maintaining two implementations of every feature for the sake of a wrapper, and this project has exactly one developer. Capacitor keeps one codebase, keeps the Vercel deploy exactly as `0008` describes it, and leaves the native door open. `app/ios/` is a real Xcode project checked into the repo; `npx cap sync` copies `dist/` into it.
+
+**This does not replace the home-screen install that shipped alongside `0028`** (a web app manifest plus the Apple-specific meta tags Safari reads). That remains the right answer for anyone reaching growdy in a browser, and it keeps working untouched. The shell exists for what a manifest structurally cannot reach: the App Store, push notifications, and the native capabilities a field app will plausibly want -- camera for observations, geolocation, background sync. The two are layers, not alternatives, and the PWA install is the fallback for every producer who never installs from the Store.
 
 The iOS project uses **Swift Package Manager, not CocoaPods** (`npx cap add ios --packagemanager SPM`). This is incidental but worth recording because every Capacitor tutorial says otherwise: CocoaPods needs a Ruby gem install, SPM needs nothing, and Capacitor 8 supports both.
 
