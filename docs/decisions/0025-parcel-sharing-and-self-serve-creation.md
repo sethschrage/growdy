@@ -1,6 +1,6 @@
 # 0025. Per-parcel sharing, cascading through the hierarchy it owns, plus self-serve parcel creation
 
-**Status:** accepted
+**Status:** accepted; parcel sharing withdrawn by 0028 (self-serve parcel creation stands)
 
 ## Context
 

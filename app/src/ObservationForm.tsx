@@ -114,11 +114,10 @@ function PlantingPicker({
 // Structured entry into observations, deliberately outside the chat/model
 // path -- see docs/decisions/0009's chat-based submission flow (removed by
 // 0012) and docs/decisions/0005. A producer typing directly into this form
-// isn't AI-parsed, but status is left unset anyway so the column default
-// ('pending') applies -- the insert policy in
-// 20260913045735_observations_status_and_transcript.sql requires
-// status = 'pending' on insert regardless, and a human review gate before
-// data counts as confirmed is worth keeping either way.
+// isn't AI-parsed, and nothing here is held back for review: an
+// observation counts as data the moment it's logged, and the producer
+// deletes it from the observation log if they didn't want it (0009's
+// amendment, migration 20260918020000).
 //
 // v1 sticks to the columns observations already has (planting, date,
 // note) rendered as real widgets -- no new schema. conversation_id stays

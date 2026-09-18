@@ -42,7 +42,6 @@ export function useObservationCandidates(session: Session) {
       producer_id: producerId,
       conversation_id: candidate.conversation_id,
       note: candidate.summary,
-      status: 'pending',
     })
     if (error) return error.message
     await supabase

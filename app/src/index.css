@@ -113,20 +113,6 @@ body {
   color: var(--wood-dark);
 }
 
-.onboarding-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: min(320px, 80vw);
-  text-align: left;
-}
-
-.onboarding-intro {
-  margin: 0 0 4px;
-  color: var(--wood-dark);
-  font-size: 14px;
-}
-
 .public-artifact-page {
   min-height: 100dvh;
   display: flex;
@@ -649,6 +635,72 @@ body {
   font-weight: 700;
 }
 
+/* A fenced log-observation block from the model becomes this -- the
+   button that puts a field note in the record, on the message where the
+   note was actually worked out. Same frame as .write-confirm-card: both
+   are "the model is offering you a real action," and they read as one
+   family rather than two. */
+.log-observation-card {
+  border: 3px solid var(--wood);
+  border-radius: 10px;
+  background: var(--parchment);
+  padding: 12px;
+  margin: 4px 0 8px;
+}
+
+.log-observation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.log-observation-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+.log-observation-date {
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.log-observation-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+.log-observation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-observation-log {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.log-observation-done,
+.log-observation-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.log-observation-error {
+  color: #a3352c;
+}
+
 .chat-thinking {
   display: flex;
   align-items: center;
@@ -1168,7 +1220,7 @@ select {
 }
 
 /* "Your Vineyard Data" (ProducerDataView, ProducerDataTree,
-   ProducerDataGrid, PlantingDetail) deliberately breaks from the rest of
+   PlantingDetail, ObservationLogView) deliberately breaks from the rest of
    the app's pixel-art chrome -- plain system-ui type, a dense neutral
    palette defined as custom properties scoped to .pdv-overlay rather
    than reusing the farm-theme :root vars. Same reasoning
@@ -1221,37 +1273,6 @@ select {
 .pdv-close:active {
   box-shadow: none;
   transform: none;
-}
-
-.pdv-mode-toggle {
-  display: flex;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #fff;
-  border-bottom: 1px solid var(--pdv-border);
-}
-
-.pdv-mode-button {
-  flex: 1;
-  padding: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  background: #eef1f4;
-  color: #47505b;
-  border: 1px solid var(--pdv-border);
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.pdv-mode-button:active {
-  box-shadow: none;
-  transform: none;
-}
-
-.pdv-mode-button--active {
-  background: var(--pdv-accent);
-  color: #fff;
-  border-color: var(--pdv-accent);
 }
 
 .pdv-body {
@@ -1466,159 +1487,6 @@ select {
   padding: 4px 10px;
 }
 
-/* Status dots -- shared between the tree's leaves, the grid, and the
-   grid's legend. */
-.pdv-dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.pdv-dot--planted {
-  background: var(--pdv-green);
-}
-
-.pdv-dot--blocked {
-  background: var(--pdv-amber);
-}
-
-.pdv-dot--open {
-  background: #fff;
-  border: 1.5px solid var(--pdv-gray);
-}
-
-/* Grid view */
-.pdv-grid-view {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 100%;
-}
-
-.pdv-grid-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.pdv-grid-controls label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-  color: var(--pdv-muted);
-  font-weight: 600;
-}
-
-.pdv-grid-controls select {
-  font: inherit;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--pdv-border);
-  background: #fff;
-  color: #1c2430;
-  font-size: 13px;
-}
-
-.pdv-zoom {
-  min-width: 120px;
-}
-
-.pdv-zoom input[type='range'] {
-  width: 100%;
-  border: none;
-  background: none;
-  padding: 0;
-}
-
-.pdv-grid-legend {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--pdv-muted);
-}
-
-.pdv-grid-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pdv-grid-scroll {
-  overflow: auto;
-  border: 1px solid var(--pdv-border);
-  border-radius: 8px;
-  background: #fff;
-  flex: 1;
-}
-
-.pdv-grid {
-  display: grid;
-  gap: 1px;
-  padding: 8px;
-  width: max-content;
-}
-
-.pdv-grid-corner {
-  position: sticky;
-  left: 0;
-  background: #fff;
-  z-index: 1;
-}
-
-.pdv-grid-col-label {
-  font-size: 9px;
-  color: var(--pdv-muted);
-  text-align: center;
-  align-self: end;
-}
-
-.pdv-grid-row-label {
-  font-size: 10px;
-  color: var(--pdv-muted);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 4px;
-  position: sticky;
-  left: 0;
-  background: #fff;
-}
-
-.pdv-grid-cell {
-  padding: 0;
-  border: none;
-  box-shadow: none;
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-.pdv-grid-cell:active {
-  box-shadow: none;
-  transform: none;
-}
-
-.pdv-grid-cell--planted {
-  background: var(--pdv-green);
-}
-
-.pdv-grid-cell--blocked {
-  background: var(--pdv-amber);
-}
-
-.pdv-grid-cell--open {
-  background: #fff;
-  border: 1px solid var(--pdv-gray);
-}
-
-.pdv-grid-cell--empty {
-  background: transparent;
-  cursor: default;
-}
-
 /* Detail panel -- a bottom sheet on mobile, a centered modal from
    tablet width up. Shared by the tree's leaves and the grid's dots. */
 .pdv-detail-overlay {
@@ -1770,7 +1638,53 @@ select {
   margin-bottom: 4px;
 }
 
-.pdv-status-chip {
+.pdv-observation-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+/* ObservationLogView -- the whole log, newest first, with a delete on
+   every row. This is what replaced 0009's review gate, so the delete is
+   the primary affordance here rather than a tucked-away one. Lives
+   inside .pdv-overlay and inherits its dense palette. */
+.obs-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.obs-log-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #f4f6f8;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.obs-log-item-main {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.obs-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--pdv-muted);
+  margin-bottom: 4px;
+}
+
+.obs-log-source {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1779,21 +1693,61 @@ select {
   background: #eef1f4;
 }
 
-.pdv-status-chip--pending {
-  background: #fdf1de;
-  color: #96650f;
-}
-
-.pdv-status-chip--rejected {
-  background: #fbe4e2;
-  color: #a3352c;
-}
-
-.pdv-observation-note {
+.obs-log-note {
   margin: 0;
   font-size: 13px;
   line-height: 1.4;
   white-space: pre-line;
+  word-break: break-word;
+}
+
+.obs-log-delete-toggle {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 5px 11px;
+  background: none;
+  border: 1px solid #d8514a;
+  box-shadow: none;
+  color: #d8514a;
+  border-radius: 6px;
+}
+
+.obs-log-delete-confirm {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: #fbe4e2;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a1f1a;
+}
+
+.obs-log-delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.obs-log-delete-confirm-yes {
+  font-size: 12px;
+  padding: 5px 13px;
+  background: #d8514a;
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.obs-log-delete-confirm-actions button:not(.obs-log-delete-confirm-yes) {
+  font-size: 12px;
+  padding: 5px 13px;
+  background: none;
+  border: 1px solid var(--pdv-border);
+  box-shadow: none;
+  color: var(--pdv-ink);
+  border-radius: 6px;
 }
 
 /* ArtifactsView (0027/0.14.0) -- lives inside .pdv-overlay, so it

@@ -5,6 +5,16 @@ import remarkGfm from 'remark-gfm'
 import type { ChatMessage } from './chatTypes'
 import { SvgGraphic } from './SvgGraphic'
 import { ConfirmWriteCard } from './ConfirmWriteCard'
+import { LogObservationCard } from './LogObservationCard'
+
+// Fence tags that render as a real component rather than a code block.
+// Both overrides below read this one set: the code() override picks the
+// component, and the pre() override has to strip the <pre> wrapper for
+// the same tags. Keeping them in step matters -- a tag handled in code()
+// but missed in pre() renders inside a <pre>, inheriting white-space:
+// pre, which is what broke ConfirmWriteCard's text wrapping the first
+// time.
+const INTERACTIVE_FENCES = new Set(['svg', 'confirm-write', 'log-observation'])
 
 // Shared by the live Chat view and the History drawer so a transcript
 // renders identically in both places -- assistant answers are markdown
@@ -22,7 +32,10 @@ export function MessageContent({
 }) {
   // A fenced ```svg block becomes a real rendered picture (see
   // SvgGraphic); a fenced ```confirm-write block becomes a real
-  // confirm/decline button (see ConfirmWriteCard, docs/decisions/0022).
+  // confirm/decline button (see ConfirmWriteCard, docs/decisions/0022);
+  // a fenced ```log-observation block becomes a real "Log this" button
+  // on the message where the observation was worked out (see
+  // LogObservationCard).
   // Every other fence (or no fence at all) renders exactly as it always
   // has, unaffected by this override. Defined inside the component (not
   // module-level) so it can close over session/conversationId -- SvgGraphic
@@ -43,6 +56,9 @@ export function MessageContent({
       }
       if (language === 'confirm-write') {
         return <ConfirmWriteCard code={String(children)} />
+      }
+      if (language === 'log-observation') {
+        return <LogObservationCard code={String(children)} session={session} conversationId={conversationId} />
       }
       return (
         <code className={className} {...props}>
@@ -65,7 +81,7 @@ export function MessageContent({
     pre({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
       const child = Array.isArray(children) ? children[0] : children
       const language = isValidElement(child) ? getLanguage((child.props as { className?: string })?.className) : undefined
-      if (language === 'svg' || language === 'confirm-write') {
+      if (language && INTERACTIVE_FENCES.has(language)) {
         return <>{children}</>
       }
       return <pre {...props}>{children}</pre>

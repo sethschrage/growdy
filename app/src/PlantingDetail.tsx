@@ -23,7 +23,6 @@ type Observation = {
   id: string
   observed_date: string | null
   note: string
-  status: string
   created_at: string
 }
 
@@ -72,7 +71,7 @@ export function PlantingDetail({ plantingId, onClose }: { plantingId: string; on
 
     supabase
       .from('observations')
-      .select('id, observed_date, note, status, created_at')
+      .select('id, observed_date, note, created_at')
       .eq('planting_id', plantingId)
       .order('observed_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
@@ -152,7 +151,6 @@ export function PlantingDetail({ plantingId, onClose }: { plantingId: string; on
                     <li key={o.id} className="pdv-observation-item">
                       <div className="pdv-observation-meta">
                         <span>{o.observed_date ?? new Date(o.created_at).toLocaleDateString()}</span>
-                        {o.status !== 'approved' && <span className={`pdv-status-chip pdv-status-chip--${o.status}`}>{o.status}</span>}
                       </div>
                       <p className="pdv-observation-note">{o.note}</p>
                     </li>

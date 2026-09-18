@@ -1,6 +1,6 @@
 # 0026. Self-serve producer onboarding
 
-**Status:** accepted
+**Status:** superseded by 0028 -- the wizard is removed; onboarding returns with the purchase flow
 
 ## Context
 
