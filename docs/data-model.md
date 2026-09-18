@@ -258,6 +258,13 @@ erDiagram
   the observation row itself.
 - `auth.users` (Supabase-managed, not part of this project's own schema)
   isn't drawn as a full entity, but `profiles.id` is a foreign key into it.
+- **`parcels` is the billable seat, and nothing in the app creates one**
+  -- `authenticated` holds no `INSERT` grant and there is no insert
+  policy, so a parcel is created for a producer by hand (later, by a
+  purchase flow). Both the sharing and the self-serve-creation halves of
+  [0025](decisions/0025-parcel-sharing-and-self-serve-creation.md) were
+  removed by [0028](decisions/0028-what-uat-removed.md) for the same
+  reason: a seat you can give away, or mint for free, isn't a seat.
 - **There is no sharing table** -- `parcel_shares` was dropped by
   [0028](decisions/0028-what-uat-removed.md), because parcels are what
   Growdy sells and the parcel is the seat, so handing one to another

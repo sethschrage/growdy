@@ -17,6 +17,118 @@ what actually shows up as "What's new."
 
 ## [Unreleased]
 
+The first full UAT pass, and it removed more than it fixed. Every
+producer-facing claim from `0.1.0` to `0.12.0` was regrouped by feature
+area and walked through against live production -- around forty checks,
+twenty-five of which passed. The point of doing it before continuing the
+project was to find out which of the things the release notes claimed
+were actually true, and the answer for three features was: nobody had
+ever used them, and two of them nobody could have.
+
+Two real bugs first, because they were breaking the app for its one real
+producer. Giving a reply a thumbs up or down permanently broke its own
+conversation: the thumb writes a `feedback` field onto the message in
+state, `Chat.tsx` posted the whole message array to the chat function,
+and the function passed it to the Anthropic API verbatim, which rejects
+any key it doesn't know. The *next* message came back `400`
+("messages.1.feedback: Extra inputs are not permitted") and surfaced as
+the opaque "Edge Function returned non-8xx status code" -- which is why
+it read as random rather than as a thumb. It outlived the session too,
+since feedback is saved into the stored transcript, so reopening a
+thumbed conversation from history and typing crashed identically, for
+good; three conversations were in that state. Narrowed to role/content
+at both ends, which fixes the stored ones without touching the rows. The
+second bug is the one `0022`'s whole design exists to prevent: on the
+write tool's first real outing in production, the chat reported a memory
+entry as saved eight seconds before the actual row landed -- one row
+existed where the chat had described two. The instruction not to do that
+was already in the tool description and wasn't enough, because the dry
+run hands back the row the statement *would* write, generated id and
+timestamps included, which reads exactly like a row that already exists.
+The result now carries `"applied": false` and says so in the payload,
+next to that row, where it can't be skimmed past.
+
+Then the removals ([`0028`](docs/decisions/0028-what-uat-removed.md)),
+which are the actual substance of this batch. The review gate on
+observations went, and it deserves naming precisely because it looked
+fine from the outside: every observation in production is `approved`, set
+by the column's own backfill when it shipped, and not one row was ever
+`pending`, because there was no `UPDATE` grant or policy that could move
+one -- the migration that added it said as much in a comment and left
+approving "for later." What `0.3.0` announced to producers by name as
+"held for review" was a gate with no gatekeeper; a chat-logged field
+note would have sat pending forever, never counting as the research data
+`0008` wants. It's replaced by the opposite arrangement: observations
+count when logged, and a producer deletes what they don't want from a new
+observation log. That's only a safe trade because `0022`'s audit trigger
+writes the whole old row into `audit_log` on delete, so the correction is
+reversible in a way "never approved" never was -- and if that trigger is
+ever dropped, this decision needs revisiting.
+
+The onboarding wizard went for a different reason, which UAT surfaced by
+accident: it couldn't be tested at all. The gate is "has a `profiles`
+row," the only account that exists has one, so `0026`'s headline feature
+was unreachable for the person who had to sign it off. An account with no
+producer now says so plainly and stops, rather than offering a wizard
+that creates the wrong shape of account -- because parcels are becoming
+what Growdy sells, so a new account's first run is a purchase and a
+GIS-drawn boundary, not a text box asking for a vineyard name.
+`create_producer_and_profile` stays in the database as the way access is
+granted by hand meanwhile. The plot status grid went too, on its own
+evidence: it promised a plot's health at a glance and mostly rendered
+grey, since status is only known for the few plantings carrying a dead
+or removed date. A spatial view of a plot is a GIS job.
+
+Parcel sharing went, and this is the awkward one to record honestly,
+because it was built and merged the same night it was removed (#163,
+above in this same section before this rewrite). That PR was good work
+on its own terms -- it found a real bug, that `parcels`' own `select`
+policy had never been updated to the `user_can_access_parcel` check
+`plots`/`plot_rows`/`planting` already got, so a share recipient could
+see a shared parcel's contents but never the parcel row they belong to,
+and it verified the fix empirically with a scratch recipient and an
+unrelated stranger. The consistency fix survives; the feature it was
+built for does not. The reason is commercial and it postdates the
+work by about an hour: parcels are the seat Growdy sells, so a producer
+handing one to another producer is a hole in exactly the thing being
+charged for. `0025`'s own Context had already seen the shape of this
+("parcels and/or users may become billable later... a share must never
+make a parcel count against more than one producer") and the cheapest
+way to honour that constraint turns out to be not having shares. Zero
+were ever created. Self-serve parcel creation, `0025`'s other half, went
+with it for the mirror-image reason -- a producer minting unlimited
+parcels for free is the same hole from the other direction -- so
+`authenticated` now holds no `INSERT` grant on `parcels` at all. The
+withdrawal runs as its own migration *after* the UI-support one rather
+than replacing it, so the record shows a feature built and then
+withdrawn instead of one that never existed.
+
+One thing was added, in place of all that: a fenced ```log-observation```
+block in a chat reply becomes a real "Log this observation" button on
+that message. The conversation is where an observation actually gets
+worked out -- a producer says what they saw, the chat establishes which
+block and what date -- so the button belongs on that message rather than
+behind a separate form. It's the third use of the pattern `0021` (`svg`)
+and `0022` (`confirm-write`) established, reusing it deliberately rather
+than adding a fourth mechanism, and both fence overrides now read one
+shared set of tags, since a tag handled in `code()` but missed in
+`pre()` is precisely what broke `ConfirmWriteCard`'s text wrapping the
+first time. It writes straight to `observations` instead of going
+through `propose_write_query`, which is only honest now that there's no
+review step: a confirm/decline round trip to produce a row the producer
+can delete in one tap was ceremony without a purpose.
+
+Two things UAT surfaced are still open and worth naming rather than
+leaving in a checklist. Memory recall cannot currently work: nothing
+saved is searchable until the six-hourly embedding job runs, and that
+job is being rejected with `429` by Voyage for want of a payment method,
+which also leaves 29 of 43 conversations unembedded and the backlog
+growing. And the reason so much of the pass came back blocked is that
+there is nowhere safe to write -- the right isolation boundary is a
+second *producer*, not a second parcel, since `conversations`,
+`observations`, `producer_memory`, `pending_writes`, `artifacts` and
+`audit_log` are all producer-scoped.
+
 ## [0.12.0] - 2026-09-18
 
 This batch finishes two things `0.10.0` already described as done and,

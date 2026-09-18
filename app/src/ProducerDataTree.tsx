@@ -41,9 +41,9 @@ function rowMeasurementsSummary(row: PlotRow): string {
 
 // A row's physical measurements (length, spacing, end-post count) --
 // nullable, editor/owner-only (see the plot_rows RLS policy for why a
-// viewer share can read but not set these). This is the first editable
+// producer's own rows). This is the first editable
 // field anywhere in this read-only tree, so it gets its own small inline
-// form rather than a shared "edit mode" the rest of the tree doesn't need.
+// form rather than an "edit mode" the rest of the tree doesn't need.
 function RowMeasurements({
   plot,
   row,
@@ -110,85 +110,6 @@ function RowMeasurements({
           Save
         </button>
         <button type="button" onClick={() => setEditing(false)} disabled={saving}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
-
-// The only place a producer can add a parcel after onboarding -- the
-// wizard (docs/decisions/0026) creates the first one, but skipping that
-// step, or wanting a second parcel later, both land here. Uses
-// supabase.auth.getUser() rather than a passed-down session prop since
-// nothing between here and App already threads one this deep.
-function AddParcel({ onAdded }: { onAdded: (parcel: Parcel) => void }) {
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  if (!adding) {
-    return (
-      <button type="button" className="pdv-add-parcel-toggle" onClick={() => setAdding(true)}>
-        + Add parcel
-      </button>
-    )
-  }
-
-  async function handleSave() {
-    if (!name.trim()) return
-    setSaving(true)
-    setError(null)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setSaving(false)
-      setError('Not signed in.')
-      return
-    }
-    const { data: profile } = await supabase.from('profiles').select('producer_id').eq('id', user.id).single()
-    if (!profile) {
-      setSaving(false)
-      setError('Could not find your producer.')
-      return
-    }
-    const { data, error } = await supabase
-      .from('parcels')
-      .insert({ producer_id: profile.producer_id, name: name.trim() })
-      .select('id, name')
-      .single()
-    setSaving(false)
-    if (error || !data) {
-      setError(error?.message ?? 'Something went wrong.')
-      return
-    }
-    onAdded(data as Parcel)
-    setName('')
-    setAdding(false)
-  }
-
-  return (
-    <form
-      className="pdv-add-parcel-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        handleSave()
-      }}
-    >
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Parcel name"
-        autoFocus
-      />
-      {error && <p className="error">{error}</p>}
-      <div className="pdv-add-parcel-actions">
-        <button type="submit" disabled={saving}>
-          Save
-        </button>
-        <button type="button" onClick={() => setAdding(false)} disabled={saving}>
           Cancel
         </button>
       </div>
@@ -281,7 +202,6 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
 
   return (
     <>
-      <AddParcel onAdded={(parcel) => setParcels((prev) => [...(prev ?? []), parcel])} />
       {parcels.length === 0 && <p className="pdv-empty">No parcels yet.</p>}
       <ul className="pdv-tree" role="tree">
         {parcels.map((parcel) => {

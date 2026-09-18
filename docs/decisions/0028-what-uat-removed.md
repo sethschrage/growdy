@@ -1,6 +1,6 @@
-# 0028. Four features removed after the first real UAT pass
+# 0028. Five features removed after the first real UAT pass
 
-**Status:** accepted (amends 0009, 0025, 0026)
+**Status:** accepted (amends 0009, supersedes 0025 and 0026)
 
 ## Context
 
@@ -13,7 +13,7 @@ finished, could not be reached by the only account that exists, or were
 about to be made wrong by work already planned.
 
 Two things showed up repeatedly and are the reason this is one decision
-rather than four.
+rather than five.
 
 The first is that a feature nobody can exercise is not a shipped
 feature, it is an unverified claim. The review gate on observations,
@@ -27,7 +27,7 @@ working version of something that is about to be replaced.
 
 ## Decision
 
-Four features are removed rather than repaired.
+Five features are removed rather than repaired.
 
 **The review gate on observations** (`0009`). Observations are logged as
 they are made, and the producer deletes what they do not want, from a new
@@ -43,15 +43,36 @@ was meant to become. Deleting is a safe replacement for a specific
 reason: `0022`'s audit trigger writes the whole old row into `audit_log`
 on delete, so a removed observation is recoverable in full.
 
-**Parcel sharing** (`0025`). Removed, not given the UI it was missing.
-The reason is commercial rather than technical: Growdy will sell parcels,
-and the parcel is the seat. A producer handing a parcel to another
-producer is a hole in exactly the thing being charged for. Only the
-sharing half of `0025` is withdrawn; parcels are still created by their
-own producer. Dropping it also simplifies access control everywhere --
-`private.user_can_access_parcel` had to consult `parcel_shares` on every
-check, and now resolves through `profiles` alone, which is the plain
-tenancy rule `0001` started with.
+**Parcel sharing** (`0025`), and this one had a working UI by the time it
+was removed. It was built and merged the same night -- a "Share" control,
+a "Shared by X" badge, two narrow functions resolving a recipient by
+sign-in email -- and the reason it still goes is commercial, and postdates
+that work by about an hour: Growdy will sell parcels, and the parcel is
+the seat, so a producer handing one to another producer is a hole in
+exactly the thing being charged for. `0025`'s own Context had already
+named the constraint -- "parcels and/or users may become billable
+later... a share must never make a parcel count against more than one
+producer" -- and the cheapest way to honour it turns out to be not having
+shares at all. Zero were ever created.
+
+That PR's other contribution survives. It found a real bug: `parcels`'
+own `select` policy had never been updated to the
+`private.user_can_access_parcel` check `plots`, `plot_rows` and
+`planting` already used, so a share recipient could see a shared
+parcel's contents but never the parcel row they belonged to. The
+consistency fix stays; only the feature it was needed for goes. Dropping
+sharing also simplifies access control everywhere, since
+`user_can_access_parcel` no longer consults `parcel_shares` on every
+check and resolves through `profiles` alone -- the plain tenancy rule
+`0001` started with.
+
+**Self-serve parcel creation** (`0025`'s other half). The mirror image of
+the same problem: if a parcel is the billable seat, a producer minting
+unlimited parcels for free is the same hole from the other direction.
+`authenticated` now holds no `INSERT` grant on `parcels` and there is no
+insert policy, so a parcel is created for a producer by hand until
+there's a purchase flow to do it properly. The `+ Add parcel` control is
+gone from the data browser.
 
 **The onboarding wizard** (`0026`). An account with no producer now says
 so and stops, rather than offering to create one. The wizard was
@@ -69,7 +90,7 @@ because status is only known for the few plantings carrying a dead or
 removed date -- the thing it existed to show was largely absent. A
 spatial view of a plot is a GIS job, and GIS is coming.
 
-One feature is added in their place: a fenced ` ```log-observation `
+One feature is added in place of all that: a fenced ` ```log-observation `
 block in a chat reply becomes a real "Log this observation" button on
 that message. This is the third use of the pattern `0021` (`svg`) and
 `0022` (`confirm-write`) established, deliberately reusing it rather
@@ -80,14 +101,28 @@ producer can delete in one tap is ceremony without a purpose.
 
 ## Consequences
 
-The app gets smaller and more of what remains is real. Four fewer
+The app gets smaller and more of what remains is real. Five fewer
 surfaces to keep working through the GIS change, and the release notes
 stop describing three things nobody can do.
 
-Self-serve sign-up is gone until the purchase flow exists. Growdy has one
-producer and no waiting list, so this costs nothing today, but new access
-is a manual database step until then, and that is a deliberate trade
-rather than an oversight.
+Removing a feature the same night it merged is worth being uncomfortable
+about rather than smoothing over. It wasn't wasted because the work was
+bad -- it found a real RLS bug that survives here -- it was wasted
+because the commercial decision that killed it hadn't been made yet when
+it started. The withdrawal is recorded as its own migration running
+*after* the one that built it, so the history shows a feature built and
+then withdrawn rather than one that never existed. The process lesson is
+narrower than "check with product first": two sessions were changing the
+same production database in the same hour, and one of them applied
+migrations directly to it. That is the thing to fix.
+
+Self-serve sign-up and self-serve parcel creation are both gone until the
+purchase flow exists. Growdy has one producer and no waiting list, so
+this costs nothing today, but both new accounts and new parcels are now
+manual database steps, and that is a deliberate trade rather than an
+oversight. It also means the next real piece of product work is the
+purchase flow, because without it there is no way for a second producer
+to exist at all.
 
 Observations now count immediately, which is the point, but it does mean
 a wrong note is live data until someone removes it. The audit log is what
