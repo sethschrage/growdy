@@ -595,7 +595,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages, photoPath } = await req.json();
+    const { messages, photoPath, photoTakenOn } = await req.json();
 
     // The Anthropic API rejects any key it doesn't recognise on a
     // message, so nothing the client happens to keep alongside a turn
@@ -650,7 +650,16 @@ Deno.serve(async (req: Request) => {
               ? [{ type: "text", text: original }]
               : []),
             { type: "image", source: { type: "url", url: signed.signedUrl } },
-            { type: "text", text: `The attached photo is stored at ${photoPath}.` },
+            {
+              type: "text",
+              text: photoTakenOn && typeof photoTakenOn === "string"
+                // The capture date from the photo's own metadata, which
+                // is the only reliable answer for one picked out of the
+                // library days after it was taken -- and the case where
+                // a guess is wrong in a way nobody catches later.
+                ? `The attached photo is stored at ${photoPath}. It was taken on ${photoTakenOn}; use that as observed_date rather than today's date.`
+                : `The attached photo is stored at ${photoPath}.`,
+            },
           ],
         };
       }
