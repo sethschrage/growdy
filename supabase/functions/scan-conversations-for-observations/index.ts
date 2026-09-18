@@ -16,7 +16,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabaseClient.ts";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
 
 // Bounds one run's worst-case cost/runtime the same way
@@ -45,6 +44,22 @@ const CLASSIFY_TOOL = {
 
 type ClassifyResult = { is_observation: boolean; summary: string };
 
+// Seth created a dedicated ANTHROPIC_GROWDY_KEY secret for this project
+// rather than keep sharing one general-purpose key, so that's what this
+// prefers. The old ANTHROPIC_API_KEY stays as a fallback: edge function
+// secrets and deploys don't land at the same instant, and a chat that
+// stops answering because a rename raced a deploy is a worse failure
+// than briefly using the previous key. The fallback logs which one it
+// took -- the name only, never the value -- because a silent fallback
+// would quietly keep billing the old key forever, and nothing else here
+// would ever say so (see docs/monitoring.md section 5).
+function anthropicKey() {
+  const dedicated = Deno.env.get("ANTHROPIC_GROWDY_KEY");
+  if (dedicated) return dedicated;
+  console.error("ANTHROPIC_GROWDY_KEY is unset -- falling back to ANTHROPIC_API_KEY");
+  return Deno.env.get("ANTHROPIC_API_KEY")!;
+}
+
 async function classifyConversation(transcript: { role: string; content: string }[]): Promise<ClassifyResult> {
   const conversationText = transcript.map((m) => `${m.role}: ${m.content}`).join("\n\n");
 
@@ -52,7 +67,7 @@ async function classifyConversation(transcript: { role: string; content: string 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
+      "x-api-key": anthropicKey(),
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({

@@ -25,7 +25,6 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createUserScopedClient } from "../_shared/supabaseClient.ts";
 import { embedTexts, toVectorLiteral } from "../_shared/voyage.ts";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const MODEL = "claude-sonnet-5";
 const MAX_TOOL_ITERATIONS = 15;
 
@@ -391,6 +390,22 @@ async function fetchGrapePhenology(supabase: SupabaseClient, startDate: string, 
   return response.json();
 }
 
+// Seth created a dedicated ANTHROPIC_GROWDY_KEY secret for this project
+// rather than keep sharing one general-purpose key, so that's what this
+// prefers. The old ANTHROPIC_API_KEY stays as a fallback: edge function
+// secrets and deploys don't land at the same instant, and a chat that
+// stops answering because a rename raced a deploy is a worse failure
+// than briefly using the previous key. The fallback logs which one it
+// took -- the name only, never the value -- because a silent fallback
+// would quietly keep billing the old key forever, and nothing else here
+// would ever say so (see docs/monitoring.md section 5).
+function anthropicKey() {
+  const dedicated = Deno.env.get("ANTHROPIC_GROWDY_KEY");
+  if (dedicated) return dedicated;
+  console.error("ANTHROPIC_GROWDY_KEY is unset -- falling back to ANTHROPIC_API_KEY");
+  return Deno.env.get("ANTHROPIC_API_KEY")!;
+}
+
 function buildSystemPrompt(schemaDescription: string, dataChannelContext: string) {
   return `You are helping a vineyard producer explore and understand their field data by answering questions in plain conversational language.
 
@@ -424,7 +439,7 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string, tool
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
+      "x-api-key": anthropicKey(),
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({

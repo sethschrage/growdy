@@ -28,7 +28,7 @@ flowchart TD
         Auth["Auth -- Google Sign-In"]
         DB["Postgres<br/>tables + views, RLS-scoped"]
         Cron["pg_cron + pg_net<br/>1 hourly + 2 six-hourly schedules"]
-        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_API_KEY, VOYAGE_API_KEY"]
+        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_GROWDY_KEY, VOYAGE_API_KEY"]
         AddWeatherFn["Edge Function: add-weather-source"]
         IngestFn["Edge Function: ingest-weather"]
         SyncFn["Edge Function: sync-scheduled-weather"]
