@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
+import { isNativePlatform, signInWithGoogleNative } from './lib/nativeAuth'
 import { ArtifactsView } from './ArtifactsView'
 import { Chat } from './Chat'
 import { HistoryDrawer, type Conversation } from './HistoryDrawer'
@@ -56,6 +57,16 @@ function LoginForm() {
 
   async function handleGoogleSignIn() {
     setError(null)
+    // Native uses an ID token straight from the OS account sheet; web
+    // keeps the redirect flow. See lib/nativeAuth for why they differ.
+    if (isNativePlatform) {
+      try {
+        await signInWithGoogleNative()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not sign in.')
+      }
+      return
+    }
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
     if (error) setError(error.message)
   }
