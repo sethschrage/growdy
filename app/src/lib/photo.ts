@@ -1,6 +1,7 @@
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Capacitor } from '@capacitor/core'
 import { supabase } from './supabaseClient'
+import { readExif, type PhotoExif } from './exif'
 
 // Taking and attaching a vineyard photo, which is two problems wearing
 // one coat: getting bytes out of a camera or a photo library, and
@@ -43,10 +44,12 @@ async function downscale(blob: Blob): Promise<Blob> {
 
 export const canUseNativeCamera = Capacitor.isNativePlatform()
 
+export type PickedPhoto = { blob: Blob; exif: PhotoExif | null }
+
 // `source` is honoured on native only. On web the browser's own file
 // dialog covers both cases, and on a phone browser it offers the camera
 // itself.
-export async function pickPhoto(source: 'camera' | 'library'): Promise<Blob | null> {
+export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPhoto | null> {
   if (!canUseNativeCamera) {
     return await pickFromFileInput()
   }
@@ -56,14 +59,54 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<Blob | nu
     source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
     quality: 90,
     correctOrientation: true,
+    // The full-resolution original, metadata intact, goes to the
+    // producer's own photo library. That makes the phone the archive and
+    // means this app only has to store the working copy: we downscale to
+    // ~400KB for upload, and the thing we downscaled from still exists,
+    // backed up, where anyone would look for a photo they took.
+    // Only meaningful for camera captures -- a library photo is already
+    // in the library.
+    saveToGallery: source === 'camera',
   })
   if (!photo.webPath) return null
 
   const response = await fetch(photo.webPath)
-  return await downscale(await response.blob())
+  const original = await response.blob()
+  // Read before downscaling. Drawing to a canvas produces a new JPEG
+  // from pixels alone, so whatever EXIF the original carried is gone by
+  // the time the upload happens -- this is the only moment it exists.
+  const exif = photo.exif
+    ? nativeExif(photo.exif)
+    : await readExif(original)
+  return { blob: await downscale(original), exif }
 }
 
-function pickFromFileInput(): Promise<Blob | null> {
+// The plugin hands back a parsed object rather than raw bytes, and keys
+// it the way the platform does -- so the two tags worth having are
+// pulled out by name into the same shape the web path produces, instead
+// of two call sites each knowing about two formats.
+function nativeExif(raw: Record<string, unknown>): PhotoExif | null {
+  const pick = (...names: string[]) => {
+    for (const name of names) {
+      const value = raw[name]
+      if (typeof value === 'string' && value.trim()) return value
+      if (typeof value === 'number') return String(value)
+    }
+    return undefined
+  }
+  const result: PhotoExif = {}
+  const taken = pick('DateTimeOriginal', 'DateTimeDigitized', 'CreateDate', 'DateTime')
+  if (taken) result.dateTimeOriginal = taken
+  const lat = raw.GPSLatitude ?? raw.Latitude
+  const lon = raw.GPSLongitude ?? raw.Longitude
+  if (typeof lat === 'number' && typeof lon === 'number') {
+    result.gpsLatitude = lat
+    result.gpsLongitude = lon
+  }
+  return Object.keys(result).length > 0 ? result : null
+}
+
+function pickFromFileInput(): Promise<PickedPhoto | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -74,7 +117,9 @@ function pickFromFileInput(): Promise<Blob | null> {
     input.oncancel = () => resolve(null)
     input.onchange = async () => {
       const file = input.files?.[0]
-      resolve(file ? await downscale(file) : null)
+      if (!file) return resolve(null)
+      const exif = await readExif(file)
+      resolve({ blob: await downscale(file), exif })
     }
     input.click()
   })
@@ -84,11 +129,22 @@ function pickFromFileInput(): Promise<Blob | null> {
 // so the RLS policies read the first path segment -- '<producer_id>/...'
 // -- which means an upload that doesn't start with the caller's own
 // producer is rejected by the database rather than by this function.
-export async function uploadPhoto(blob: Blob, producerId: string): Promise<string> {
+export async function uploadPhoto(
+  blob: Blob,
+  producerId: string,
+  exif: PhotoExif | null,
+): Promise<string> {
   const path = `${producerId}/${crypto.randomUUID()}.jpg`
   const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
     contentType: 'image/jpeg',
     upsert: false,
+    // Kept on the object rather than in a column: it belongs to the file,
+    // it is the only copy left once the downscale has happened, and
+    // storing it here means no schema has to be reshaped to hold fields
+    // nothing reads yet. The map work this eventually feeds needs
+    // coordinates on plantings, not on photos -- but a photo's own
+    // metadata is unrecoverable later, so it gets kept now regardless.
+    ...(exif ? { metadata: exif as Record<string, unknown> } : {}),
   })
   if (error) throw error
   return path

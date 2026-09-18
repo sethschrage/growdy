@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import { canUseNativeCamera, pickPhoto, uploadPhoto, PHOTO_BUCKET } from './lib/photo'
+import { exifObservedDate } from './lib/exif'
 import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from './icons'
 import { MessageContent } from './MessageContent'
 import { useConversationLog } from './useConversationLog'
@@ -20,7 +21,11 @@ export function Chat({
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingPhoto, setPendingPhoto] = useState<{ path: string; previewUrl: string } | null>(null)
+  const [pendingPhoto, setPendingPhoto] = useState<{
+    path: string
+    previewUrl: string
+    takenOn: string | null
+  } | null>(null)
   const [attaching, setAttaching] = useState(false)
   const { log, conversationId: loggedConversationId } = useConversationLog(
     session,
@@ -99,8 +104,8 @@ export function Chat({
     setError(null)
     setAttaching(true)
     try {
-      const blob = await pickPhoto(source)
-      if (!blob) return
+      const picked = await pickPhoto(source)
+      if (!picked) return
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -112,10 +117,15 @@ export function Chat({
         return
       }
 
-      const path = await uploadPhoto(blob, profile.producer_id)
+      const path = await uploadPhoto(picked.blob, profile.producer_id, picked.exif)
+      // The day the shutter fired, not the day it was uploaded. Only
+      // ever different for a photo picked out of the library, which is
+      // exactly the case where guessing gets it wrong and nobody
+      // notices.
+      const takenOn = exifObservedDate(picked.exif?.dateTimeOriginal)
       setPendingPhoto((previous) => {
         if (previous) URL.revokeObjectURL(previous.previewUrl)
-        return { path, previewUrl: URL.createObjectURL(blob) }
+        return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not attach that photo.')
@@ -169,11 +179,13 @@ export function Chat({
     // text, so re-sending an old conversation can't drag an expired URL
     // or a megabyte of base64 along with it.
     const photoPath = pendingPhoto?.path ?? null
+    const photoTakenOn = pendingPhoto?.takenOn ?? null
     setPendingPhoto(null)
     const { data, error } = await supabase.functions.invoke('chat', {
       body: {
         messages: nextMessages.map(({ role, content }) => ({ role, content })),
         ...(photoPath ? { photoPath } : {}),
+        ...(photoTakenOn ? { photoTakenOn } : {}),
       },
     })
     setSending(false)
@@ -273,7 +285,11 @@ export function Chat({
       {pendingPhoto && (
         <div className="chat-pending-photo">
           <img src={pendingPhoto.previewUrl} alt="Photo about to be sent" />
-          <span>Attached. Send it with a question, or on its own.</span>
+          <span>
+            {pendingPhoto.takenOn
+              ? `Attached, taken ${pendingPhoto.takenOn}. Send it with a question, or on its own.`
+              : 'Attached. Send it with a question, or on its own.'}
+          </span>
           <button type="button" onClick={removePendingPhoto} aria-label="Remove photo">
             <PixelX size={14} />
           </button>
