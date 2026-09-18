@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import {
   canUseNativeCamera,
+  currentLocation,
   pickPhoto,
   uploadPhoto,
   PHOTO_BUCKET,
@@ -34,6 +35,7 @@ export function Chat({
     location: PhotoLocation | null
   } | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
   // Where each photo attached in this session was taken, keyed by its
   // storage path. The model's reply carries the path back in its
   // log-observation block, but not the coordinates -- they never went to
@@ -41,10 +43,15 @@ export function Chat({
   // capture rather than something to be inferred from an image. This is
   // how the card gets them at the moment it files a candidate.
   const photoLocationsRef = useRef(new Map<string, PhotoLocation>())
+  // Whether the pending photo came from the camera. A library photo keeps
+  // whatever GPS its file carries; only a capture takes the position of
+  // wherever the producer is standing when they send.
+  const cameraSourceRef = useRef<'camera' | 'library' | null>(null)
   const { log, conversationId: loggedConversationId } = useConversationLog(
     session,
     conversationId ? { id: conversationId } : undefined,
   )
+  const messagesRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
   const composeRef = useRef<HTMLDivElement>(null)
@@ -70,6 +77,27 @@ export function Chat({
     return () => observer.disconnect()
   }, [])
 
+  // Whether the view was pinned to the bottom when the last update
+  // arrived. Auto-scrolling unconditionally is what made the chat
+  // impossible to read while it was thinking: the effect below re-runs on
+  // a 400ms timer and again when the font loads, so scrolling up to
+  // re-read the previous reply got undone twice, which reads as "scroll
+  // doesn't work" rather than as a scroll that worked and was reverted.
+  const pinnedToBottomRef = useRef(true)
+
+  useEffect(() => {
+    const node = messagesRef.current
+    if (!node) return
+    const onScroll = () => {
+      // 120px of slack: a producer who is essentially at the bottom still
+      // wants new content to follow, and an exact comparison would fail
+      // on fractional scroll heights anyway.
+      pinnedToBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 120
+    }
+    node.addEventListener('scroll', onScroll, { passive: true })
+    return () => node.removeEventListener('scroll', onScroll)
+  }, [])
+
   useEffect(() => {
     // A reply that's longer than the screen used to land with its own
     // *end* in view (scrollIntoView always targeted the bottom sentinel),
@@ -80,6 +108,10 @@ export function Chat({
     // same as before.
     const lastMessage = messages[messages.length - 1]
     const scroll = () => {
+      // Scrolled up to read something? Leave it alone. The corrections
+      // below exist to fix a layout that shifted underneath an
+      // auto-scroll, not to drag the view back from where someone put it.
+      if (!pinnedToBottomRef.current) return
       if (!sending && lastMessage?.role === 'assistant') {
         lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       } else {
@@ -115,6 +147,7 @@ export function Chat({
   // already in storage by then.
   async function attachPhoto(source: 'camera' | 'library') {
     if (attaching || sending) return
+    setPhotoMenuOpen(false)
     setError(null)
     setAttaching(true)
     try {
@@ -138,6 +171,7 @@ export function Chat({
       // notices.
       const takenOn = exifObservedDate(picked.exif?.dateTimeOriginal)
       if (picked.location) photoLocationsRef.current.set(path, picked.location)
+      cameraSourceRef.current = source
       setPendingPhoto((previous) => {
         if (previous) URL.revokeObjectURL(previous.previewUrl)
         return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn, location: picked.location }
@@ -169,6 +203,9 @@ export function Chat({
     // row, so the turn carries a stand-in rather than an empty string --
     // the transcript stays readable, and the model still gets the image
     // as a real attachment alongside it.
+    // Sending is the producer's own action, so the view follows it even
+    // if they had scrolled up to check something first.
+    pinnedToBottomRef.current = true
     const text = input.trim() || (pendingPhoto ? 'I took a photo.' : '')
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
@@ -196,6 +233,17 @@ export function Chat({
     const photoPath = pendingPhoto?.path ?? null
     const photoTakenOn = pendingPhoto?.takenOn ?? null
     setPendingPhoto(null)
+
+    // The position is taken here, at send, and the compose bar says so --
+    // which is what makes it worth a producer's while to photograph a
+    // vine and then walk to the spot they actually want on the map before
+    // sending. Awaited rather than fired off, because a point that
+    // arrives after the candidate is filed belongs to nothing.
+    if (photoPath && cameraSourceRef.current === 'camera') {
+      const here = await currentLocation()
+      if (here) photoLocationsRef.current.set(photoPath, here)
+    }
+    cameraSourceRef.current = null
     const { data, error } = await supabase.functions.invoke('chat', {
       body: {
         messages: nextMessages.map(({ role, content }) => ({ role, content })),
@@ -244,7 +292,7 @@ export function Chat({
       <PixelCloud width={64} top="14%" left="66%" duration="7s" />
       <div className="star" style={{ top: '4%', left: '40%', animationDelay: '0s' }} />
       <div className="star" style={{ top: '10%', left: '82%', animationDelay: '1s' }} />
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesRef}>
         <div className="chat-messages-inner">
           {messages.map((m, i) => (
             <div
@@ -303,13 +351,34 @@ export function Chat({
           did on a phone. Positioning the pair, not the bar, keeps them
           together whatever the strip's height turns out to be. */}
       <div className="chat-compose" ref={composeRef}>
+      {photoMenuOpen && canUseNativeCamera && (
+        <div className="chat-photo-menu">
+          <button type="button" onClick={() => attachPhoto('camera')}>
+            <PixelPicture size={18} /> Take a photo
+          </button>
+          <button type="button" onClick={() => attachPhoto('library')}>
+            <PixelGrid size={18} /> Choose from library
+          </button>
+        </div>
+      )}
       {pendingPhoto && (
         <div className="chat-pending-photo">
           <img src={pendingPhoto.previewUrl} alt="Photo about to be sent" />
           <span>
             {pendingPhoto.takenOn
-              ? `Attached, taken ${pendingPhoto.takenOn}. Send it with a question, or on its own.`
-              : 'Attached. Send it with a question, or on its own.'}
+              ? `Attached, taken ${pendingPhoto.takenOn}.`
+              : 'Attached.'}
+            {cameraSourceRef.current === 'camera' && (
+              // Worth saying plainly, because it changes what a producer
+              // does next: the point recorded is where they are standing
+              // when they send, not where they were when they pressed the
+              // shutter. Knowing that makes walking to the vine worth
+              // doing.
+              <strong className="chat-pending-photo-location">
+                {' '}Your location when you send is what gets recorded — stand where you want it
+                marked.
+              </strong>
+            )}
           </span>
           <button type="button" onClick={removePendingPhoto} aria-label="Remove photo">
             <PixelX size={14} />
@@ -317,30 +386,21 @@ export function Chat({
         </div>
       )}
       <form className="chat-input" onSubmit={send}>
-        {/* Native gets both, because a producer standing in a row wants
-            the camera and one reviewing at a desk wants the library. On
-            web a single button is right: the browser's own file dialog
-            already offers the camera on a phone. */}
+        {/* One button, not two. Camera and library are the same intent --
+            attach a photo -- and the compose row has to leave room for
+            the buttons that come after this one. On web there is nothing
+            to choose between: the browser's own file dialog already
+            offers the camera on a phone. */}
         <button
           type="button"
           className="icon-button"
-          onClick={() => attachPhoto(canUseNativeCamera ? 'camera' : 'library')}
+          onClick={() => (canUseNativeCamera ? setPhotoMenuOpen((open) => !open) : attachPhoto('library'))}
           disabled={attaching || sending}
-          aria-label={canUseNativeCamera ? 'Take a photo' : 'Attach a photo'}
+          aria-label="Attach a photo"
+          aria-expanded={canUseNativeCamera ? photoMenuOpen : undefined}
         >
           <PixelPicture size={18} />
         </button>
-        {canUseNativeCamera && (
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => attachPhoto('library')}
-            disabled={attaching || sending}
-            aria-label="Choose a photo from your library"
-          >
-            <PixelGrid size={18} />
-          </button>
-        )}
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}

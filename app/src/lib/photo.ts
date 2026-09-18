@@ -59,16 +59,16 @@ export type PickedPhoto = { blob: Blob; exif: PhotoExif | null; location: PhotoL
 // all, so trusting EXIF here would mean a field that silently stays
 // empty. Asking the device is explicit and testable.
 //
-// Only for captures. A photo picked from the library was taken
-// somewhere else, possibly weeks ago, so the phone's position now says
-// nothing about it -- that case falls back to whatever GPS the file
-// itself carries.
+// Read at send time rather than at capture, so the recorded point is
+// one the producer chose to stand on. A photo picked from the library
+// was taken somewhere else, possibly weeks ago, so it keeps whatever GPS
+// the file itself carries instead.
 //
 // A refusal or a timeout returns null rather than throwing. Location is
 // worth having and never worth blocking on: a producer who declined the
 // permission, or is standing somewhere without a fix, should still be
 // able to attach a photo.
-async function currentLocation(): Promise<PhotoLocation | null> {
+export async function currentLocation(): Promise<PhotoLocation | null> {
   if (!canUseNativeCamera) return null
   try {
     const position = await Geolocation.getCurrentPosition({
@@ -136,20 +136,19 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
 
   const response = await fetch(photo.webPath)
   const original = await response.blob()
-  // Asked for alongside the capture, not before it -- a producer who
-  // cancels the camera should never have been prompted for location.
-  const location = source === 'camera' ? await currentLocation() : null
   // Read before downscaling. Drawing to a canvas produces a new JPEG
   // from pixels alone, so whatever EXIF the original carried is gone by
   // the time the upload happens -- this is the only moment it exists.
   const exif = photo.exif
     ? nativeExif(photo.exif)
     : await readExif(original)
-  return {
-    blob: await downscale(original),
-    exif,
-    location: location ?? exifLocation(exif),
-  }
+  // Only the photo's own GPS here. The device position is read when the
+  // message is sent instead, so a producer can photograph a vine from
+  // wherever they happen to be standing and then walk to the spot they
+  // actually want recorded before sending. Taking it at capture would
+  // silently record the first of those, which is rarely the one they
+  // mean.
+  return { blob: await downscale(original), exif, location: exifLocation(exif) }
 }
 
 // The plugin hands back a parsed object rather than raw bytes, and keys
