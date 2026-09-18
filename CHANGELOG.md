@@ -15,15 +15,16 @@ GitHub Release published alongside each entry here carries its own,
 separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
-## [Unreleased]
+## [0.13.0] - 2026-09-18
 
-The first full UAT pass, and it removed more than it fixed. Every
-producer-facing claim from `0.1.0` to `0.12.0` was regrouped by feature
-area and walked through against live production -- around forty checks,
-twenty-five of which passed. The point of doing it before continuing the
-project was to find out which of the things the release notes claimed
-were actually true, and the answer for three features was: nobody had
-ever used them, and two of them nobody could have.
+The first full UAT pass, and it removed more than it fixed -- then, in
+the same batch, the app grew a second front end nobody can reach yet.
+Every producer-facing claim from `0.1.0` to `0.12.0` was regrouped by
+feature area and walked through against live production -- around forty
+checks, twenty-five of which passed. The point of doing it before
+continuing the project was to find out which of the things the release
+notes claimed were actually true, and the answer for three features was:
+nobody had ever used them, and two of them nobody could have.
 
 Two real bugs first, because they were breaking the app for its one real
 producer. Giving a reply a thumbs up or down permanently broke its own
@@ -128,6 +129,59 @@ there is nowhere safe to write -- the right isolation boundary is a
 second *producer*, not a second parcel, since `conversations`,
 `observations`, `producer_memory`, `pending_writes`, `artifacts` and
 `audit_log` are all producer-scoped.
+
+The other half of the batch points the opposite way from the removals:
+growdy got that second front end, though nobody outside the repo can see
+it. [`0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md) wraps
+the existing Vite build in a Capacitor shell rather than starting a
+native rewrite -- one codebase, `0008`'s Vercel deploy untouched, and
+`app/ios/` a real Xcode project checked in beside it. It deliberately
+does not replace the home-screen install that shipped earlier in this
+same batch; a manifest is still the right answer for anyone in a
+browser, and stays the fallback for every producer who never installs
+from a store. The shell is for what a manifest structurally cannot
+reach: the App Store, push, camera, geolocation.
+
+Sign-in had to change to survive the move, and the reason is invisible
+until you try it. Capacitor serves the app from `capacitor://localhost`
+and hands off-origin navigation to Safari, so `signInWithOAuth` opens
+Google in a real browser -- no embedded-webview block, it genuinely
+works -- and then drops the callback in Safari against the web Site URL,
+where the session dies. The usual remedy is a custom URL scheme and a
+deep link back; the native flow makes that repair unnecessary, since
+`signInWithIdToken` takes a token straight from the OS account sheet and
+there is no redirect to catch. Sign in with Apple is scoped and unbuilt:
+App Store guideline 4.8 makes it mandatory wherever a social login sets
+up the primary account, so a Google-only build is a rejection at
+submission, not a gap to fill later. It waits on a paid Apple Developer
+team -- which is now also required to build for the simulator at all,
+since the Google SDK persists to the keychain and Xcode emits no
+entitlement without one.
+
+Four process changes ride along, each from a failure in this batch
+rather than from speculation. `#165` replaced the ADR trigger: "took
+real back-and-forth to settle" measured effort, which is just what
+solving a problem looks like, and the iOS nonce chase proved it -- an
+afternoon lost to a plugin silently returning a cached token and
+discarding the nonce we passed, worth one code comment and no ADR. Then
+`0028` and `0029` both landed as `0028`, each branch cut before the
+other existed, and the stale one argued we had declined a PWA while the
+PR it collided with was shipping one, so `#168` says to re-check the
+decision against current `main`, not just the filename. `#169` narrowed
+what a release note may contain -- what this release materially changed
+about the app, nothing merged-but-unreachable, nothing about an outage
+-- and wrote down that process decisions get committed rather than
+agreed in conversation. `#170` then found why the base docs kept going
+stale: the drift check lived only in the release checklist, so with
+auto-merge on nothing prompted anyone while they still remembered what
+changed. It moved to `CONTRIBUTING.md` Workflow step 4, with `AGENTS.md`
+and a PR-template section as the mechanisms that make it hard to skip.
+
+Two things UAT surfaced remain open and unfixed by this batch: memory
+recall still cannot work while Voyage rejects the embedding job for want
+of a payment method, and artifact share links built from
+`window.location.origin` resolve to `capacitor://localhost` inside the
+shell, which `0029` records rather than fixes.
 
 ## [0.12.0] - 2026-09-18
 
