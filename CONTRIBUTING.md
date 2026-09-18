@@ -5,6 +5,16 @@ pushing straight to `main` -- partly for its own sake (catching mistakes
 before they're live), and partly because the history itself is meant to be
 legible to someone reading it later.
 
+That applies to the process itself, not only to the code. A rule settled
+in a chat window, a review thread, or somebody's recollection of a
+conversation has a half-life of about a week and is invisible to anyone
+who wasn't in the room -- including the same person six months later.
+Every process decision -- what earns an ADR, what belongs in a release
+note, how a number gets claimed -- gets written into this file, or into
+the doc it governs, in the same session it's settled, as its own PR.
+**If a rule isn't in git, it isn't a rule.** It's a preference, and it
+will quietly stop being followed without anyone deciding to drop it.
+
 ## Workflow
 
 1. Create a feature branch (`feat/...`, `fix/...`, `docs/...`).
@@ -281,6 +291,28 @@ to pile up alongside it. When it's time to cut one:
    a bug fix worth a producer knowing about on its own (a security fix,
    something that was silently broken) still gets its own bullet under
    whichever category it affects.
+
+   **A bullet has to be something this release changed about the app,
+   materially.** Not "would a producer care" -- that question drags in
+   things that aren't changes at all. A failing external dependency, a
+   backlog draining, an outage in progress: real, worth fixing, and
+   background plumbing from inside the app. Those belong in
+   `docs/monitoring.md` or in a fix, never in a release note. The test
+   is whether the app itself is materially different because this batch
+   merged.
+
+   **Nothing gets announced before it launches.** A feature that has
+   merged but cannot yet be reached -- behind a flag, awaiting an App
+   Store review, built but not deployed -- gets no bullet in any
+   category, including `Infra`, and no hedged "groundwork is in place"
+   line either. Every bullet renders in the app's own "What's new", so
+   a bullet for something unreachable either reads as available and
+   isn't, or spends a producer's attention on something they can't use.
+   It gets its bullet in the release where it actually becomes
+   reachable, which is also when it reads as news rather than as a
+   progress report. The engineering record for it goes in `CHANGELOG.md`
+   and its ADR at merge time, as usual -- this rule is about the
+   producer-facing body only.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full engineering history, and
 the GitHub Releases page (or the app's own "What's new") for what a
