@@ -338,10 +338,30 @@ function SignedIn({ session }: { session: Session }) {
   const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
   const [artifactsOpen, setArtifactsOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
+  const shellRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
+
+  // The header floats over the messages rather than sitting above them,
+  // so a conversation scrolls up under the Dynamic Island the way it
+  // should instead of stopping at a hard edge below the logo. That means
+  // the scroll area has to reserve the header's height itself -- the
+  // same arrangement as the compose bar at the other end, and measured
+  // for the same reason: a number typed in here would be wrong the first
+  // time the header gains a row.
+  useEffect(() => {
+    const header = headerRef.current
+    const shell = shellRef.current
+    if (!header || !shell) return
+    const apply = () => shell.style.setProperty('--header-height', `${header.offsetHeight}px`)
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
+    <div className="app-shell" ref={shellRef}>
+      <header className="app-header" ref={headerRef}>
         <div className="app-header-left">
           <SproutMenu
             onNewObservation={() => setObservationFormOpen(true)}
