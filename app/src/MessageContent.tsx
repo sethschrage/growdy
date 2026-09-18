@@ -6,6 +6,7 @@ import type { ChatMessage } from './chatTypes'
 import { SvgGraphic } from './SvgGraphic'
 import { ConfirmWriteCard } from './ConfirmWriteCard'
 import { LogObservationCard } from './LogObservationCard'
+import type { PhotoLocation } from './lib/photo'
 
 // Fence tags that render as a real component rather than a code block.
 // Both overrides below read this one set: the code() override picks the
@@ -24,11 +25,16 @@ export function MessageContent({
   content,
   session,
   conversationId,
+  photoLocationFor,
 }: {
   role: ChatMessage['role']
   content: string
   session: Session
   conversationId: string | null
+  // Resolves a photo's storage path to where it was taken. Passed down
+  // rather than looked up in the card, because the position is known at
+  // attach time in Chat and never travels through the model.
+  photoLocationFor?: (path: string) => PhotoLocation | null
 }) {
   // A fenced ```svg block becomes a real rendered picture (see
   // SvgGraphic); a fenced ```confirm-write block becomes a real
@@ -58,7 +64,13 @@ export function MessageContent({
         return <ConfirmWriteCard code={String(children)} />
       }
       if (language === 'log-observation') {
-        return <LogObservationCard code={String(children)} conversationId={conversationId} />
+        return (
+          <LogObservationCard
+            code={String(children)}
+            conversationId={conversationId}
+            photoLocationFor={photoLocationFor}
+          />
+        )
       }
       return (
         <code className={className} {...props}>

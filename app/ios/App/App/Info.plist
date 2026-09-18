@@ -35,6 +35,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>growdy uses the camera so you can photograph what you see in the vineyard and log it as an observation.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>growdy records where a photo was taken, so an observation can be placed on your vineyard map even when it is not about one identifiable vine.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>growdy saves the photos you take back to your library at full resolution, so the original stays on your phone while the app keeps a smaller copy.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
