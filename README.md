@@ -80,7 +80,7 @@ failures that are logged but that nothing currently watches.
 |---|---|
 | Database | [Supabase](https://supabase.com) (Postgres, Free tier) |
 | Spatial | PostGIS |
-| File storage | Supabase Storage -- reserved for photo attachments, deliberately not wired up yet (see [`docs/decisions/0009`](docs/decisions/0009-chat-based-observation-submission.md)) |
+| File storage | Supabase Storage -- vineyard photos attached in chat, in a private bucket with tenancy enforced on the object path (see [`docs/decisions/0030`](docs/decisions/0030-every-observation-through-one-queue.md)); reads go through short-lived signed URLs, never a public bucket |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
 | Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
 | iOS | Capacitor shell wrapping the same build, in `app/ios/` -- **not shipped**: no App Store listing, and Sign in with Apple is required before submission (see [`docs/decisions/0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)) |

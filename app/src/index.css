@@ -2156,3 +2156,52 @@ select {
   padding: 0;
   flex-shrink: 0;
 }
+
+/* A photo shown beside the note it produced, in the review queue and the
+   observation log. Capped rather than full-bleed: it's evidence for a
+   decision about the text, not a gallery, and a phone-shaped photo at
+   full width pushes the actual note off the screen. */
+.observation-photo {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  max-height: 200px;
+  object-fit: cover;
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.observation-photo-loading {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: 120px;
+  border: 2px dashed var(--wood);
+  border-radius: 8px;
+  margin: 8px 0;
+  opacity: 0.4;
+}
+
+.observation-photo-missing {
+  display: block;
+  font-size: 12px;
+  color: var(--wood-dark);
+  opacity: 0.7;
+  margin: 8px 0;
+}
+
+.candidate-note {
+  white-space: pre-wrap;
+}
+
+.candidates-log-link {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 8px;
+}
+
+.candidates-log-link button {
+  font-size: 13px;
+  padding: 8px 12px;
+}

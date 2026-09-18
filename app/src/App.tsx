@@ -406,7 +406,14 @@ function SignedIn({ session }: { session: Session }) {
       {observationLogOpen && <ObservationLogView onClose={() => setObservationLogOpen(false)} />}
       {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
       {observationCandidatesOpen && (
-        <ObservationCandidatesView session={session} onClose={() => setObservationCandidatesOpen(false)} />
+        <ObservationCandidatesView
+          session={session}
+          onClose={() => setObservationCandidatesOpen(false)}
+          onOpenLog={() => {
+            setObservationCandidatesOpen(false)
+            setObservationLogOpen(true)
+          }}
+        />
       )}
       {artifactsOpen && <ArtifactsView onClose={() => setArtifactsOpen(false)} />}
       <ReleaseNotes session={session} />
