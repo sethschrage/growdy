@@ -4,8 +4,13 @@ import { supabase } from './lib/supabaseClient'
 
 export type ObservationCandidate = {
   id: string
-  conversation_id: string
+  conversation_id: string | null
   summary: string
+  note: string | null
+  observed_date: string | null
+  planting_id: string | null
+  photo_path: string | null
+  source: 'chat_scan' | 'photo' | 'producer' | 'chat_tool'
   status: 'pending' | 'confirmed' | 'dismissed'
   created_at: string
 }
@@ -15,39 +20,32 @@ export type ObservationCandidate = {
 // candidate isn't something to keep showing here.
 export function useObservationCandidates(session: Session) {
   const [candidates, setCandidates] = useState<ObservationCandidate[] | null>(null)
-  const [producerId, setProducerId] = useState<string | null>(null)
 
   async function refresh() {
     const { data } = await supabase
       .from('observation_candidates')
-      .select('id, conversation_id, summary, status, created_at')
+      .select('id, conversation_id, summary, note, observed_date, planting_id, photo_path, source, status, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setCandidates((data as ObservationCandidate[]) ?? [])
   }
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('producer_id')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setProducerId(data?.producer_id ?? null))
     refresh()
   }, [session.user.id])
 
+  // One RPC, one transaction (0030). This used to insert the observation
+  // and then mark the candidate as two separate client statements with
+  // nothing holding them together -- a failure in between left an
+  // observation whose candidate still read pending, so confirming again
+  // produced a duplicate. The function is idempotent on anything not
+  // pending, so a double-tap on a slow connection is a no-op rather than
+  // an error the producer has to interpret.
   async function confirm(candidate: ObservationCandidate) {
-    if (!producerId) return
-    const { error } = await supabase.from('observations').insert({
-      producer_id: producerId,
-      conversation_id: candidate.conversation_id,
-      note: candidate.summary,
+    const { error } = await supabase.rpc('confirm_observation_candidate', {
+      p_candidate_id: candidate.id,
     })
     if (error) return error.message
-    await supabase
-      .from('observation_candidates')
-      .update({ status: 'confirmed', reviewed_at: new Date().toISOString() })
-      .eq('id', candidate.id)
     await refresh()
     return null
   }

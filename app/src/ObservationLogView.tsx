@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
+import { ObservationPhoto } from './ObservationPhoto'
 
 type Observation = {
   id: string
@@ -8,6 +9,10 @@ type Observation = {
   created_at: string
   planting_id: string | null
   conversation_id: string | null
+  // The storage path of the photo this observation was made from, when
+  // there was one. Named photo_metadata because 0009 reserved the column
+  // long before anything wrote to it.
+  photo_metadata: string | null
 }
 
 function formatDate(iso: string) {
@@ -39,7 +44,7 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
   function refresh() {
     supabase
       .from('observations')
-      .select('id, observed_date, note, created_at, planting_id, conversation_id')
+      .select('id, observed_date, note, created_at, planting_id, conversation_id, photo_metadata')
       .order('created_at', { ascending: false })
       .then(({ data }) => setObservations((data as Observation[]) ?? []))
   }
@@ -86,8 +91,17 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
                   <div className="obs-log-meta">
                     <span className="obs-log-date">{o.observed_date ?? formatDate(o.created_at)}</span>
                     {o.conversation_id && <span className="obs-log-source">from chat</span>}
+                    {o.photo_metadata && <span className="obs-log-source">photo</span>}
                     {!o.planting_id && <span className="obs-log-source">whole vineyard</span>}
                   </div>
+                  {/* The photo is what the note was written from, so the
+                      log shows both -- a description of a vine reads very
+                      differently next to the picture of it, and deleting
+                      is the correction mechanism here (0028), which needs
+                      the evidence to decide against. */}
+                  {o.photo_metadata && (
+                    <ObservationPhoto path={o.photo_metadata} alt="The photo this observation came from" />
+                  )}
                   <p className="obs-log-note">{o.note}</p>
                 </div>
                 {confirmingId === o.id ? (
