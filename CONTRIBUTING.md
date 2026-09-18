@@ -185,6 +185,22 @@ decision like that is worth writing down even if it was settled in a
 minute, because the cost is re-litigating it in six months, not the time
 it took today.
 
+### Claiming a number
+
+ADR numbers are sequential, so two branches open at the same time will
+both reach for the next free one and neither will notice until they're
+both on `main`. Check for a newer ADR immediately before opening the PR
+rather than when you started writing, and renumber if one landed in
+between -- the earlier merge keeps the number.
+
+The number is the cheap half of that problem. An ADR written against a
+`main` that has since moved can end up describing a road not taken that
+the repo has, in fact, since taken. `0029` argued we'd passed on a PWA
+in favour of the iOS shell; `0028`'s PR had shipped the home-screen
+install while `0029` sat on a branch. A stale ADR asserting the
+opposite of what the code does is worse than no ADR, so re-read the
+decision itself against current `main`, not just the filename.
+
 ## Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org/) style:
