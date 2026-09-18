@@ -137,13 +137,12 @@ table, never anything polled. Real call sites:
 
 | File:line | What it logs | Reaches `data_sources.last_error`? |
 |---|---|---|
-| [`chat/index.ts:573`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
-| [`chat/index.ts:519`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
-| [`chat/index.ts:85,121`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed | n/a |
-| [`scan-conversations-for-observations/index.ts:120`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
-| [`scan-conversations-for-observations/index.ts:88`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
+| [`chat/index.ts:568`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
+| [`chat/index.ts:514`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
+| [`chat/index.ts:86,122`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed | n/a |
+| [`scan-conversations-for-observations/index.ts:130`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
+| [`scan-conversations-for-observations/index.ts:98`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
-| [`chat/index.ts:405`](../supabase/functions/chat/index.ts), [`scan-conversations-for-observations/index.ts:59`](../supabase/functions/scan-conversations-for-observations/index.ts) | `ANTHROPIC_GROWDY_KEY` is unset, so the call fell back to the older shared `ANTHROPIC_API_KEY`. Nothing breaks, which is the problem -- the fallback would otherwise keep billing the old key silently and forever | n/a |
 | [`app/src/Chat.tsx:84`](../app/src/Chat.tsx) | `chat function invoke failed` | **No, and never can be** -- this is the browser's own console. A total network failure calling the Edge Function never reaches any server-side log at all. Known, accepted blind spot. |
 
 **Two extra traps specific to the pg_cron-scheduled jobs**, confirmed

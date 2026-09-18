@@ -390,20 +390,15 @@ async function fetchGrapePhenology(supabase: SupabaseClient, startDate: string, 
   return response.json();
 }
 
-// Seth created a dedicated ANTHROPIC_GROWDY_KEY secret for this project
-// rather than keep sharing one general-purpose key, so that's what this
-// prefers. The old ANTHROPIC_API_KEY stays as a fallback: edge function
-// secrets and deploys don't land at the same instant, and a chat that
-// stops answering because a rename raced a deploy is a worse failure
-// than briefly using the previous key. The fallback logs which one it
-// took -- the name only, never the value -- because a silent fallback
-// would quietly keep billing the old key forever, and nothing else here
-// would ever say so (see docs/monitoring.md section 5).
+// Growdy has its own Anthropic key rather than sharing one
+// general-purpose key, and the old ANTHROPIC_API_KEY secret is being
+// deleted, so there is deliberately no fallback to it: a fallback to a
+// secret that no longer exists can only turn a missing-secret failure
+// into a confusing one. Read at call time rather than as a module
+// const so a missing secret surfaces as a failed request the logs
+// name, not a crash while the function is still booting.
 function anthropicKey() {
-  const dedicated = Deno.env.get("ANTHROPIC_GROWDY_KEY");
-  if (dedicated) return dedicated;
-  console.error("ANTHROPIC_GROWDY_KEY is unset -- falling back to ANTHROPIC_API_KEY");
-  return Deno.env.get("ANTHROPIC_API_KEY")!;
+  return Deno.env.get("ANTHROPIC_GROWDY_KEY")!;
 }
 
 function buildSystemPrompt(schemaDescription: string, dataChannelContext: string) {
