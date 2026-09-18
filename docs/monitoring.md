@@ -87,15 +87,20 @@ thing this document exists to surface. Per
 sees their own source's `last_error`/`last_warning` directly in the app;
 a maintainer only sees it by running this query.
 
-## 4. Embedding pipeline health -- a real, currently-active rate limit
+## 4. Embedding pipeline health -- resolved, and worth keeping the meter
 
-[`0023`](decisions/0023-producer-memory-via-embeddings.md)'s own
-Consequences already named this: Voyage/MongoDB's free trial throttles to
-3 RPM / 10K TPM until a payment method is added, and `embed-producer-memory-6h`
-(every 6 hours) has no way to signal that anywhere a human would see it --
-same fire-and-forget shape as the other scheduled jobs in section 6, and
-until now, no query anyone would think to run either. This is that
-query, and the meter it gives you:
+**Resolved 2026-09-18 by adding a payment method to the Voyage/MongoDB
+account.** It cost nothing: the free-trial throttle (3 RPM / 10K TPM) is
+a rate limit, not a paywall, and the 200M free token grant still applies
+after a card is added. The whole conversation corpus is ~29K tokens,
+0.015% of that grant.
+
+[`0023`](decisions/0023-producer-memory-via-embeddings.md)'s Consequences
+had named the throttle, and `embed-producer-memory-6h` had no way to
+signal it anywhere a human would see -- the same fire-and-forget shape as
+the other scheduled jobs in section 6. The meter below is what surfaced
+it, and is worth keeping now that the limit is gone, since the job still
+cannot report a failure on its own:
 
 ```sql
 select
@@ -105,13 +110,13 @@ select
 from public.conversations;
 ```
 
-Live right now, confirmed while writing this: **20% embedded (33 of 41
-conversations still pending)**, and the most recent run's own response
-body (`net._http_response.content`, same "don't trust `status =
-'succeeded'`" trap as section 6) shows exactly why -- 3 conversations
-embedded, 17 more hit `Voyage embeddings API error (429)` with the
-same "you have not yet added your payment method" detail, in the same
-single run:
+**Now 100% embedded (47 of 47, 0 pending).** Before the payment method
+it read 20% (33 of 41 pending), and a single run embedded 3 conversations
+before 17 more hit `Voyage embeddings API error (429)` carrying the
+"you have not yet added your payment method" detail. After it, two manual
+runs returned `embeddedConversations: 20` and `8` with `errors: []`. The
+response body is where that shows -- same "don't trust `status =
+'succeeded'`" trap as section 6:
 
 ```sql
 select content from net._http_response
@@ -123,10 +128,12 @@ This query is the "meter." It's now also its own card on section 9's
 dashboard (`embedding_pipeline`, split out of `background_jobs`) rather
 than something a maintainer has to come pull by hand -- the query above
 is what that card's own check runs, and it's still exactly what to run
-here if the dashboard itself is ever unreachable. Harmless either way
-today -- unembedded rows just retry next run -- but the backlog won't
-meaningfully shrink until a payment method is added to the
-Voyage/MongoDB account.
+here if the dashboard itself is ever unreachable. Unembedded rows retry next run either way, so
+a backlog is never lost -- but before the fix it drained at roughly 3 per
+6-hourly run against new conversations arriving, which is why it sat near
+20% for days. Worth re-checking if it ever stops draining again: the
+error detail in the response body names the cause, and MongoDB offers no
+hard spend cap, only project-level rate limits and billing alerts.
 
 ## 5. Failures that are logged, but nowhere anyone looks
 
