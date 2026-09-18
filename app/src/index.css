@@ -368,7 +368,10 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px;
-  padding-bottom: 90px;
+  /* Reserves the floating compose bar's real height, measured and set as
+     --compose-height by Chat.tsx, plus the offset and safe area it sits
+     above. The 90px fallback only applies before the first measurement. */
+  padding-bottom: calc(var(--compose-height, 62px) + env(safe-area-inset-bottom) + 22px);
   display: flex;
   flex-direction: column;
   align-items: center;
