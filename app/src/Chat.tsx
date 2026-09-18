@@ -33,20 +33,32 @@ export function Chat({
     previewUrl: string
     takenOn: string | null
     location: PhotoLocation | null
+    source: 'camera' | 'library'
   } | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
-  // Where each photo attached in this session was taken, keyed by its
-  // storage path. The model's reply carries the path back in its
-  // log-observation block, but not the coordinates -- they never went to
-  // the model and shouldn't, since a position is a fact about the
-  // capture rather than something to be inferred from an image. This is
-  // how the card gets them at the moment it files a candidate.
-  const photoLocationsRef = useRef(new Map<string, PhotoLocation>())
-  // Whether the pending photo came from the camera. A library photo keeps
-  // whatever GPS its file carries; only a capture takes the position of
-  // wherever the producer is standing when they send.
-  const cameraSourceRef = useRef<'camera' | 'library' | null>(null)
+  // What is known about each photo attached in this session, keyed by
+  // storage path: where it was taken and when. Neither travels through
+  // the model -- a position is a fact about the capture rather than
+  // something to infer from an image, and the date is read from EXIF --
+  // so this is how the card gets them at the moment it files a candidate.
+  const photoMetaRef = useRef(new Map<string, { location: PhotoLocation | null; takenOn: string | null }>())
+  // The most recent photo attached in this conversation, held until
+  // another one replaces it.
+  //
+  // The model sees a photo's storage path exactly once: the chat function
+  // appends it to the turn the image rides on, and that content block is
+  // built per request and discarded. What gets stored in the transcript
+  // is only what the producer typed, so on any later turn the path is not
+  // in the model's context at all -- it cannot carry forward something it
+  // can no longer see. An observation argued over for a few turns
+  // therefore arrived with no photo attached, which is precisely the
+  // case where the evidence is worth having.
+  //
+  // So the client keeps it. The model's own photo_path still wins when it
+  // has one; this only fills the gap, and only with the photo actually
+  // being discussed.
+  const [lastPhotoPath, setLastPhotoPath] = useState<string | null>(null)
   const { log, conversationId: loggedConversationId } = useConversationLog(
     session,
     conversationId ? { id: conversationId } : undefined,
@@ -170,11 +182,11 @@ export function Chat({
       // exactly the case where guessing gets it wrong and nobody
       // notices.
       const takenOn = exifObservedDate(picked.exif?.dateTimeOriginal)
-      if (picked.location) photoLocationsRef.current.set(path, picked.location)
-      cameraSourceRef.current = source
+      photoMetaRef.current.set(path, { location: picked.location, takenOn })
+      setLastPhotoPath(path)
       setPendingPhoto((previous) => {
         if (previous) URL.revokeObjectURL(previous.previewUrl)
-        return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn, location: picked.location }
+        return { path, previewUrl: URL.createObjectURL(picked.blob), takenOn, location: picked.location, source }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not attach that photo.')
@@ -232,6 +244,7 @@ export function Chat({
     // or a megabyte of base64 along with it.
     const photoPath = pendingPhoto?.path ?? null
     const photoTakenOn = pendingPhoto?.takenOn ?? null
+    const photoWasCaptured = pendingPhoto?.source === 'camera'
     setPendingPhoto(null)
 
     // The position is taken here, at send, and the compose bar says so --
@@ -239,11 +252,13 @@ export function Chat({
     // vine and then walk to the spot they actually want on the map before
     // sending. Awaited rather than fired off, because a point that
     // arrives after the candidate is filed belongs to nothing.
-    if (photoPath && cameraSourceRef.current === 'camera') {
+    if (photoPath && photoWasCaptured) {
       const here = await currentLocation()
-      if (here) photoLocationsRef.current.set(photoPath, here)
+      if (here) {
+        const existing = photoMetaRef.current.get(photoPath)
+        photoMetaRef.current.set(photoPath, { location: here, takenOn: existing?.takenOn ?? null })
+      }
     }
-    cameraSourceRef.current = null
     const { data, error } = await supabase.functions.invoke('chat', {
       body: {
         messages: nextMessages.map(({ role, content }) => ({ role, content })),
@@ -306,7 +321,8 @@ export function Chat({
                   content={m.content}
                   session={session}
                   conversationId={loggedConversationId}
-                  photoLocationFor={(path) => photoLocationsRef.current.get(path) ?? null}
+                  photoMetaFor={(path) => photoMetaRef.current.get(path) ?? null}
+                  lastPhotoPath={lastPhotoPath}
                 />
               </div>
               {m.role === 'assistant' && (
@@ -368,7 +384,7 @@ export function Chat({
             {pendingPhoto.takenOn
               ? `Attached, taken ${pendingPhoto.takenOn}.`
               : 'Attached.'}
-            {cameraSourceRef.current === 'camera' && (
+            {pendingPhoto.source === 'camera' && (
               // Worth saying plainly, because it changes what a producer
               // does next: the point recorded is where they are standing
               // when they send, not where they were when they pressed the
