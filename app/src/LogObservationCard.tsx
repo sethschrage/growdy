@@ -53,11 +53,13 @@ function parseDraft(code: string): ObservationDraft | null {
 export function LogObservationCard({
   code,
   conversationId,
-  photoLocationFor,
+  photoMetaFor,
+  lastPhotoPath,
 }: {
   code: string
   conversationId: string | null
-  photoLocationFor?: (path: string) => PhotoLocation | null
+  photoMetaFor?: (path: string) => { location: PhotoLocation | null; takenOn: string | null } | null
+  lastPhotoPath?: string | null
 }) {
   const [status, setStatus] = useState<'pending' | 'logging' | 'logged' | 'error'>('pending')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -78,7 +80,12 @@ export function LogObservationCard({
   const note = draft.note.trim()
   const observedDate = draft.observed_date ?? null
   const plantingId = draft.planting_id ?? null
-  const photoPath = draft.photo_path ?? null
+  // The model's own path wins. Falling back to the conversation's most
+  // recent photo covers the case it cannot handle itself: the path is in
+  // its context for exactly one turn, so a block written any later has no
+  // path to include. Without this, the observations you had to argue for
+  // are the ones that lose their evidence.
+  const photoPath = draft.photo_path ?? lastPhotoPath ?? null
 
   // No profile lookup any more: create_observation_candidate reads the
   // producer from the caller's own profile, so a client can't file
@@ -94,12 +101,16 @@ export function LogObservationCard({
     // Where the camera was, kept apart from what the photo is about.
     // planting_id answers the second; most photos never have one, and
     // for those this is the only spatial fact there will ever be.
-    const location = photoPath && photoLocationFor ? photoLocationFor(photoPath) : null
+    const meta = photoPath && photoMetaFor ? photoMetaFor(photoPath) : null
+    const location = meta?.location ?? null
 
     const { error } = await supabase.rpc('create_observation_candidate', {
       p_summary: note,
       p_note: note,
-      p_observed_date: observedDate,
+      // The capture date, for the same reason as the path: the model is
+      // told it once, on the turn the photo arrives, and a block written
+      // later has no way to know it. Its own answer wins when it gave one.
+      p_observed_date: observedDate ?? meta?.takenOn ?? null,
       p_planting_id: plantingId,
       p_photo_path: photoPath,
       p_conversation_id: conversationId,

@@ -25,16 +25,21 @@ export function MessageContent({
   content,
   session,
   conversationId,
-  photoLocationFor,
+  photoMetaFor,
+  lastPhotoPath,
 }: {
   role: ChatMessage['role']
   content: string
   session: Session
   conversationId: string | null
-  // Resolves a photo's storage path to where it was taken. Passed down
-  // rather than looked up in the card, because the position is known at
-  // attach time in Chat and never travels through the model.
-  photoLocationFor?: (path: string) => PhotoLocation | null
+  // Resolves a photo's storage path to what is known about it -- where
+  // and when it was taken. Passed down rather than looked up in the card,
+  // because both are known in Chat and neither travels through the model.
+  photoMetaFor?: (path: string) => { location: PhotoLocation | null; takenOn: string | null } | null
+  // The most recent photo attached in this conversation, used when the
+  // model's block has no path of its own -- see Chat.tsx for why it
+  // often won't.
+  lastPhotoPath?: string | null
 }) {
   // A fenced ```svg block becomes a real rendered picture (see
   // SvgGraphic); a fenced ```confirm-write block becomes a real
@@ -68,7 +73,8 @@ export function MessageContent({
           <LogObservationCard
             code={String(children)}
             conversationId={conversationId}
-            photoLocationFor={photoLocationFor}
+            photoMetaFor={photoMetaFor}
+            lastPhotoPath={lastPhotoPath}
           />
         )
       }
