@@ -75,8 +75,19 @@ export function Chat({
     setSending(true)
     setError(null)
 
+    // Only role and content ever go to the function. ChatMessage also
+    // carries `feedback` once someone gives a reply a thumbs up or down,
+    // and that field reached the Anthropic API verbatim, which rejects
+    // any key it doesn't know: "messages.1.feedback: Extra inputs are
+    // not permitted", a 400 surfacing to the producer as "Edge Function
+    // returned non-8xx status code". Because feedback is saved into the
+    // stored transcript, a thumbed conversation stayed broken for good
+    // -- reopening it from history and typing crashed the same way. The
+    // function sanitizes its own input too (see chat/index.ts); doing it
+    // here as well keeps the request honest about what it's actually
+    // sending, rather than relying on the far end to clean up after us.
     const { data, error } = await supabase.functions.invoke('chat', {
-      body: { messages: nextMessages },
+      body: { messages: nextMessages.map(({ role, content }) => ({ role, content })) },
     })
     setSending(false)
 
