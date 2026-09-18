@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
-import { PixelArrow, PixelCheck, PixelCloud, PixelSproutGrowth, PixelX } from './icons'
+import { canUseNativeCamera, pickPhoto, uploadPhoto, PHOTO_BUCKET } from './lib/photo'
+import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from './icons'
 import { MessageContent } from './MessageContent'
 import { useConversationLog } from './useConversationLog'
 import type { ChatMessage } from './chatTypes'
@@ -19,6 +20,8 @@ export function Chat({
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingPhoto, setPendingPhoto] = useState<{ path: string; previewUrl: string } | null>(null)
+  const [attaching, setAttaching] = useState(false)
   const { log, conversationId: loggedConversationId } = useConversationLog(
     session,
     conversationId ? { id: conversationId } : undefined,
@@ -64,11 +67,63 @@ export function Chat({
     }
   }, [messages, sending])
 
+  // Uploading happens on attach, not on send, so the producer sees the
+  // thumbnail and can back out before committing to a turn -- and so a
+  // slow upload in a vineyard with one bar isn't sitting between them
+  // and their message. The path is what the turn carries; the object is
+  // already in storage by then.
+  async function attachPhoto(source: 'camera' | 'library') {
+    if (attaching || sending) return
+    setError(null)
+    setAttaching(true)
+    try {
+      const blob = await pickPhoto(source)
+      if (!blob) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('producer_id')
+        .eq('id', session.user.id)
+        .single()
+      if (!profile?.producer_id) {
+        setError('Could not find your producer.')
+        return
+      }
+
+      const path = await uploadPhoto(blob, profile.producer_id)
+      setPendingPhoto((previous) => {
+        if (previous) URL.revokeObjectURL(previous.previewUrl)
+        return { path, previewUrl: URL.createObjectURL(blob) }
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not attach that photo.')
+    } finally {
+      setAttaching(false)
+    }
+  }
+
+  // Removing deletes the object rather than just forgetting the path.
+  // An abandoned attach would otherwise leave a file in the bucket that
+  // nothing references and nobody can see -- invisible cost, and a photo
+  // of the producer's vineyard sitting around for no reason.
+  async function removePendingPhoto() {
+    if (!pendingPhoto) return
+    URL.revokeObjectURL(pendingPhoto.previewUrl)
+    const { path } = pendingPhoto
+    setPendingPhoto(null)
+    await supabase.storage.from(PHOTO_BUCKET).remove([path])
+  }
+
   async function send(event: FormEvent) {
     event.preventDefault()
-    if (!input.trim() || sending) return
+    if ((!input.trim() && !pendingPhoto) || sending) return
 
-    const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: input }]
+    // A photo with no words is a normal thing to send from a vineyard
+    // row, so the turn carries a stand-in rather than an empty string --
+    // the transcript stays readable, and the model still gets the image
+    // as a real attachment alongside it.
+    const text = input.trim() || (pendingPhoto ? 'I took a photo.' : '')
+    const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
     log(nextMessages)
     setInput('')
@@ -86,8 +141,18 @@ export function Chat({
     // function sanitizes its own input too (see chat/index.ts); doing it
     // here as well keeps the request honest about what it's actually
     // sending, rather than relying on the far end to clean up after us.
+    // photoPath travels beside the messages, never inside them. The
+    // function mints a signed URL and attaches the image to this one
+    // outbound call; what gets stored in the transcript stays plain
+    // text, so re-sending an old conversation can't drag an expired URL
+    // or a megabyte of base64 along with it.
+    const photoPath = pendingPhoto?.path ?? null
+    setPendingPhoto(null)
     const { data, error } = await supabase.functions.invoke('chat', {
-      body: { messages: nextMessages.map(({ role, content }) => ({ role, content })) },
+      body: {
+        messages: nextMessages.map(({ role, content }) => ({ role, content })),
+        ...(photoPath ? { photoPath } : {}),
+      },
     })
     setSending(false)
 
@@ -176,14 +241,52 @@ export function Chat({
           <div ref={messagesEndRef} />
         </div>
       </div>
+      {pendingPhoto && (
+        <div className="chat-pending-photo">
+          <img src={pendingPhoto.previewUrl} alt="Photo about to be sent" />
+          <span>Attached. Send it with a question, or on its own.</span>
+          <button type="button" onClick={removePendingPhoto} aria-label="Remove photo">
+            <PixelX size={14} />
+          </button>
+        </div>
+      )}
       <form className="chat-input" onSubmit={send}>
+        {/* Native gets both, because a producer standing in a row wants
+            the camera and one reviewing at a desk wants the library. On
+            web a single button is right: the browser's own file dialog
+            already offers the camera on a phone. */}
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => attachPhoto(canUseNativeCamera ? 'camera' : 'library')}
+          disabled={attaching || sending}
+          aria-label={canUseNativeCamera ? 'Take a photo' : 'Attach a photo'}
+        >
+          <PixelPicture size={18} />
+        </button>
+        {canUseNativeCamera && (
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => attachPhoto('library')}
+            disabled={attaching || sending}
+            aria-label="Choose a photo from your library"
+          >
+            <PixelGrid size={18} />
+          </button>
+        )}
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question"
+          placeholder={pendingPhoto ? 'Add a question, or just send' : 'Ask a question'}
           aria-label="Ask a question about your vineyard"
         />
-        <button type="submit" className="icon-button" disabled={sending} aria-label="Send">
+        <button
+          type="submit"
+          className="icon-button"
+          disabled={sending || attaching || (!input.trim() && !pendingPhoto)}
+          aria-label="Send"
+        >
           <PixelArrow size={18} />
         </button>
       </form>

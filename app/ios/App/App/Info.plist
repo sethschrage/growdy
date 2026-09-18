@@ -33,6 +33,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>growdy uses the camera so you can photograph what you see in the vineyard and log it as an observation.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>growdy needs your photo library so you can attach a vineyard photo you already took.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
