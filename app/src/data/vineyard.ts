@@ -31,6 +31,27 @@ export type RowPlanting = {
   dead_date: string | null
 }
 
+// Everything the detail sheet shows about one planting. A wider read
+// than the tree's, and from the same view, so the names are resolved
+// rather than being ids into plant_types.
+export type PlantingDetails = {
+  id: string
+  label: string | null
+  nickname: string | null
+  parcel: string
+  plot: string | null
+  row_number: number | null
+  position: number | null
+  variety: string | null
+  scion: string | null
+  rootstock: string | null
+  category: string | null
+  planted_date: string | null
+  dead_date: string | null
+  removed_date: string | null
+  removed_reason: string | null
+}
+
 export type PlantingSearchResult = {
   id: string
   label: string | null
@@ -38,6 +59,16 @@ export type PlantingSearchResult = {
   variety: string | null
   scion: string | null
   parcel: string
+}
+
+const PLANTING_DETAIL_COLUMNS =
+  'id, label, nickname, parcel, plot, row_number, position, variety, scion, rootstock, category, planted_date, dead_date, removed_date, removed_reason'
+
+export async function fetchPlanting(id: string): Promise<PlantingDetails> {
+  const row = unwrap(
+    await supabase.from('planting_readable').select(PLANTING_DETAIL_COLUMNS).eq('id', id).single(),
+  )
+  return row as PlantingDetails
 }
 
 export async function listParcels(): Promise<Parcel[]> {

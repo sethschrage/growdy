@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fake } from '@/test/fakeSupabase'
 import {
+  fetchPlanting,
   listParcels,
   listPlotRows,
   listPlots,
@@ -56,6 +57,24 @@ describe('the vineyard tree', () => {
     ])
     // A planting that was pulled out is not in the row any more.
     expect(query.chain).toContainEqual(['is', ['removed_date', null]])
+  })
+})
+
+describe('fetchPlanting', () => {
+  it('reads one planting from the readable view', async () => {
+    fake.returns({ id: 'planting-1', label: 'R7 P12' })
+    const planting = await fetchPlanting('planting-1')
+    expect(planting.label).toBe('R7 P12')
+    const query = fake.only()
+    expect(query.name).toBe('planting_readable')
+    expect(fake.chainArgs('eq')).toEqual([['id', 'planting-1']])
+  })
+
+  it('throws when the planting cannot be read', async () => {
+    // single() on a missing row is an error, and the detail sheet shows
+    // it rather than rendering an empty card.
+    fake.fails('JSON object requested, multiple (or no) rows returned')
+    await expect(fetchPlanting('gone')).rejects.toThrow()
   })
 })
 

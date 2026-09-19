@@ -35,11 +35,12 @@ function PlantingPicker({
   const [results, setResults] = useState<PlantingOption[] | null>(null)
   const requestId = useRef(0)
 
+  // Clearing on an empty box happens in the change handler below, not
+  // here: emptying the field is the event that means "forget those
+  // results", and doing it from the effect is a second render for
+  // something the first one already knew.
   useEffect(() => {
-    if (!query.trim()) {
-      setResults(null)
-      return
-    }
+    if (!query.trim()) return
     const thisRequest = ++requestId.current
     const timeout = setTimeout(async () => {
       // The request id guards against an out-of-order reply: typing
@@ -67,7 +68,16 @@ function PlantingPicker({
       <input
         type="text"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          // An empty box shows nothing, and an in-flight search for what
+          // used to be in it must not land afterwards and repopulate the
+          // list.
+          if (!e.target.value.trim()) {
+            requestId.current += 1
+            setResults(null)
+          }
+        }}
         placeholder="Search row, position, or variety"
       />
       {results !== null && (

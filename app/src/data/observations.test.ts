@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fake } from '@/test/fakeSupabase'
 import {
   confirmObservationCandidate,
+  listObservationsForPlanting,
   createObservationCandidate,
   deleteObservation,
   dismissObservationCandidate,
@@ -36,6 +37,22 @@ describe('listObservations', () => {
   it('throws when the read fails, rather than showing an empty log', async () => {
     fake.fails('network error')
     await expect(listObservations()).rejects.toThrow('network error')
+  })
+})
+
+describe('listObservationsForPlanting', () => {
+  it('reads one planting\'s history, by the day it was seen', async () => {
+    fake.returns([])
+    await listObservationsForPlanting('planting-1')
+    const query = fake.only()
+    expect(fake.chainArgs('eq')).toEqual([['planting_id', 'planting-1']])
+    // Ordered by when it happened, not when it was typed up -- and
+    // undated notes sort to the bottom rather than on top of everything.
+    expect(query.chain).toContainEqual([
+      'order',
+      ['observed_date', { ascending: false, nullsFirst: false }],
+    ])
+    expect(query.chain).toContainEqual(['order', ['created_at', { ascending: false }]])
   })
 })
 

@@ -38,7 +38,11 @@ export function ProducerDataView({ onClose }: { onClose: () => void }) {
         <ProducerDataTree onSelectPlanting={setSelectedPlantingId} />
       </div>
       {selectedPlantingId && (
-        <PlantingDetail plantingId={selectedPlantingId} onClose={() => setSelectedPlantingId(null)} />
+        <PlantingDetail
+          key={selectedPlantingId}
+          plantingId={selectedPlantingId}
+          onClose={() => setSelectedPlantingId(null)}
+        />
       )}
     </div>
   )

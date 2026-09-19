@@ -63,6 +63,22 @@ export async function listObservations(): Promise<Observation[]> {
   )
 }
 
+// One planting's own history, for the detail sheet. Ordered by the day
+// it was seen rather than the day it was typed up -- a note entered
+// later about an earlier morning belongs in its own place in the story,
+// and nullsFirst: false keeps the undated ones at the bottom instead of
+// on top of everything.
+export async function listObservationsForPlanting(plantingId: string): Promise<Observation[]> {
+  return unwrapList(
+    await supabase
+      .from('observations')
+      .select(OBSERVATION_COLUMNS)
+      .eq('planting_id', plantingId)
+      .order('observed_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+  )
+}
+
 export async function deleteObservation(id: string): Promise<void> {
   unwrap(await supabase.from('observations').delete().eq('id', id))
 }

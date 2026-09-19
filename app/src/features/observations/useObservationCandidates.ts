@@ -15,13 +15,22 @@ export type { ObservationCandidate }
 export function useObservationCandidates(session: Session) {
   const [candidates, setCandidates] = useState<ObservationCandidate[] | null>(null)
 
+  // The imperative path, after a confirm or a dismiss.
   async function refresh() {
-    const pending = await listPendingCandidates().catch(() => [])
-    setCandidates(pending)
+    setCandidates(await listPendingCandidates().catch(() => []))
   }
 
+  // The mount path, guarded: the queue is a full-screen overlay a
+  // producer can close while the read is still in flight.
   useEffect(() => {
-    refresh()
+    let cancelled = false
+    void (async () => {
+      const pending = await listPendingCandidates().catch(() => [])
+      if (!cancelled) setCandidates(pending)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [session.user.id])
 
   // One RPC, one transaction (0030). This used to insert the observation

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { createArtifact } from '@/data/artifacts'
+import { fetchProducerId } from '@/data/profile'
+import { publicUrl } from '@/lib/publicUrl'
 import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 // Renders SVG the chat model wrote itself (see docs/decisions -- chat's
@@ -50,27 +52,28 @@ export function SvgGraphic({
   async function handleShare() {
     setSharing(true)
     setShareError(null)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('producer_id')
-      .eq('id', session.user.id)
-      .single()
-    if (!profile) {
+    try {
+      const producerId = await fetchProducerId(session.user.id)
+      if (!producerId) {
+        setSharing(false)
+        setShareError('Could not find your producer.')
+        return
+      }
+      const id = await createArtifact({ producerId, conversationId, content: code })
       setSharing(false)
-      setShareError('Could not find your producer.')
-      return
+      const url = publicUrl(`/a/${id}`)
+      if (!url) {
+        // The graphic is saved and reachable from Shared artifacts; only
+        // the link is unavailable, and saying so beats handing over a
+        // capacitor:// URL that fails for whoever receives it.
+        setShareError('Saved, but this build has no public address to link to.')
+        return
+      }
+      setShareUrl(url)
+    } catch (e) {
+      setSharing(false)
+      setShareError(e instanceof Error ? e.message : 'Something went wrong.')
     }
-    const { data, error } = await supabase
-      .from('artifacts')
-      .insert({ producer_id: profile.producer_id, conversation_id: conversationId, content: code })
-      .select('id')
-      .single()
-    setSharing(false)
-    if (error || !data) {
-      setShareError(error?.message ?? 'Something went wrong.')
-      return
-    }
-    setShareUrl(`${window.location.origin}/a/${data.id}`)
   }
 
   async function handleCopy() {
