@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import { PixelSprout } from '@/ui/icons'
+import { PixelSprout } from '@/ui/pixelArt'
 
 // The honest dead end described above. Signing out is the only action,
 // because it's the only one that would actually help.

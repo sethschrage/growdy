@@ -97,8 +97,7 @@
 .chat-message-assistant {
   background: var(--panel);
   color: var(--ink);
-  border: 2px solid var(--wood);
-  font-family: system-ui, sans-serif;
+  border: var(--line) solid var(--wood);
 }
 
 .chat-message-assistant p,
@@ -493,20 +492,30 @@
   display: flex;
   flex-direction: row;
   gap: 8px;
-  padding: 6px 6px 6px 12px;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
   background: var(--soil);
-  border: 3px solid var(--leaf);
-  border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  border: var(--line) solid var(--leaf);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
 .chat-input input {
   flex: 1;
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+/* The bar itself is the field's edge; a border on the input as well put
+   two lines 6px apart, and the focus ring landed between them. Focus
+   lifts the field instead. */
+.chat-input input:focus {
+  border: none;
+  box-shadow: inset 0 0 0 var(--line) var(--leaf);
 }
 
 .icon-button {
-  padding: 8px;
+  padding: var(--space-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;

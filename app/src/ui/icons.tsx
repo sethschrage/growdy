@@ -1,516 +1,182 @@
-const SPROUT_LEAF_CELLS = [
-  [6, 2],
-  [5, 3],
-  [6, 3],
-  [7, 3],
-  [2, 4],
-  [1, 5],
-  [2, 5],
-  [3, 5],
-  [4, 5],
-  [2, 6],
-] as const
+import type { ReactNode } from 'react'
 
-const SPROUT_STEM_CELLS = [
-  [5, 4],
-  [5, 5],
-  [5, 6],
-  [5, 7],
-  [5, 8],
-] as const
+// The icons on things you tap.
+//
+// These were pixel art: 7x7 and 10x10 grids of 1x1 rects, hand-plotted.
+// At 18-20px that is roughly two and a half screen pixels per cell,
+// which is why they read as soft -- there was no detail available to be
+// sharp, and no room for a clock hand or a camera shutter to exist at
+// all. A toolbar needs to say which button does what at a glance, and
+// five chunky blobs of the same weight don't.
+//
+// So: real vector shapes on a 24x24 grid, 2px strokes, square caps and
+// mitred joins. The square caps are deliberate -- rounded ends would
+// read as a generic modern icon set, and the point is a toolbar that
+// still belongs to this app. Coordinates are whole numbers, so a 2px
+// stroke straddles a pixel boundary evenly and stays crisp at any size
+// the app actually uses.
+//
+// What stayed pixel art is in ui/pixelArt.tsx: the clouds, the burger
+// menu, the sprout. Those are the theme rather than the controls --
+// sharpening the sprout would be like setting the wordmark in Helvetica.
+//
+// Everything here draws in currentColor, so a button's own CSS decides
+// the colour. The old set hard-coded #fff on the check and nothing on
+// the rest, which is why the check was invisible on a light button.
 
-export function PixelSprout({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
-      {SPROUT_LEAF_CELLS.map(([x, y]) => (
-        <rect key={`leaf-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#6a9c40" />
-      ))}
-      {SPROUT_STEM_CELLS.map(([x, y]) => (
-        <rect key={`stem-${x}-${y}`} x={x} y={y} width={1} height={1} fill="#3f6b29" />
-      ))}
-    </svg>
-  )
-}
+type IconProps = { size?: number; className?: string }
 
-// Four growth stages of the same sprout -- seed, sprout, full stem, bloom --
-// stacked and cross-faded by CSS (see .thinking-sprout-frame) instead of a
-// generic dot pulse, so "the model is thinking" reads as something actually
-// growing rather than a spinner borrowed from any other app.
-const SPROUT_GROWTH_FRAMES: { cells: readonly (readonly [number, number])[]; fill: string }[][] = [
-  [
-    { cells: [[5, 8]], fill: '#3f6b29' },
-    { cells: [[4, 8], [6, 8]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[4, 7], [6, 7]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 5], [5, 6], [5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[3, 6], [4, 6], [6, 6], [7, 6]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 2], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[3, 6], [4, 6], [6, 6], [7, 6]], fill: '#6a9c40' },
-    { cells: [[4, 0], [6, 0], [4, 1], [6, 1], [5, 0]], fill: '#c1440e' },
-    { cells: [[5, 1]], fill: '#f6d998' },
-  ],
-]
-
-export function PixelSproutGrowth({ size = 20 }: { size?: number }) {
-  return (
-    <span className="thinking-sprout" style={{ width: size, height: size }} aria-hidden="true">
-      {SPROUT_GROWTH_FRAMES.map((groups, i) => (
-        <svg key={i} className="thinking-sprout-frame" viewBox="0 0 10 10" shapeRendering="crispEdges">
-          {groups.map(({ cells, fill }) =>
-            cells.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={fill} />),
-          )}
-        </svg>
-      ))}
-    </span>
-  )
-}
-
-const CLOUD_ROWS = [
-  [5, 0, 4],
-  [3, 1, 8],
-  [1, 2, 12],
-  [1, 3, 12],
-  [3, 4, 8],
-] as const
-
-export function PixelCloud({
-  width,
-  top,
-  left,
-  duration,
-}: {
-  width: number
-  top: string
-  left: string
-  duration: string
-}) {
+function Icon({
+  size = 20,
+  className,
+  children,
+}: IconProps & { children: ReactNode }) {
   return (
     <svg
-      className="cloud"
-      width={width}
-      height={(width / 14) * 5}
-      viewBox="0 0 14 5"
-      shapeRendering="crispEdges"
-      style={{ top, left, animationDuration: duration }}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      className={className}
       aria-hidden="true"
+      focusable="false"
     >
-      {CLOUD_ROWS.map(([x, y, w], i) => (
-        <rect key={i} x={x} y={y} width={w} height={1} fill="#fff8ea" />
-      ))}
+      {children}
     </svg>
   )
 }
 
-const ARROW_CELLS = [
-  [1, 0],
-  [1, 1],
-  [2, 1],
-  [1, 2],
-  [2, 2],
-  [3, 2],
-  [1, 3],
-  [2, 3],
-  [3, 3],
-  [4, 3],
-  [1, 4],
-  [2, 4],
-  [3, 4],
-  [1, 5],
-  [2, 5],
-  [1, 6],
-] as const
-
-export function PixelArrow({ size = 16 }: { size?: number }) {
+/** Send. */
+export function ArrowIcon({ size = 18, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {ARROW_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M4 12h14" />
+      <path d="M12 6l6 6-6 6" />
+    </Icon>
   )
 }
 
-const BURGER_ROWS = [
-  { y: 0, x: 2, w: 6, fill: '#e8a33d' },
-  { y: 1, x: 0, w: 10, fill: '#e8a33d' },
-  { y: 2, x: 0, w: 10, fill: '#7cb342' },
-  { y: 3, x: 0, w: 10, fill: '#f4c542' },
-  { y: 4, x: 0, w: 10, fill: '#6b3f2a' },
-  { y: 5, x: 0, w: 10, fill: '#e8a33d' },
-  { y: 6, x: 1, w: 8, fill: '#e8a33d' },
-] as const
-
-export function PixelBurger({ size = 20 }: { size?: number }) {
+/** Sign out: a door, and the way out of it. */
+export function ExitIcon({ size = 18, className }: IconProps) {
   return (
-    <svg width={size} height={(size * 7) / 10} viewBox="0 0 10 7" shapeRendering="crispEdges" aria-hidden="true">
-      {BURGER_ROWS.map(({ y, x, w, fill }) => (
-        <rect key={y} x={x} y={y} width={w} height={1} fill={fill} />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M13 4H5v16h8" />
+      <path d="M11 12h9" />
+      <path d="M16 8l4 4-4 4" />
+    </Icon>
   )
 }
 
-// These two reuse BURGER_ROWS's own geometry rather than drawing new
-// shapes -- each row becomes a column (row index -> new x, row's x/width
-// span -> new y-range), turning the closed icon's horizontal layers into
-// vertical ones for the open menu bar.
-const BUN_ROW_COLOR = BURGER_ROWS[0].fill
-
-export function PixelBunSlice({ className }: { className?: string }) {
+/** New chat: a pencil over a page. */
+export function ComposeIcon({ size = 20, className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 7 10" shapeRendering="crispEdges" aria-hidden="true">
-      {BURGER_ROWS.map(({ y, x, w }) => (
-        <rect key={y} x={y} y={x} width={1} height={w} fill={BUN_ROW_COLOR} />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M12 5H5v14h14v-7" />
+      <path d="M15 4l5 5-8 8H8v-4z" />
+    </Icon>
   )
 }
 
-const TOPPING_ROWS = BURGER_ROWS.filter((row) => row.y === 2 || row.y === 3)
-
-export function PixelToppingSlice({ className }: { className?: string }) {
+/** History: a clock reading four o'clock, which is legible where 12:00 isn't. */
+export function HistoryIcon({ size = 18, className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 2 10" shapeRendering="crispEdges" aria-hidden="true">
-      {TOPPING_ROWS.map(({ y, x, w, fill }) => (
-        <rect key={y} x={y - 2} y={x} width={1} height={w} fill={fill} />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7v5l4 2" />
+    </Icon>
   )
 }
 
-const EXIT_CELLS = [
-  [0, 0],
-  [1, 0],
-  [0, 1],
-  [0, 2],
-  [0, 3],
-  [0, 4],
-  [0, 5],
-  [0, 6],
-  [1, 6],
-  [2, 3],
-  [3, 3],
-  [4, 3],
-  [4, 2],
-  [4, 4],
-  [5, 3],
-] as const
-
-export function PixelExit({ size = 18 }: { size?: number }) {
+/** Good response. */
+export function CheckIcon({ size = 16, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {EXIT_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M5 13l4 4 10-10" />
+    </Icon>
   )
 }
 
-const COMPOSE_CELLS = [
-  // square outline, open at top-right where the badge takes over
-  [1, 4],
-  [2, 4],
-  [3, 4],
-  [4, 4],
-  [5, 4],
-  [0, 5],
-  [0, 6],
-  [0, 7],
-  [0, 8],
-  [0, 9],
-  [1, 10],
-  [2, 10],
-  [3, 10],
-  [4, 10],
-  [5, 10],
-  [6, 10],
-  [7, 6],
-  [7, 7],
-  [7, 8],
-  [7, 9],
-  // plus-in-circle badge breaking the top-right corner
-  [6, 0],
-  [7, 0],
-  [8, 0],
-  [5, 1],
-  [9, 1],
-  [4, 2],
-  [10, 2],
-  [4, 3],
-  [10, 3],
-  [10, 4],
-  [5, 5],
-  [9, 5],
-  [6, 6],
-  [7, 2],
-  [6, 3],
-  [7, 3],
-  [8, 3],
-  [7, 4],
-] as const
-
-export function PixelCompose({ size = 22 }: { size?: number }) {
+/** Bad response, or close. */
+export function CloseIcon({ size = 16, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 11 11" shapeRendering="crispEdges" aria-hidden="true">
-      {COMPOSE_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </Icon>
   )
 }
 
-const HISTORY_CELLS = [
-  [2, 0],
-  [3, 0],
-  [4, 0],
-  [1, 1],
-  [5, 1],
-  [0, 2],
-  [6, 2],
-  [0, 3],
-  [6, 3],
-  [0, 4],
-  [6, 4],
-  [1, 5],
-  [5, 5],
-  [2, 6],
-  [3, 6],
-  [4, 6],
-  [3, 1],
-  [3, 2],
-  [3, 3],
-  [4, 3],
-] as const
-
-export function PixelHistory({ size = 18 }: { size?: number }) {
+/** Knowledge Categories: sources, and what they connect to. */
+export function NetworkIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {HISTORY_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <circle cx="12" cy="5" r="2.5" />
+      <circle cx="5" cy="18" r="2.5" />
+      <circle cx="19" cy="18" r="2.5" />
+      <path d="M10 7L7 16" />
+      <path d="M14 7l3 9" />
+      <path d="M8 18h8" />
+    </Icon>
   )
 }
 
-const CHECK_CELLS = [
-  [0, 3],
-  [1, 4],
-  [1, 5],
-  [2, 6],
-  [3, 5],
-  [3, 4],
-  [4, 3],
-  [5, 2],
-  [5, 1],
-  [6, 0],
-] as const
-
-export function PixelCheck({ size = 14 }: { size?: number }) {
+/** New observation. */
+export function PlusIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {CHECK_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#fff" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
   )
 }
 
-const X_CELLS = [
-  [0, 0],
-  [1, 1],
-  [2, 2],
-  [3, 3],
-  [4, 4],
-  [5, 5],
-  [6, 6],
-  [6, 0],
-  [5, 1],
-  [4, 2],
-  [2, 4],
-  [1, 5],
-  [0, 6],
-] as const
-
-export function PixelX({ size = 14 }: { size?: number }) {
+/** Your vineyard data: rows in a block, read from above. */
+export function GridIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {X_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#fff" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <rect x="4" y="4" width="16" height="16" />
+      <path d="M9 4v16" />
+      <path d="M15 4v16" />
+    </Icon>
   )
 }
 
-// Three connected nodes -- the menu icon for the Knowledge Categories
-// screen, docs/decisions/0019 -- reading as "connections" rather than a
-// literal book. Two earlier book designs (a closed spine+cover, then an
-// open-book wedge) both stopped reading clearly at actual button size.
-// Deliberately not an X-crossing or checkmark shape, since those already
-// mean "negative"/"positive" feedback elsewhere in this icon set --
-// three nodes branching from one point avoids that collision while still
-// reading as "linked together" at 18px.
-const NETWORK_CELLS = [
-  [3, 0],
-  [4, 0],
-  [5, 0],
-  [3, 1],
-  [4, 1],
-  [5, 1],
-  [3, 2],
-  [4, 2],
-  [5, 2],
-  [4, 3],
-  [3, 4],
-  [4, 4],
-  [5, 4],
-  [2, 5],
-  [6, 5],
-  [0, 6],
-  [1, 6],
-  [2, 6],
-  [6, 6],
-  [7, 6],
-  [8, 6],
-  [0, 7],
-  [1, 7],
-  [2, 7],
-  [6, 7],
-  [7, 7],
-  [8, 7],
-  [0, 8],
-  [1, 8],
-  [2, 8],
-  [6, 8],
-  [7, 8],
-  [8, 8],
-] as const
-
-export function PixelNetwork({ size = 18 }: { size?: number }) {
+/** Possible observations: the review queue. */
+export function SearchIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 9 9" shapeRendering="crispEdges" aria-hidden="true">
-      {NETWORK_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <circle cx="11" cy="11" r="6" />
+      <path d="M16 16l4 4" />
+    </Icon>
   )
 }
 
-const PLUS_CELLS = [
-  [3, 0],
-  [3, 1],
-  [3, 2],
-  [0, 3],
-  [1, 3],
-  [2, 3],
-  [3, 3],
-  [4, 3],
-  [5, 3],
-  [6, 3],
-  [3, 4],
-  [3, 5],
-  [3, 6],
-] as const
-
-// The sprout menu's "new observation" button -- a plain plus, same thin
-// single-cell-wide-line treatment as PixelCheck/PixelX rather than a
-// pin/waypoint glyph, which didn't read clearly at this grid size.
-export function PixelPlus({ size = 20 }: { size?: number }) {
+/**
+ * Attach a photo. Distinct from PictureIcon on purpose: one of these
+ * takes a picture and the other opens the ones already saved, and the
+ * old set used a single icon for both -- the same symbol in the compose
+ * bar and in the features menu, meaning two different things.
+ */
+export function CameraIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {PLUS_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <path d="M3 8h4l2-3h6l2 3h4v11H3z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </Icon>
   )
 }
 
-const GRID_CELLS = [
-  [0, 1],
-  [3, 1],
-  [6, 1],
-  [0, 3],
-  [3, 3],
-  [6, 3],
-  [0, 5],
-  [3, 5],
-  [6, 5],
-] as const
-
-// The sprout menu's "your vineyard data" button -- rows of dots reading as
-// planted positions in a row, distinct from PixelNetwork's Knowledge
-// Categories (external reference sources) -- this is the producer's own
-// internal parcel/plot/row/planting data.
-export function PixelGrid({ size = 20 }: { size?: number }) {
+/** Shared artifacts: a picture that has been saved. */
+export function PictureIcon({ size = 20, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {GRID_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
-  )
-}
-
-const MAGNIFIER_CELLS = [
-  [1, 0],
-  [2, 0],
-  [3, 0],
-  [0, 1],
-  [4, 1],
-  [0, 2],
-  [4, 2],
-  [0, 3],
-  [4, 3],
-  [1, 4],
-  [2, 4],
-  [3, 4],
-  [5, 5],
-  [6, 6],
-] as const
-
-// The sprout menu's "possible observations" button -- a plain magnifying
-// glass, for the review queue surfaced by scan-conversations-for-
-// observations. Distinct from every other sprout-menu icon (PixelPlus,
-// PixelGrid): this isn't the producer's own data, it's something the app
-// found and is asking them to confirm.
-export function PixelMagnifier({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {MAGNIFIER_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
-  )
-}
-
-const PICTURE_CELLS = [
-  [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0],
-  [0, 1], [6, 1],
-  [0, 2], [6, 2],
-  [4, 2],
-  [0, 3], [6, 3],
-  [2, 3],
-  [0, 4], [6, 4],
-  [1, 4], [2, 4], [3, 4],
-  [0, 5], [6, 5],
-  [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
-] as const
-
-// The sprout menu's "shared artifacts" button -- a plain framed picture
-// (a sun and a mountain), the universal image-placeholder glyph. Distinct
-// from PixelGrid (the producer's own structured data): this is graphics
-// the chat drew and the producer chose to keep/share (0027).
-export function PixelPicture({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">
-      {PICTURE_CELLS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
-      ))}
-    </svg>
+    <Icon size={size} className={className}>
+      <rect x="4" y="5" width="16" height="14" />
+      <path d="M4 16l4-4 4 4 3-3 5 5" />
+      <path d="M9 9.5h.01" strokeWidth={2.5} />
+    </Icon>
   )
 }

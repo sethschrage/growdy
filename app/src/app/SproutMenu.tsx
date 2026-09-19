@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  PixelGrid,
-  PixelHistory,
-  PixelMagnifier,
-  PixelPicture,
-  PixelPlus,
-  PixelSprout,
-} from '@/ui/icons'
+import { GridIcon, HistoryIcon, PictureIcon, PlusIcon, SearchIcon } from '@/ui/icons'
+import { PixelSprout } from '@/ui/pixelArt'
 
 // Tapping the sprout opens a floating menu of features that stand on
 // their own outside chat -- see docs/decisions and App's own comment on
@@ -64,7 +58,7 @@ export function SproutMenu({
               setOpen(false)
             }}
           >
-            <PixelPlus size={20} />
+            <PlusIcon size={20} />
           </button>
           <button
             type="button"
@@ -75,7 +69,7 @@ export function SproutMenu({
               setOpen(false)
             }}
           >
-            <PixelHistory size={18} />
+            <HistoryIcon size={18} />
           </button>
           <button
             type="button"
@@ -86,7 +80,7 @@ export function SproutMenu({
               setOpen(false)
             }}
           >
-            <PixelGrid size={20} />
+            <GridIcon size={20} />
           </button>
           <button
             type="button"
@@ -97,7 +91,7 @@ export function SproutMenu({
               setOpen(false)
             }}
           >
-            <PixelMagnifier size={20} />
+            <SearchIcon size={20} />
           </button>
           <button
             type="button"
@@ -108,7 +102,7 @@ export function SproutMenu({
               setOpen(false)
             }}
           >
-            <PixelPicture size={20} />
+            <PictureIcon size={20} />
           </button>
         </div>
       )}

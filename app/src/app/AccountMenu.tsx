@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  PixelBunSlice,
-  PixelBurger,
-  PixelCompose,
-  PixelExit,
-  PixelHistory,
-  PixelNetwork,
-  PixelToppingSlice,
-} from '@/ui/icons'
+import { ComposeIcon, ExitIcon, HistoryIcon, NetworkIcon } from '@/ui/icons'
+import { PixelBunSlice, PixelBurger, PixelToppingSlice } from '@/ui/pixelArt'
 
 export function AccountMenu({
   email,
@@ -72,7 +65,7 @@ export function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelCompose size={22} />
+            <ComposeIcon size={22} />
           </button>
           <PixelToppingSlice className="menu-topping" />
           <button
@@ -84,7 +77,7 @@ export function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelHistory size={18} />
+            <HistoryIcon size={18} />
           </button>
           <PixelToppingSlice className="menu-topping" />
           <button
@@ -96,7 +89,7 @@ export function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelNetwork size={18} />
+            <NetworkIcon size={18} />
           </button>
           <PixelToppingSlice className="menu-topping" />
           <button
@@ -108,7 +101,7 @@ export function AccountMenu({
               setOpen(false)
             }}
           >
-            <PixelExit size={18} />
+            <ExitIcon size={18} />
           </button>
         </div>
       )}

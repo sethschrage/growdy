@@ -11,7 +11,8 @@ import {
 } from '@/lib/photo'
 import { sendChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
-import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from '@/ui/icons'
+import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
+import { PixelCloud, PixelSproutGrowth } from '@/ui/pixelArt'
 import { MessageContent } from '@/features/chat/MessageContent'
 import { useConversationLog } from '@/features/chat/useConversationLog'
 import type { ChatMessage } from '@/features/chat/types'
@@ -359,7 +360,7 @@ export function Chat({
                     aria-pressed={m.feedback === 'up'}
                     onClick={() => setFeedback(i, 'up')}
                   >
-                    <PixelCheck size={18} />
+                    <CheckIcon size={18} />
                   </button>
                   <button
                     type="button"
@@ -368,7 +369,7 @@ export function Chat({
                     aria-pressed={m.feedback === 'down'}
                     onClick={() => setFeedback(i, 'down')}
                   >
-                    <PixelX size={18} />
+                    <CloseIcon size={18} />
                   </button>
                 </div>
               )}
@@ -395,10 +396,10 @@ export function Chat({
       {photoMenuOpen && canUseNativeCamera && (
         <div className="chat-photo-menu">
           <button type="button" onClick={() => attachPhoto('camera')}>
-            <PixelPicture size={18} /> Take a photo
+            <CameraIcon size={18} /> Take a photo
           </button>
           <button type="button" onClick={() => attachPhoto('library')}>
-            <PixelGrid size={18} /> Choose from library
+            <PictureIcon size={18} /> Choose from library
           </button>
         </div>
       )}
@@ -422,7 +423,7 @@ export function Chat({
             )}
           </span>
           <button type="button" onClick={removePendingPhoto} aria-label="Remove photo">
-            <PixelX size={14} />
+            <CloseIcon size={14} />
           </button>
         </div>
       )}
@@ -440,7 +441,7 @@ export function Chat({
           aria-label="Attach a photo"
           aria-expanded={canUseNativeCamera ? photoMenuOpen : undefined}
         >
-          <PixelPicture size={18} />
+          <CameraIcon size={18} />
         </button>
         <input
           value={input}
@@ -454,7 +455,7 @@ export function Chat({
           disabled={sending || attaching || (!input.trim() && !pendingPhoto)}
           aria-label="Send"
         >
-          <PixelArrow size={18} />
+          <ArrowIcon size={18} />
         </button>
       </form>
       </div>

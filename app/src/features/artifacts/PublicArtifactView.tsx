@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchPublicArtifact, type PublicArtifact } from '@/data/artifacts'
-import { PixelSprout } from '@/ui/icons'
+import { PixelSprout } from '@/ui/pixelArt'
 import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 // The one page in this app a signed-out visitor can reach (see

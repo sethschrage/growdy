@@ -4,8 +4,51 @@
   box-sizing: border-box;
 }
 
+/* The two typefaces, and which is which.
+ *
+ * Everything readable is set in the system font -- the one the chat's
+ * own replies have always used, and the only text in the app nobody had
+ * to squint at. Pixelify Sans was the default for every label, date,
+ * variety name and button in the app, which is a lot of squinting for a
+ * decorative face. It keeps the wordmark, where it is a signature
+ * rather than something anyone has to read.
+ *
+ * The retro is carried by the palette, the chunky press on a button and
+ * the wooden chrome -- not by making a date hard to read. */
 :root {
   color-scheme: light;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Pixelify Sans', system-ui, sans-serif;
+
+  /* One type scale, so a new screen picks a step rather than a number.
+     The old app used 11, 12, 13, 14, 16 and 32 with no rule behind
+     which. */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+
+  /* Line weights. Everything was 2-3px, which reads as heavy at phone
+     size and collided the moment a focus ring landed next to a border.
+     --line is the default edge; --line-strong is for something that has
+     to hold its own against a photograph or the sky. */
+  --line: 1.5px;
+  --line-strong: 2px;
+
+  /* Radii and spacing, in steps. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* How far a button sinks when pressed. The tactile press is worth
+     keeping; 4px of it was a novelty toy next to real UI. */
+  --press: 2px;
   --wood: #8b5a2b;
   --wood-dark: #5c3a1a;
   --parchment: #fbe8c0;
@@ -18,7 +61,7 @@
   --cream: #fff8ea;
   --soil: #3d2b1a;
   --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
-  font: 16px/1.5 'Pixelify Sans', system-ui, sans-serif;
+  font: 16px/1.5 var(--font-ui);
 }
 
 html,
