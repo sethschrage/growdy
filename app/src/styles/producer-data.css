@@ -1,13 +1,14 @@
 /* Your Vineyard Data: the parcel/plot/row/planting tree and the planting detail sheet. */
 
 /* "Your Vineyard Data" (ProducerDataView, ProducerDataTree,
-   PlantingDetail, ObservationLogView) deliberately breaks from the rest of
-   the app's pixel-art chrome -- plain system-ui type, a dense neutral
-   palette defined as custom properties scoped to .pdv-overlay rather
-   than reusing the farm-theme :root vars. Same reasoning
-   .chat-message-assistant already used for a plain, legible font over
-   the pixel one: a real data-browsing tool reads better dense and
-   modern than playful. */
+   PlantingDetail, ObservationLogView) still breaks from the rest of the
+   app, though less than it used to: the type argument it was built on
+   -- a data-browsing tool reads better in a plain, legible face than in
+   the pixel one -- is now the whole app's default, so what remains is
+   the palette. It defines its own dense neutral colours scoped to
+   .pdv-overlay instead of the farm-theme :root vars, which reads as a
+   different app rather than a different screen. Both this and the
+   observation log are slated for a rebuild on the shared tokens. */
 .pdv-overlay {
   position: fixed;
   inset: 0;
@@ -17,7 +18,6 @@
   padding-top: env(safe-area-inset-top);
   background: #f4f6f8;
   color: #1c2430;
-  font-family: system-ui, -apple-system, sans-serif;
   --pdv-border: #d7dce2;
   --pdv-accent: #2563eb;
   --pdv-green: #22a55e;
@@ -255,7 +255,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: system-ui, -apple-system, sans-serif;
   --pdv-border: #d7dce2;
   --pdv-muted: #6b7684;
 }

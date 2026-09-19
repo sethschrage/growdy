@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isNativePlatform, signInWithGoogleNative } from '@/lib/nativeAuth'
 import { supabase } from '@/lib/supabaseClient'
-import { PixelCloud, PixelSprout } from '@/ui/icons'
+import { PixelCloud, PixelSprout } from '@/ui/pixelArt'
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null)

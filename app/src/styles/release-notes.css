@@ -49,8 +49,7 @@
 }
 
 .release-notes-body {
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 

@@ -10,37 +10,41 @@ label,
 .observation-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
 }
 
 input {
   font: inherit;
-  padding: 10px 12px;
-  border: 2px solid var(--wood);
-  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--line) solid var(--wood);
+  border-radius: var(--radius-sm);
   background: var(--cream);
   color: var(--ink);
 }
 
-input:focus {
-  outline: 3px solid var(--leaf);
-  outline-offset: 1px;
+/* A ring drawn inside the field rather than an outline drawn outside
+   it. The old 3px outline with a 1px offset sat on top of whatever the
+   field was nested in -- inside the compose bar it collided with the
+   bar's own border, which is the "lines crash when selected" this was
+   reported as. An inset shadow cannot collide with anything, and
+   costs no layout. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--leaf);
+  box-shadow: inset 0 0 0 var(--line) var(--leaf);
 }
 
 textarea {
   font: inherit;
-  padding: 10px 12px;
-  border: 2px solid var(--wood);
-  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--line) solid var(--wood);
+  border-radius: var(--radius-sm);
   background: var(--cream);
   color: var(--ink);
   resize: vertical;
-}
-
-textarea:focus {
-  outline: 3px solid var(--leaf);
-  outline-offset: 1px;
 }
 
 /* iOS zooms the whole page when a field takes focus at under 16px, and
@@ -63,17 +67,18 @@ textarea:focus {
 
 button {
   font: inherit;
-  font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: 600;
   cursor: pointer;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 3px solid var(--leaf-dark);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--line-strong) solid var(--leaf-dark);
   background: var(--leaf);
   color: var(--cream);
-  box-shadow: 0 4px 0 var(--leaf-dark);
+  box-shadow: 0 var(--press) 0 var(--leaf-dark);
   transition:
-    transform 0.05s ease,
-    box-shadow 0.05s ease;
+    transform 0.06s ease,
+    box-shadow 0.06s ease;
 }
 
 button:hover {
@@ -81,7 +86,7 @@ button:hover {
 }
 
 button:active {
-  transform: translateY(4px);
+  transform: translateY(var(--press));
   box-shadow: 0 0 0 var(--leaf-dark);
 }
 
@@ -102,9 +107,9 @@ button:disabled {
 
 select {
   font: inherit;
-  padding: 10px 12px;
-  border: 2px solid var(--wood);
-  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--line) solid var(--wood);
+  border-radius: var(--radius-sm);
   background: var(--cream);
   color: var(--ink);
 }

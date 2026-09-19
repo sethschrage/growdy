@@ -59,7 +59,7 @@
 }
 
 .login-screen h1 {
-  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 42px;
   margin: 0;
@@ -78,7 +78,7 @@
   align-items: center;
   gap: 8px;
   padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
-  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   color: var(--wood-dark);
   border-bottom: 2px solid var(--wood);
@@ -113,6 +113,9 @@
   color: #3c4043;
   border: 1px solid #dadce0;
   border-radius: 4px;
+  /* Roboto, not the app's own font: Google's sign-in branding
+     guidelines specify it, and this is the one control in the app that
+     belongs to somebody else's design system. */
   font-family: Roboto, system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;

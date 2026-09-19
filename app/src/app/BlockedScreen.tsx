@@ -1,5 +1,5 @@
 import type { AppBlock } from '@/app/useAppStatus'
-import { PixelSprout } from '@/ui/icons'
+import { PixelSprout } from '@/ui/pixelArt'
 
 export function BlockedScreen({ block }: { block: NonNullable<AppBlock> }) {
   return (
