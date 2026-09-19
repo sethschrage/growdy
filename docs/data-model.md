@@ -63,11 +63,13 @@ erDiagram
     }
     OBSERVATIONS {
         uuid id PK
-        uuid planting_id FK "nullable"
+        uuid planting_id FK "nullable -- what the note is about"
         uuid producer_id FK
         date observed_date "nullable"
         text note
-        text photo_metadata "nullable"
+        text photo_metadata "nullable -- storage path, named before it held one"
+        geography photo_location "nullable -- where the camera was, see docs/decisions/0030"
+        real photo_location_accuracy_m "nullable"
         uuid conversation_id FK "nullable"
     }
     CONVERSATIONS {
@@ -80,10 +82,18 @@ erDiagram
     }
     OBSERVATION_CANDIDATES {
         uuid id PK
-        uuid conversation_id FK
+        uuid conversation_id FK "nullable -- a typed note has no conversation"
         uuid producer_id FK
         text summary
+        text note "nullable"
+        date observed_date "nullable"
+        uuid planting_id FK "nullable"
+        text photo_path "nullable -- observation-photos bucket"
+        geography photo_location "nullable -- where the camera was"
+        real photo_location_accuracy_m "nullable"
+        text source "chat_scan, photo, producer, or chat_tool"
         text status "pending, confirmed, or dismissed"
+        timestamptz reviewed_at "nullable"
     }
     DATA_PROVIDERS {
         uuid id PK
@@ -234,7 +244,7 @@ erDiagram
   `UPDATE` grant or policy, so a chat-logged note would have sat pending
   forever. An observation now counts as data the moment it is written,
   and a producer deletes what they don't want from the observation log
-  (`app/src/ObservationLogView.tsx`). That is safe because `audit_log`
+  (`app/src/features/observations/ObservationLogView.tsx`). That is safe because `audit_log`
   keeps the whole deleted row (see `audit_row_change()` below), so the
   correction is reversible in a way "never approved" never was. Review
   is back in front of that, though not on this table --
@@ -242,7 +252,7 @@ erDiagram
   `observation_candidates` the only way in, so deletion is the
   correction *after* approval rather than instead of it. All four paths
   that used to insert directly now file a candidate instead: the
-  structured form (`app/src/ObservationForm.tsx`), the "Log this
+  structured form (`app/src/features/observations/ObservationForm.tsx`), the "Log this
   observation" button a chat reply can offer, 0022's write tool, and the
   6-hourly scanner. `authenticated` no longer holds an `INSERT` grant at
   all; the only remaining writer is `confirm_observation_candidate`,
@@ -279,13 +289,14 @@ erDiagram
   under a parcel therefore resolves through `parcels.producer_id` alone,
   which is the plain tenancy rule
   [0001](decisions/0001-tenancy-membership-model.md) started with.
-- **`observation_candidates` is becoming the only submission path** --
+- **`observation_candidates` is the only submission path** --
   it began as a review queue for one source: a scheduled job reads
   conversations with `scanned_at` null or stale against `updated_at`,
   asks Claude whether each describes a real field observation, and
   inserts a candidate on a positive match.
-  [0030](decisions/0030-every-observation-through-one-queue.md) widens it
-  to every source. `conversation_id` is nullable (a typed note has no
+  [0030](decisions/0030-every-observation-through-one-queue.md) widened it
+  to every source, and closed it: `authenticated` holds no `INSERT`
+  grant on `observations` any more. `conversation_id` is nullable (a typed note has no
   conversation behind it), `note`, `observed_date`, `planting_id` and
   `photo_path` sit alongside `summary` so confirming builds a whole
   observation rather than copying a one-line summary, and `source`
@@ -294,6 +305,20 @@ erDiagram
   deserves at review. Its `status` column is unrelated to the one
   `observations` used to have and survives 0028 -- the difference 0028
   cared about is that this queue has a real actor who can reach it.
+- **A photo is a path, not a column.** The bytes live in the private
+  `observation-photos` bucket; `observation_candidates.photo_path` and
+  `observations.photo_metadata` hold `<producer_id>/<uuid>.jpg` into it.
+  `photo_metadata` is named for what [`0009`](decisions/0009-chat-based-observation-submission.md)
+  reserved rather than what it now holds. Tenancy is the path itself:
+  `storage.objects` has no producer column, so its RLS policies read the
+  first segment through `private.storage_object_producer()`. Nothing is
+  public -- every read mints a short signed URL.
+- **`photo_location` is where the camera was; `planting_id` is what the
+  photo is about.** They are separate on purpose. Most photos never get
+  a planting attached -- weed pressure across a block, standing water,
+  something odd at the fence line -- and for those the point is the only
+  spatial fact that will ever exist. A `geography(Point, 4326)`, so it
+  can be asked spatial questions when there is a map to ask them on.
 - **`confirm_observation_candidate()` is how a candidate becomes an
   observation**, replacing two client statements that inserted the
   observation and then marked the candidate with nothing holding them
@@ -326,6 +351,194 @@ erDiagram
   private/unshared state modeled yet.
 
 ## History
+
+### 2026-09-19 -- before the queue widened and photos arrived ([0030](decisions/0030-every-observation-through-one-queue.md))
+
+`observation_candidates` held five columns, because it only ever
+described one thing: a summary a scheduled job had guessed at. `0030`
+made it the single door into `observations`, so it now has to carry a
+whole observation -- the note, the date, the planting, the photo -- and
+say which path proposed it. Both tables also gained a `photo_location`,
+which is where the camera was, a different fact from what the photo is
+about.
+
+```mermaid
+erDiagram
+    PRODUCERS {
+        uuid id PK
+        text name
+    }
+    PROFILES {
+        uuid id PK "also FK -> auth.users, Supabase-managed"
+        uuid producer_id FK
+    }
+    PARCELS {
+        uuid id PK
+        uuid producer_id FK
+        text name
+    }
+    PLOTS {
+        uuid id PK
+        uuid parcel_id FK
+        uuid producer_id FK
+        text name
+    }
+    PLOT_ROWS {
+        uuid id PK
+        uuid plot_id FK
+        uuid producer_id FK
+        int number
+        numeric length_meters "nullable"
+        numeric spacing_meters "nullable"
+        int end_post_count "nullable"
+    }
+    PLANTING {
+        uuid id PK
+        uuid producer_id FK
+        uuid parcel_id FK
+        uuid plot_id FK "nullable"
+        uuid plot_row_id FK "nullable"
+        int position "nullable"
+        geography location "nullable"
+        uuid variety_id FK "nullable"
+        uuid scion_variety_id FK "nullable"
+        uuid rootstock_variety_id FK "nullable"
+        text nickname "nullable"
+        text category "nullable"
+        date planted_date "nullable"
+        date dead_date "nullable"
+        date removed_date "nullable"
+        text removed_reason "nullable"
+    }
+    PLANT_TYPES {
+        uuid id PK
+        uuid proposed_by_producer_id FK "nullable"
+        text name
+        text kind
+        text status
+        text common_name "nullable"
+    }
+    OBSERVATIONS {
+        uuid id PK
+        uuid planting_id FK "nullable"
+        uuid producer_id FK
+        date observed_date "nullable"
+        text note
+        text photo_metadata "nullable"
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
+        timestamptz scanned_at "nullable -- see docs/decisions/0025 follow-up work"
+        timestamptz embedded_at "nullable -- see docs/decisions/0023"
+    }
+    OBSERVATION_CANDIDATES {
+        uuid id PK
+        uuid conversation_id FK
+        uuid producer_id FK
+        text summary
+        text status "pending, confirmed, or dismissed"
+    }
+    DATA_PROVIDERS {
+        uuid id PK
+        text category
+        text name
+        boolean enabled
+        text context "nullable"
+    }
+    DATA_SOURCES {
+        uuid id PK
+        uuid provider_id FK
+        uuid producer_id FK
+        text name
+        text external_id
+        uuid vault_secret_id "nullable -- no credential needed, e.g. Device/USA-NPN"
+        boolean enabled
+        text context "nullable"
+        jsonb config "nullable -- e.g. Device's last-known lat/long"
+        text backfill_status "nullable"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
+        timestamptz last_synced_at "nullable"
+        text last_error "nullable"
+        text last_warning "nullable"
+    }
+    WEATHER_OBSERVATIONS {
+        uuid id PK
+        uuid source_id FK
+        uuid producer_id FK
+        timestamptz observed_at
+        numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
+    }
+    ARTIFACTS {
+        uuid id PK "also the public link -- see docs/decisions/0027"
+        uuid producer_id FK
+        uuid conversation_id FK "nullable"
+        text title "nullable"
+        text content "raw svg, sanitized at render time"
+    }
+    PRODUCER_MEMORY {
+        uuid id PK
+        uuid producer_id FK
+        text content
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+        text source "manual or model-suggested"
+    }
+    CONVERSATION_EMBEDDINGS {
+        uuid id PK
+        uuid conversation_id FK
+        uuid producer_id FK
+        text chunk_text
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+    }
+    PENDING_WRITES {
+        uuid id PK
+        uuid producer_id FK
+        text query
+        jsonb summary "nullable"
+        text status "pending, applied, or declined -- see docs/decisions/0022"
+    }
+    AUDIT_LOG {
+        uuid id PK
+        uuid producer_id FK
+        text table_name
+        uuid row_id
+        text operation "INSERT, UPDATE, or DELETE"
+        jsonb old_data "nullable"
+        jsonb new_data "nullable"
+        uuid pending_write_id FK "nullable"
+        timestamptz reverted_at "nullable -- see docs/decisions/0022"
+    }
+
+    PRODUCERS ||--o{ PROFILES : "has members"
+    PRODUCERS ||--o{ PARCELS : owns
+    PRODUCERS ||--o{ OBSERVATION_CANDIDATES : "reviews"
+    CONVERSATIONS ||--o{ OBSERVATION_CANDIDATES : "scanned into"
+    PRODUCERS ||--o{ ARTIFACTS : "shares"
+    CONVERSATIONS |o--o{ ARTIFACTS : "generated (optional)"
+    PARCELS ||--o{ PLOTS : "divided into"
+    PLOTS ||--o{ PLOT_ROWS : contains
+    PARCELS ||--o{ PLANTING : "located in"
+    PLOTS |o--o{ PLANTING : "organizes (optional)"
+    PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
+    PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+    DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
+    DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
+    PRODUCERS ||--o{ PRODUCER_MEMORY : "remembers (0023)"
+    CONVERSATIONS ||--o{ CONVERSATION_EMBEDDINGS : "chunked into (0023)"
+    PRODUCERS ||--o{ PENDING_WRITES : "proposes (0022)"
+    PRODUCERS ||--o{ AUDIT_LOG : "has writes logged (0022)"
+    PENDING_WRITES |o--o{ AUDIT_LOG : "committed as (optional)"
+```
 
 ### 2026-09-18 -- before the UAT removals ([0028](decisions/0028-what-uat-removed.md))
 

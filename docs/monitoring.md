@@ -34,7 +34,7 @@ nothing left to watch here, which is the point.
 
 | Table | Column | Values | Who resolves it, how |
 |---|---|---|---|
-| `observation_candidates` | `status` | `pending` (default) / `confirmed` / `dismissed` | The producer, in-app, via the review queue populated by the 6-hourly `scan-conversations-for-observations` job ([`20260916200228_observation_candidates.sql`](../supabase/migrations/20260916200228_observation_candidates.sql)). |
+| `observation_candidates` | `status` | `pending` (default) / `confirmed` / `dismissed` | The producer, in-app. **Now fed by every path, not just the 6-hourly `scan-conversations-for-observations` job** -- a typed note, a photo, the chat's write tool and the scanner all file candidates, and nothing reaches `observations` any other way ([0030](decisions/0030-every-observation-through-one-queue.md)). The cost of an unworked queue went up accordingly: it used to mean a missed suggestion, and now means a field note the producer believes they filed. |
 | `plant_types` | `status` | `pending` (default) / `canonical` / `rejected` | **Nobody, via any UI either.** [`20260913003426_plant_types.sql:20-22`](../supabase/migrations/20260913003426_plant_types.sql) -- any producer typing a new variety/scion/rootstock name implicitly proposes one; a maintainer promotes it to `canonical` (visible to everyone) with a plain `UPDATE`, "no automated/self-service promotion exists yet." |
 | `pending_writes` | `status` | `pending` (default) / `applied` / `declined` | The producer, in the same chat session, by clicking confirm/decline on a chat-drafted write ([`20260916173224_write_tool_audit_and_rollback.sql:17-24`](../supabase/migrations/20260916173224_write_tool_audit_and_rollback.sql)). A row stuck `pending` well past a normal session length (minutes, not hours) means the confirm/decline path itself broke, not that a producer is still deciding. |
 
@@ -48,7 +48,7 @@ union all select 'pending_writes stuck', count(*) from public.pending_writes whe
 
 ## 2. Chat feedback -- not a table, a jsonb search
 
-The 👍/👎 buttons ([`app/src/Chat.tsx:106-153`](../app/src/Chat.tsx)) write
+The 👍/👎 buttons ([`app/src/features/chat/Chat.tsx:319-378`](../app/src/features/chat/Chat.tsx)) write
 `feedback: 'up' | 'down'` onto a message object inside
 `conversations.transcript` (jsonb array) -- there is no `chat_feedback`
 table. Finding a bad rating means querying into the blob:
@@ -61,7 +61,7 @@ order by c.updated_at desc;
 ```
 
 `conversations.updated_at` is client-set on every transcript write
-([`app/src/useConversationLog.ts:52-55`](../app/src/useConversationLog.ts)),
+([`app/src/data/conversations.ts:48-57`](../app/src/data/conversations.ts)),
 so it's safe to use for "has this conversation changed since I last
 checked."
 
@@ -150,7 +150,26 @@ table, never anything polled. Real call sites:
 | [`scan-conversations-for-observations/index.ts:130`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
 | [`scan-conversations-for-observations/index.ts:98`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
-| [`app/src/Chat.tsx:84`](../app/src/Chat.tsx) | `chat function invoke failed` | **No, and never can be** -- this is the browser's own console. A total network failure calling the Edge Function never reaches any server-side log at all. Known, accepted blind spot. |
+| [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
+
+**Two things about photos that fail by being absent** rather than by
+erroring, both worth knowing before trusting a map built on them:
+
+- **An abandoned photo stays in the bucket.** The upload happens when a
+  photo is attached, not when the message is sent, so a producer who
+  attaches and then backs out leaves an object behind unless they use
+  the remove button (which deletes it). Nothing sweeps them, and
+  nothing counts them. `select count(*) from storage.objects where
+  bucket_id = 'observation-photos'` against the number of rows holding a
+  path is the only check there is.
+- **A photo with no location looks exactly like a bug that drops it.**
+  This is not hypothetical: `nativeExif` looked for a flat `GPSLatitude`
+  that iOS never sends, and every photo uploaded without its position
+  for as long as the feature existed, silently, because a photo without
+  GPS is completely ordinary (#195). If GPS coverage matters, check it
+  as a rate -- `photo_location is not null` against photos attached --
+  rather than trusting that any individual missing point means the
+  camera had no fix.
 
 **Two extra traps specific to the pg_cron-scheduled jobs**, confirmed
 live against `growdybase` on 2026-09-17:

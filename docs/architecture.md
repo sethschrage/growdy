@@ -32,6 +32,7 @@ flowchart TD
     subgraph Supabase["Supabase project: growdybase"]
         Auth["Auth -- Google Sign-In<br/>web: OAuth redirect; iOS: native ID token"]
         DB["Postgres<br/>tables + views, RLS-scoped"]
+        Storage["Storage: observation-photos<br/>private bucket, tenancy on the object path"]
         Cron["pg_cron + pg_net<br/>1 hourly + 2 six-hourly schedules"]
         ChatFn["Edge Function: chat<br/>holds ANTHROPIC_GROWDY_KEY, VOYAGE_API_KEY"]
         AddWeatherFn["Edge Function: add-weather-source"]
@@ -52,6 +53,8 @@ flowchart TD
     App -->|sign in| Auth
     App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources, artifact share/delete"| DB
     PublicViewer -->|"get_public_artifact(id) -- the one anon-reachable RPC, see 0027"| DB
+    App <-->|"upload a photo on attach; read one back through a 5-minute signed URL"| Storage
+    ChatFn -->|"signed URL under the caller's own JWT, then the bytes"| Storage
     App -->|"user message"| ChatFn
     ChatFn -->|"composed reply"| App
     ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
@@ -156,11 +159,17 @@ flowchart TD
   session. Every actual *question* about vineyard data still goes through
   `chat`, which writes and runs its own SQL against Postgres rather than
   the client resolving a fixed set of query shapes.
-- **Supabase Storage isn't in this diagram.** It's listed in
-  `README.md`'s stack table as a future concern for photo attachments,
-  but no bucket exists yet and nothing in the app uses it --
-  deliberately deferred, see
-  [`docs/decisions/0009`](decisions/0009-chat-based-observation-submission.md).
+- **Storage holds photos, and the path is the tenancy check.**
+  `observation-photos` is private: nothing is readable by URL alone, and
+  every view mints a 5-minute signed URL first. `storage.objects` has no
+  producer column, so the RLS policies read the first path segment
+  (`<producer_id>/...`) through `private.storage_object_producer()` --
+  an upload that doesn't start with the caller's own producer is refused
+  by the database rather than by the client. The `chat` function reads
+  photos the same way, signing under the caller's forwarded JWT, so it
+  cannot see a photo the producer couldn't. Deferred since
+  [`0009`](decisions/0009-chat-based-observation-submission.md) and
+  built by [`0030`](decisions/0030-every-observation-through-one-queue.md).
 - **CI is independent of every deploy path.** `db-lint` runs against a
   disposable local Postgres on every PR that touches a migration; it
   never touches the live `growdybase` project either way.
@@ -180,6 +189,85 @@ flowchart TD
   for exactly where it runs and its one real fragility.
 
 ## History
+
+### 2026-09-19 -- before photos had somewhere to live ([0030](decisions/0030-every-observation-through-one-queue.md))
+
+Storage was not in this diagram because there was no bucket: the
+project had deferred photo attachment since `0009`. `0030` built it --
+a private `observation-photos` bucket, written by the client on attach
+and read by the `chat` function through a signed URL when it needs to
+look at a photo rather than a description of one. The client box also
+gains its internal shape here, now that every query goes through one
+layer ([0032](decisions/0032-client-organised-by-feature.md)).
+
+```mermaid
+flowchart TD
+    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
+    CI["db-lint CI<br/>fresh local Postgres per PR"]
+    Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
+    Browser["Producer's browser"]
+    iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
+    PublicViewer["Signed-out visitor<br/>with a shared link"]
+
+    GH -->|every PR touching migrations| CI
+    GH -->|"push to main: auto-deploy"| Vercel
+    Browser -->|loads| Vercel
+    GH -->|"cap sync + Xcode build, manual, unreleased"| iPhone
+    PublicViewer -->|"/a/:id, no sign-in"| Vercel
+
+    subgraph App["app/ -- React + Vite, no server of its own"]
+        Features["Features<br/>chat, observations, producer, artifacts"]
+        DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
+        Features --> DataLayer
+    end
+    Vercel --> App
+    iPhone -->|"runs a bundled copy of dist/ -- no Vercel at runtime"| App
+
+    subgraph Supabase["Supabase project: growdybase"]
+        Auth["Auth -- Google Sign-In<br/>web: OAuth redirect; iOS: native ID token"]
+        DB["Postgres<br/>tables + views, RLS-scoped"]
+        Cron["pg_cron + pg_net<br/>1 hourly + 2 six-hourly schedules"]
+        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_GROWDY_KEY, VOYAGE_API_KEY"]
+        AddWeatherFn["Edge Function: add-weather-source"]
+        IngestFn["Edge Function: ingest-weather"]
+        SyncFn["Edge Function: sync-scheduled-weather"]
+        ScanFn["Edge Function: scan-conversations-for-observations"]
+        EmbedFn["Edge Function: embed-scheduled-memory"]
+    end
+
+    GH -->|"migration files, applied manually after merge"| DB
+    GH -->|"function code, deployed manually after merge"| ChatFn
+    GH --> AddWeatherFn
+    GH --> IngestFn
+    GH --> SyncFn
+    GH --> ScanFn
+    GH --> EmbedFn
+
+    App -->|sign in| Auth
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources, artifact share/delete"| DB
+    PublicViewer -->|"get_public_artifact(id) -- the one anon-reachable RPC, see 0027"| DB
+    App -->|"user message"| ChatFn
+    ChatFn -->|"composed reply"| App
+    ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    ChatFn <-->|"messages + read-only SQL + write proposals + memory search + phenology + web access tools <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    ChatFn -->|"live grapevine phenology lookup"| USANPN["USA National Phenology<br/>Network API"]
+    ChatFn -->|"embed a search query"| Voyage["Voyage AI (via MongoDB)<br/>embeddings API"]
+    App -->|"add a Tempest source"| AddWeatherFn
+    AddWeatherFn <-->|"caller's forwarded JWT"| DB
+    AddWeatherFn -->|"resolve station ID -> device ID"| Tempest["Tempest Weather API"]
+    App -->|"manual sync"| IngestFn
+    IngestFn <-->|"caller's forwarded JWT"| DB
+    IngestFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, hourly"| SyncFn
+    SyncFn <-->|"service_role -- every enabled source at once"| DB
+    SyncFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, every 6h"| ScanFn
+    ScanFn <-->|"service_role -- every unscanned conversation"| DB
+    ScanFn -->|"classify transcript -> candidate observations"| Anthropic
+    Cron -->|"X-Cron-Secret, every 6h"| EmbedFn
+    EmbedFn <-->|"service_role -- every unembedded row"| DB
+    EmbedFn -->|"embed memory entries + conversation chunks"| Voyage
+```
 
 ### 2026-09-18 -- before the iOS shell ([0029](decisions/0029-ios-shell-and-native-sign-in.md))
 

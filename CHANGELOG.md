@@ -15,6 +15,153 @@ GitHub Release published alongside each entry here carries its own,
 separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
+## [0.14.0] - 2026-09-19
+
+The app learned to look at a photograph, and the record grew exactly one
+door into it. Those two are the same batch on purpose: a photo analysed
+by a model is the most confident-sounding and least verifiable thing
+this project has ever produced, and it arrived in the same week as a
+decision about what gets to become permanent.
+
+Photographing an observation is the first thing the iOS shell made
+worth building, and it works in the browser too. A producer attaches a
+photo in chat -- camera or library -- and the chat looks at it with
+their own vineyard in view: their plantings, their weather, what it
+remembers of earlier conversations
+([`0030`](docs/decisions/0030-every-observation-through-one-queue.md),
+[#176](https://github.com/sethschrage/growdy/pull/176)). That context is
+what makes the reading useful and also what makes it dangerous. A
+generic captioner says "a grapevine leaf"; this one says which block,
+which variety, and what it saw last week -- and if it is wrong, the
+wrong answer is the one that sounds informed. It can open a photo again
+later by its storage path, so "look at that one from Tuesday" is a real
+request rather than a description of a description.
+
+Which is why the review queue came back the day after `0.13.0` removed
+one. [`0028`](docs/decisions/0028-what-uat-removed.md) had just deleted
+the gate on `observations`, correctly: it had no gatekeeper, no `UPDATE`
+grant, and every row in production had been approved by its own
+backfill. `0030` does not re-add that column. It makes
+`observation_candidates` -- a queue that has existed since `0.11.0`,
+with a real screen a producer can reach -- the only way in, and then
+closes every other door: `authenticated` holds no `INSERT` grant on
+`observations` at all any more, and the one remaining writer is
+`confirm_observation_candidate()`, which runs after someone has looked
+at the row ([#183](https://github.com/sethschrage/growdy/pull/183)). The
+queue widened to carry a whole observation rather than a one-line
+summary, and gained a `source` column, because which path proposed a row
+is what decides how much scrutiny it deserves. Confirming is one
+transaction now, not two client statements with nothing holding them
+together -- the old arrangement could leave an observation whose
+candidate still read `pending`, and confirming again produced a
+duplicate.
+
+The honest part of that decision is in the ADR: the drift argument is
+strong for anything a model wrote and weak for a note a producer typed
+themselves, since they are the ground truth for their own vineyard.
+Their own notes go through the queue anyway, because a deliberate pass
+over what enters the permanent record was wanted for every source. That
+is a preference, recorded as one, rather than a safety claim that only
+fits half the cases.
+
+A photo carries more than pixels, and this batch kept the rest of it.
+The capture date is read out of the EXIF before the downscale destroys
+it, so an observation is dated the morning it was seen rather than the
+evening it was uploaded, and the full-resolution original is saved back
+to the producer's own photo library -- the phone stays the archive and
+this app only keeps a working copy
+([#184](https://github.com/sethschrage/growdy/pull/184)). Location is
+recorded twice, deliberately: where the camera was, and what the photo
+is about ([#185](https://github.com/sethschrage/growdy/pull/185)). Most
+photos never get a planting attached -- weed pressure across a block,
+standing water, something odd at the fence line -- and for those the
+point is the only spatial fact that will ever exist. The device position
+is read at send rather than at capture, and the compose bar says so,
+because that is what makes it worth walking to the vine before sending
+([#187](https://github.com/sethschrage/growdy/pull/187)).
+
+Everything above ran on a phone for the first time, which is where the
+rest of the batch came from. The compose bar reserved a hardcoded height
+that was twelve pixels short before a photo strip existed and badly
+wrong after
+([#179](https://github.com/sethschrage/growdy/pull/179),
+[#180](https://github.com/sethschrage/growdy/pull/180)); the header
+stopped a conversation from scrolling up under the Dynamic Island
+([#181](https://github.com/sethschrage/growdy/pull/181)); iOS zoomed
+into every form field under 16px and stranded the overlay it zoomed
+([#175](https://github.com/sethschrage/growdy/pull/175)). The scroll
+needed four attempts, and the last one is the interesting one: the
+first three were reasoned from the layout and two of them were wrong,
+so the fourth was measured instead. `scrollIntoView` aligns to the
+scrollport and ignores the container's own padding, so "show the start
+of the answer" was putting the first 64px of every long reply behind the
+floating header -- a number read off the page, not inferred from it. A
+short conversation had no scroll range at all, so a drag did nothing and
+read as frozen. And the auto-scroll knew where the view was but not
+whether a thumb was on it, which on iOS means a programmatic smooth
+scroll finishing over the top of someone's finger
+([#189](https://github.com/sethschrage/growdy/pull/189)).
+
+Then the floor. This project reached `0.13.0` in seven days with no
+tests and no CI touching the client at all -- `db-lint` ran on every PR
+and read the schema, so a PR changing only `app/` was auto-merged,
+unreviewed, on the strength of a check that had not looked at it. The
+cost was visible in one place: four goes at the same scroll bug. `0.14.0`
+adds Vitest, a CI job that typechecks, lints and tests every pull
+request, and rules about what gets tested that are written as
+obligations on specific kinds of code rather than as a coverage number
+([`0031`](docs/decisions/0031-what-this-project-tests.md),
+[#190](https://github.com/sethschrage/growdy/pull/190)). There are 114
+tests now, and each was checked against a deliberately broken
+implementation rather than assumed to be load-bearing.
+
+The client was also reshaped for the map that comes next
+([`0032`](docs/decisions/0032-client-organised-by-feature.md)): thirty
+flat files became feature folders over a shared data layer
+([#191](https://github.com/sethschrage/growdy/pull/191),
+[#192](https://github.com/sethschrage/growdy/pull/192)), and one
+2,258-line stylesheet became thirteen files along the seams it already
+had ([#193](https://github.com/sethschrage/growdy/pull/193) -- the built
+CSS is byte-identical, which is the only way to claim a move changed
+nothing). The data layer is typed against the real schema rather than
+against hand-written row types that agreed with it only as long as
+someone remembered. The producer lookup, which decides tenancy for every
+insert this client makes, existed in eight copies with two different
+opinions about what a missing profile meant. It exists once now.
+
+The floor paid for itself inside a day, which is the part worth
+recording. Photos had never carried their location -- not once, in any
+photo this app has taken. The reader looked for a flat `GPSLatitude`;
+iOS nests it, because `@capacitor/camera` assigns the CoreGraphics GPS
+dictionary wholesale, so the lookup silently found nothing and every
+upload arrived with a date and no position
+([#195](https://github.com/sethschrage/growdy/pull/195)). Nothing ever
+complained, because a photo without GPS is completely ordinary -- which
+is exactly why a bug that manufactures one is invisible. It was found by
+going to verify a backlog item rather than by anything failing. Two
+other things surfaced the same way: every link shared from inside the
+iOS shell pointed at `capacitor://localhost` and was dead on arrival,
+which `0029` had recorded and deferred
+([#194](https://github.com/sethschrage/growdy/pull/194)), and the
+release audit found `docs/architecture.md` still stating that no storage
+bucket existed and nothing used it, three days after photos started
+landing in one.
+
+Supabase's security advisor, checked as part of cutting this release,
+flagged the storage tenancy helper -- the function the `storage.objects`
+policies call to decide which producer owns a photo -- as running with a
+mutable `search_path`
+([#196](https://github.com/sethschrage/growdy/pull/196)). It is security
+invoker rather than definer, so it is not the classic escalation shape,
+but a function resolving names against whatever path the caller brought,
+inside a policy that decides tenancy, is not worth leaving to argument.
+
+Not in this release, and deliberately: the iOS app itself. It builds, it
+runs, native Google sign-in works, and it is not on the App Store --
+Sign in with Apple is required alongside it before submission, and that
+needs a paid developer account. Everything above reaches producers on
+the web today; the shell is where it was tested, not where it shipped.
+
 ## [0.13.0] - 2026-09-18
 
 The first full UAT pass, and it removed more than it fixed -- then, in

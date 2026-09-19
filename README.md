@@ -24,9 +24,16 @@ context -- weather, device location, grapevine phenology -- through a
 Knowledge Categories screen where a producer manages what's connected
 (see [`docs/decisions/0019`](docs/decisions/0019-external-data-channels.md)).
 A separate, non-chat part of the app handles the producer's own
-day-to-day data directly: a structured form for logging an observation,
-and a read-only browser over their own parcels/plots/rows/plantings. See
-open and merged PRs for current progress, and
+day-to-day data directly: a form for writing down an observation, and a
+read-only browser over their own parcels/plots/rows/plantings. An
+observation can also start as a photograph -- attached in chat, read
+with the producer's own vineyard in view, and dated from the photo's own
+capture time rather than the moment it was uploaded. Nothing reaches the
+permanent record without a producer confirming it: every path, typed or
+photographed or suggested by the chat, files a candidate into one review
+queue (see
+[`docs/decisions/0030`](docs/decisions/0030-every-observation-through-one-queue.md)).
+See open and merged PRs for current progress, and
 [`docs/decisions/`](docs/decisions) for the reasoning behind each
 structural and app choice.
 
@@ -73,6 +80,10 @@ failures that are logged but that nothing currently watches.
 - [0026 -- Self-serve producer onboarding](docs/decisions/0026-producer-onboarding.md) -- a brand-new sign-in with no `profiles` row got a real wizard (create a producer, optionally a first parcel) instead of the silent gap that had existed since day one. **Superseded by [0028](docs/decisions/0028-what-uat-removed.md)**: the wizard is removed until there's a purchase flow to attach it to, and an account with no producer now says so and stops. The `SECURITY DEFINER` RPC it used stays, as the way a producer is created by hand in the meantime.
 - [0027 -- Sharing a chat graphic via an unguessable public link](docs/decisions/0027-public-artifact-links.md) -- the first signed-out-reachable surface in the app; a narrow `get_public_artifact(id)` function, not an RLS grant to `anon`, since a table grant could be turned into a listable collection and a function lookup by exact id can't.
 - [0028 -- Four features removed after the first real UAT pass](docs/decisions/0028-what-uat-removed.md) -- the review gate on observations, parcel sharing, the onboarding wizard and the plot status grid all removed rather than repaired, after a forty-check pass over every release found that three of them had never once been used in production and two could not have been. Observations now count as data when logged and are corrected by deleting them, which the audit log makes reversible.
+- [0029 -- An iOS shell, and sign-in that suits it](docs/decisions/0029-ios-shell-and-native-sign-in.md) -- the same web build wrapped in Capacitor, with a native ID-token sign-in rather than the web's OAuth redirect, which cannot complete inside the shell. **Not shipped**: the App Store requires Sign in with Apple alongside Google, and that needs a paid developer account.
+- [0030 -- Every observation enters through one review queue](docs/decisions/0030-every-observation-through-one-queue.md) -- photo attachment in chat, and the decision it forced. `observation_candidates` becomes the only way into `observations` -- not a second status column, which is what 0028 correctly killed, but the queue that already had a screen a producer could reach. Recorded as a preference for curation rather than as a safety claim, since the drift argument only covers what a model wrote.
+- [0031 -- What this project tests, and what it doesn't](docs/decisions/0031-what-this-project-tests.md) -- Vitest and Testing Library, CI on every PR, and rules written as obligations on specific kinds of code rather than as a coverage threshold, which rewards testing what is easy to reach over what is expensive to get wrong.
+- [0032 -- The client is organised by feature, over a shared data layer](docs/decisions/0032-client-organised-by-feature.md) -- thirty flat files become feature folders with every table, view and RPC call behind one typed layer, so the GIS map that comes next is a folder rather than fifteen more files in a pile.
 
 ## Stack
 
