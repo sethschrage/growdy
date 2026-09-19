@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fake } from '@/test/fakeSupabase'
-import { deleteArtifact, fetchPublicArtifact, listArtifacts } from '@/data/artifacts'
+import {
+  createArtifact,
+  deleteArtifact,
+  fetchPublicArtifact,
+  listArtifacts,
+} from '@/data/artifacts'
 import { fetchMaintenanceStatus } from '@/data/appStatus'
 import { confirmWrite, declineWrite } from '@/data/writes'
 import { sendChatMessage } from '@/data/chat'
@@ -18,6 +23,26 @@ describe('artifacts', () => {
     fake.returns([{ id: 'a1', title: null, content: '<svg/>', created_at: '2026-09-19' }])
     expect(await listArtifacts()).toHaveLength(1)
     expect(fake.only().chain).toContainEqual(['order', ['created_at', { ascending: false }]])
+  })
+
+  it('saves the raw model output, not the sanitized copy', async () => {
+    // 0027: every read sanitizes, so storing a cleaned copy would be a
+    // safety claim nobody re-checks.
+    fake.returns({ id: 'a2' })
+    const raw = '<svg onload="alert(1)"><rect/></svg>'
+    expect(
+      await createArtifact({ producerId: 'producer-1', conversationId: 'c1', content: raw }),
+    ).toBe('a2')
+    const [[inserted]] = fake.chainArgs('insert') as [[{ content: string; producer_id: string }]]
+    expect(inserted.content).toBe(raw)
+    expect(inserted.producer_id).toBe('producer-1')
+  })
+
+  it('refuses to report a share that did not save', async () => {
+    fake.returns(null)
+    await expect(
+      createArtifact({ producerId: 'producer-1', conversationId: null, content: '<svg/>' }),
+    ).rejects.toThrow('The graphic was not saved.')
   })
 
   it('deletes one artifact', async () => {

@@ -1,30 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-
-type PlantingFull = {
-  id: string
-  label: string | null
-  nickname: string | null
-  parcel: string
-  plot: string | null
-  row_number: number | null
-  position: number | null
-  variety: string | null
-  scion: string | null
-  rootstock: string | null
-  category: string | null
-  planted_date: string | null
-  dead_date: string | null
-  removed_date: string | null
-  removed_reason: string | null
-}
-
-type Observation = {
-  id: string
-  observed_date: string | null
-  note: string
-  created_at: string
-}
+import { listObservationsForPlanting, type Observation } from '@/data/observations'
+import { fetchPlanting, type PlantingDetails as PlantingFull } from '@/data/vineyard'
 
 function plantingStatus(p: PlantingFull): { label: string; tone: 'planted' | 'blocked' | 'open' } {
   if (p.removed_date) return { label: 'Removed', tone: 'open' }
@@ -50,33 +26,31 @@ export function PlantingDetail({ plantingId, onClose }: { plantingId: string; on
   const [observations, setObservations] = useState<Observation[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // No reset of planting/observations/error here on purpose: the sheet
+  // is mounted with key={plantingId} (see ProducerDataView), so picking
+  // a different planting remounts it with fresh state rather than
+  // clearing three pieces of it by hand on the way in -- which is both
+  // what React's key is for and one less way to show the last
+  // planting's history under this one's name.
   useEffect(() => {
     let cancelled = false
-    setPlanting(null)
-    setObservations(null)
-    setError(null)
 
-    supabase
-      .from('planting_readable')
-      .select(
-        'id, label, nickname, parcel, plot, row_number, position, variety, scion, rootstock, category, planted_date, dead_date, removed_date, removed_reason',
-      )
-      .eq('id', plantingId)
-      .single()
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setError(error.message)
-        else setPlanting(data as PlantingFull)
+    fetchPlanting(plantingId)
+      .then((found) => {
+        if (!cancelled) setPlanting(found)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load this planting.')
       })
 
-    supabase
-      .from('observations')
-      .select('id, observed_date, note, created_at')
-      .eq('planting_id', plantingId)
-      .order('observed_date', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!cancelled) setObservations((data as Observation[]) ?? [])
+    listObservationsForPlanting(plantingId)
+      .then((found) => {
+        if (!cancelled) setObservations(found)
+      })
+      .catch(() => {
+        // The planting's own error is the one worth showing; an empty
+        // history reads as "nothing recorded yet" either way.
+        if (!cancelled) setObservations([])
       })
 
     return () => {

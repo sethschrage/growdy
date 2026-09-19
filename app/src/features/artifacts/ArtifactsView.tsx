@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { deleteArtifact, listArtifacts, type Artifact } from '@/data/artifacts'
+import { publicUrl } from '@/lib/publicUrl'
 import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 function formatDate(iso: string): string {
@@ -28,7 +29,7 @@ function ArtifactDetail({
   const [copied, setCopied] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const shareUrl = `${window.location.origin}/a/${artifact.id}`
+  const shareUrl = publicUrl(`/a/${artifact.id}`)
   const clean = sanitizeSvg(artifact.content)
 
   async function handleCopy() {
@@ -60,12 +61,18 @@ function ArtifactDetail({
             <pre className="chat-graphic-fallback">{artifact.content}</pre>
           )}
           <p className="artifacts-detail-date">Shared {formatDate(artifact.created_at)}</p>
-          <div className="artifacts-share-link">
-            <input type="text" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} />
-            <button type="button" onClick={handleCopy}>
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
+          {shareUrl ? (
+            <div className="artifacts-share-link">
+              <input type="text" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} />
+              <button type="button" onClick={handleCopy}>
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          ) : (
+            <p className="artifacts-detail-date">
+              This build has no public address, so there is no link to copy here.
+            </p>
+          )}
           {confirmingDelete ? (
             <div className="artifacts-delete-confirm">
               <span>Delete this link? Anyone who has it will lose access.</span>

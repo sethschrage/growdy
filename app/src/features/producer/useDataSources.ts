@@ -17,17 +17,31 @@ export function useDataSources() {
   const [providers, setProviders] = useState<DataProvider[] | null>(null)
   const [sources, setSources] = useState<DataSource[] | null>(null)
 
+  async function load() {
+    return Promise.all([listProviders().catch(() => []), listSources().catch(() => [])])
+  }
+
+  // The imperative path, after an add, a toggle or a delete.
   async function refresh() {
-    const [providerRows, sourceRows] = await Promise.all([
-      listProviders().catch(() => []),
-      listSources().catch(() => []),
-    ])
+    const [providerRows, sourceRows] = await load()
     setProviders(providerRows)
     setSources(sourceRows)
   }
 
+  // The mount path, which needs the cancellation guard the imperative
+  // one doesn't: this overlay is closed by tapping outside it, so a slow
+  // read can very easily land after the component is gone.
   useEffect(() => {
-    refresh()
+    let cancelled = false
+    void (async () => {
+      const [providerRows, sourceRows] = await load()
+      if (cancelled) return
+      setProviders(providerRows)
+      setSources(sourceRows)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { providers, sources, refresh }
