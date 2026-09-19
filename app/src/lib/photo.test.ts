@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { nativeExif } from '@/lib/photo'
+
+// photo.ts reaches Storage, so importing it constructs the Supabase
+// client, which throws without VITE_SUPABASE_URL. That passed locally
+// off a .env and failed in CI, where there isn't one -- the mock keeps
+// a test about parsing a dictionary from depending on a deployment
+// having been configured.
+vi.mock('@/lib/supabaseClient', () => ({ supabase: {} }))
 
 // The plugin's exif object, as @capacitor/camera actually builds it on
 // iOS: the {Exif} dictionary flattened at the top level, with the
