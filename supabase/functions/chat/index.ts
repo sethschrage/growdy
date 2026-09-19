@@ -592,6 +592,23 @@ async function streamAnthropic(
           emit({ type: "text", text: chunk });
         } else if (delta.type === "input_json_delta") {
           partialToolInput[event.index] = (partialToolInput[event.index] ?? "") + (delta.partial_json ?? "");
+        } else if (delta.type === "thinking_delta") {
+          // Reasoning, which this model produces by default. It is not
+          // shown to the producer, but it has to be reassembled
+          // faithfully: the block goes back to the API on the next turn
+          // of the tool loop, and a thinking block without its thinking
+          // is rejected -- "each thinking block must contain thinking",
+          // a 400 on the second turn of every conversation that used a
+          // tool. The buffered path never hit this because it passed
+          // the content array through untouched.
+          const block = blocks[event.index];
+          if (block) block.thinking = String(block.thinking ?? "") + (delta.thinking ?? "");
+        } else if (delta.type === "signature_delta") {
+          // The cryptographic signature over that reasoning. Anthropic
+          // rejects a thinking block whose signature doesn't match its
+          // content, so this travels with it or the block is useless.
+          const block = blocks[event.index];
+          if (block) block.signature = String(block.signature ?? "") + (delta.signature ?? "");
         }
       } else if (event.type === "content_block_stop") {
         const block = blocks[event.index];
