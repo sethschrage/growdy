@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ObservationPhoto } from './ObservationPhoto'
+import { ObservationPhoto } from '@/features/observations/ObservationPhoto'
 
 // The photo bucket is private, so every render of a photo has to mint a
 // signed URL first and that call can fail -- an expired token, a
@@ -13,7 +13,7 @@ import { ObservationPhoto } from './ObservationPhoto'
 // have nothing to do with rendering an <img> and don't load outside a
 // browser.
 const signedPhotoUrl = vi.fn()
-vi.mock('./lib/photo', () => ({ signedPhotoUrl: (...args: unknown[]) => signedPhotoUrl(...args) }))
+vi.mock('@/lib/photo', () => ({ signedPhotoUrl: (...args: unknown[]) => signedPhotoUrl(...args) }))
 
 describe('ObservationPhoto', () => {
   beforeEach(() => {

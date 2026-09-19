@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 import {
   canUseNativeCamera,
   currentLocation,
@@ -8,12 +8,12 @@ import {
   uploadPhoto,
   PHOTO_BUCKET,
   type PhotoLocation,
-} from './lib/photo'
-import { exifObservedDate } from './lib/exif'
-import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from './icons'
-import { MessageContent } from './MessageContent'
-import { useConversationLog } from './useConversationLog'
-import type { ChatMessage } from './chatTypes'
+} from '@/lib/photo'
+import { exifObservedDate } from '@/lib/exif'
+import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from '@/ui/icons'
+import { MessageContent } from '@/features/chat/MessageContent'
+import { useConversationLog } from '@/features/chat/useConversationLog'
+import type { ChatMessage } from '@/features/chat/types'
 
 export function Chat({
   session,

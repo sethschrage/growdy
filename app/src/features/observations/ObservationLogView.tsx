@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
-import { ObservationPhoto } from './ObservationPhoto'
+import { supabase } from '@/lib/supabaseClient'
+import { ObservationPhoto } from '@/features/observations/ObservationPhoto'
 
 type Observation = {
   id: string

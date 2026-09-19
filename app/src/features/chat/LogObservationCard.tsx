@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { supabase } from './lib/supabaseClient'
-import type { PhotoLocation } from './lib/photo'
+import { supabase } from '@/lib/supabaseClient'
+import type { PhotoLocation } from '@/lib/photo'
 
 // A fenced ```log-observation block in the model's own reply becomes a
 // real "Log this" button on that message -- the third instance of the

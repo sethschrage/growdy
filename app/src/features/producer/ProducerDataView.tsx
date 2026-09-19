@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ProducerDataTree } from './ProducerDataTree'
-import { PlantingDetail } from './PlantingDetail'
+import { ProducerDataTree } from '@/features/producer/ProducerDataTree'
+import { PlantingDetail } from '@/features/producer/PlantingDetail'
 
 // One way into the producer's own data: a real collapsible parcel ->
 // plot -> row -> planting tree (replacing the old level-by-level button

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 const CHECK_INTERVAL_MS = 30_000
 

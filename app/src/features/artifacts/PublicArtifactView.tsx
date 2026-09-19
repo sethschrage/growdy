@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
-import { PixelSprout } from './icons'
-import { sanitizeSvg } from './sanitizeSvg'
+import { supabase } from '@/lib/supabaseClient'
+import { PixelSprout } from '@/ui/icons'
+import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 type Artifact = { title: string | null; content: string; created_at: string }
 

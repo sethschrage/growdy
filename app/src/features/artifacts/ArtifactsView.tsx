@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
-import { sanitizeSvg } from './sanitizeSvg'
+import { supabase } from '@/lib/supabaseClient'
+import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 type Artifact = { id: string; title: string | null; content: string; created_at: string }
 

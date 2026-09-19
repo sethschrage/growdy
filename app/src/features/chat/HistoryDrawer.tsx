@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabaseClient'
-import { MessageContent } from './MessageContent'
-import type { ChatMessage } from './chatTypes'
+import { supabase } from '@/lib/supabaseClient'
+import { MessageContent } from '@/features/chat/MessageContent'
+import type { ChatMessage } from '@/features/chat/types'
 
 export type Conversation = {
   id: string

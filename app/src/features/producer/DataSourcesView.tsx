@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabaseClient'
-import { useDataSources, type DataProvider, type DataSource, type DeviceLocationConfig } from './useDataSources'
+import { supabase } from '@/lib/supabaseClient'
+import { useDataSources, type DataProvider, type DataSource, type DeviceLocationConfig } from '@/features/producer/useDataSources'
 
 function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded: () => void }) {
   const [name, setName] = useState('')

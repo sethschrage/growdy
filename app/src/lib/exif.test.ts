@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { exifDateToIso, exifObservedDate, readExif } from './exif'
+import { exifDateToIso, exifObservedDate, readExif } from '@/lib/exif'
 
 // The fixtures are built here rather than committed as .jpg files. The
 // whole point of this reader is that it walks a byte layout by hand, so
