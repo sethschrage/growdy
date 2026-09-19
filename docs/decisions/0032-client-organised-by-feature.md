@@ -98,6 +98,14 @@ diff where nobody could tell a relocation from a rewrite.
   that no longer existed. The mock silently stopped applying and the
   test failed against the real implementation. Mock paths are not
   checked by the compiler; they are checked by the test failing.
+- **Every ADR written before this one cites the old flat paths.**
+  `0016` and `0023` point at `app/src/Chat.tsx`, `0026` at
+  `app/src/App.tsx` and a wizard that `0028` had already deleted. They
+  are left as written -- an ADR records what was decided when it was
+  decided, and rewriting the file paths inside old ones would make them
+  look like they were written against a repo that did not exist yet.
+  The living docs (`architecture.md`, `data-model.md`, `monitoring.md`)
+  are the ones kept current.
 - **The stylesheet is still one 2,258-line file.** It splits along these
   same seams in a later PR, on its own, where "did any rule change" is
   answerable by diffing the built CSS.
