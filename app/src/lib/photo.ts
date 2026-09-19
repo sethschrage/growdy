@@ -220,6 +220,14 @@ export async function uploadPhoto(
   return path
 }
 
+// Dropping a photo that was attached and then thought better of. The
+// object is already in storage by the time a producer sees the preview
+// (the upload happens on attach, not on send), so backing out has to
+// take it back out rather than just clearing the thumbnail.
+export async function deletePhoto(path: string): Promise<void> {
+  await supabase.storage.from(PHOTO_BUCKET).remove([path])
+}
+
 // Reads go through a short-lived signed URL because the bucket is
 // private (see the storage migration): a vineyard photo shows the
 // producer's own operation, in a recognisable place, and a public bucket

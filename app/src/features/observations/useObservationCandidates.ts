@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import {
+  confirmObservationCandidate,
+  dismissObservationCandidate,
+  listPendingCandidates,
+  type ObservationCandidate,
+} from '@/data/observations'
 
-export type ObservationCandidate = {
-  id: string
-  conversation_id: string | null
-  summary: string
-  note: string | null
-  observed_date: string | null
-  planting_id: string | null
-  photo_path: string | null
-  source: 'chat_scan' | 'photo' | 'producer' | 'chat_tool'
-  status: 'pending' | 'confirmed' | 'dismissed'
-  created_at: string
-}
+export type { ObservationCandidate }
 
 // Fetch-on-mount, refreshed imperatively after confirm/dismiss -- same
 // shape as useDataSources. Only pending candidates: once reviewed, a
@@ -22,12 +16,8 @@ export function useObservationCandidates(session: Session) {
   const [candidates, setCandidates] = useState<ObservationCandidate[] | null>(null)
 
   async function refresh() {
-    const { data } = await supabase
-      .from('observation_candidates')
-      .select('id, conversation_id, summary, note, observed_date, planting_id, photo_path, source, status, created_at')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-    setCandidates((data as ObservationCandidate[]) ?? [])
+    const pending = await listPendingCandidates().catch(() => [])
+    setCandidates(pending)
   }
 
   useEffect(() => {
@@ -42,19 +32,17 @@ export function useObservationCandidates(session: Session) {
   // pending, so a double-tap on a slow connection is a no-op rather than
   // an error the producer has to interpret.
   async function confirm(candidate: ObservationCandidate) {
-    const { error } = await supabase.rpc('confirm_observation_candidate', {
-      p_candidate_id: candidate.id,
-    })
-    if (error) return error.message
+    try {
+      await confirmObservationCandidate(candidate.id)
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Could not confirm this observation.'
+    }
     await refresh()
     return null
   }
 
   async function dismiss(candidate: ObservationCandidate) {
-    await supabase
-      .from('observation_candidates')
-      .update({ status: 'dismissed', reviewed_at: new Date().toISOString() })
-      .eq('id', candidate.id)
+    await dismissObservationCandidate(candidate.id)
     await refresh()
   }
 

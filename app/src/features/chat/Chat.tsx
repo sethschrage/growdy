@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { fetchProducerId } from '@/data/profile'
 import {
   canUseNativeCamera,
   currentLocation,
+  deletePhoto,
   pickPhoto,
   uploadPhoto,
-  PHOTO_BUCKET,
   type PhotoLocation,
 } from '@/lib/photo'
+import { sendChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
 import { PixelArrow, PixelCheck, PixelCloud, PixelGrid, PixelPicture, PixelSproutGrowth, PixelX } from '@/ui/icons'
 import { MessageContent } from '@/features/chat/MessageContent'
@@ -206,17 +207,13 @@ export function Chat({
       const picked = await pickPhoto(source)
       if (!picked) return
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('producer_id')
-        .eq('id', session.user.id)
-        .single()
-      if (!profile?.producer_id) {
+      const producerId = await fetchProducerId(session.user.id)
+      if (!producerId) {
         setError('Could not find your producer.')
         return
       }
 
-      const path = await uploadPhoto(picked.blob, profile.producer_id, picked.exif)
+      const path = await uploadPhoto(picked.blob, producerId, picked.exif)
       // The day the shutter fired, not the day it was uploaded. Only
       // ever different for a photo picked out of the library, which is
       // exactly the case where guessing gets it wrong and nobody
@@ -244,7 +241,7 @@ export function Chat({
     URL.revokeObjectURL(pendingPhoto.previewUrl)
     const { path } = pendingPhoto
     setPendingPhoto(null)
-    await supabase.storage.from(PHOTO_BUCKET).remove([path])
+    await deletePhoto(path)
   }
 
   async function send(event: FormEvent) {
@@ -299,30 +296,18 @@ export function Chat({
         photoMetaRef.current.set(photoPath, { location: here, takenOn: existing?.takenOn ?? null })
       }
     }
-    const { data, error } = await supabase.functions.invoke('chat', {
-      body: {
-        messages: nextMessages.map(({ role, content }) => ({ role, content })),
-        ...(photoPath ? { photoPath } : {}),
-        ...(photoTakenOn ? { photoTakenOn } : {}),
-      },
-    })
-    setSending(false)
-
-    if (error) {
-      console.error('chat function invoke failed', error)
-      let message = error.message
-      try {
-        const body = await error.context.json()
-        if (body?.error) message = body.error
-      } catch {
-        // error.context wasn't a JSON response -- fall back to error.message
-      }
-      setError(message)
+    let data
+    try {
+      data = await sendChatMessage({ messages: nextMessages, photoPath, photoTakenOn })
+    } catch (e) {
+      setSending(false)
+      setError(e instanceof Error ? e.message : 'Could not reach growdy.')
       return
     }
+    setSending(false)
 
     if (data.type === 'error') {
-      setError(data.message)
+      setError(data.message ?? 'Something went wrong.')
       return
     }
 

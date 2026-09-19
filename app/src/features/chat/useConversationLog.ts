@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { startConversation, updateConversation } from '@/data/conversations'
+import { fetchProducerId } from '@/data/profile'
 import type { ChatMessage } from '@/features/chat/types'
 
 // One row per chat session (docs/decisions/0011): the client generates
@@ -27,12 +28,9 @@ export function useConversationLog(session: Session, existing?: { id: string }) 
   const started = useRef(Boolean(existing))
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('producer_id')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setProducerId(data?.producer_id ?? null))
+    fetchProducerId(session.user.id)
+      .then(setProducerId)
+      .catch(() => setProducerId(null))
   }, [session.user.id])
 
   async function log(transcript: ChatMessage[]) {
@@ -40,19 +38,11 @@ export function useConversationLog(session: Session, existing?: { id: string }) 
 
     if (!started.current) {
       started.current = true
-      await supabase.from('conversations').insert({
-        id: conversationId,
-        producer_id: producerId,
-        mode: 'ask',
-        transcript,
-      })
+      await startConversation(conversationId, producerId, transcript)
       return
     }
 
-    await supabase
-      .from('conversations')
-      .update({ mode: 'ask', transcript, updated_at: new Date().toISOString() })
-      .eq('id', conversationId)
+    await updateConversation(conversationId, transcript)
   }
 
   return { log, conversationId }

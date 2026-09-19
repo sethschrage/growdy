@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { fetchMaintenanceStatus } from '@/data/appStatus'
 
 const CHECK_INTERVAL_MS = 30_000
 
@@ -23,13 +23,13 @@ export function useAppStatus(): AppBlock {
           .then((r) => r.text())
           .then((html) => html.match(/<meta name="app-version" content="([^"]*)"/)?.[1] ?? null)
           .catch(() => null),
-        supabase.from('app_status').select('maintenance, message').single(),
+        fetchMaintenanceStatus(),
       ])
 
       if (cancelled) return
 
-      if (status.data?.maintenance) {
-        setBlock({ reason: 'maintenance', message: status.data.message ?? undefined })
+      if (status?.maintenance) {
+        setBlock({ reason: 'maintenance', message: status.message ?? undefined })
         return
       }
 
