@@ -97,6 +97,17 @@ export function Chat({
   // doesn't work" rather than as a scroll that worked and was reverted.
   const pinnedToBottomRef = useRef(true)
 
+  // True from the moment a finger lands until a moment after it lifts.
+  // Pinning alone wasn't enough: a producer dragging *within* the bottom
+  // 120px is still pinned, so a correction firing mid-gesture had every
+  // right to scroll -- and on iOS a programmatic smooth scroll doesn't
+  // yield to a touch that arrives while it's running, it finishes and
+  // puts the view back. From the thumb's side that is a scroll area that
+  // resists and then goes dead, which is what "it sort of freezes"
+  // describes. Nothing scrolls the conversation while someone is
+  // scrolling it themselves.
+  const touchingRef = useRef(false)
+
   useEffect(() => {
     const node = messagesRef.current
     if (!node) return
@@ -106,8 +117,31 @@ export function Chat({
       // on fractional scroll heights anyway.
       pinnedToBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 120
     }
+    // The release timer covers momentum: the finger is gone but the
+    // scroller is still moving, and a correction landing in that window
+    // fights the flick just as visibly as one landing on the drag.
+    let release: ReturnType<typeof setTimeout> | undefined
+    const onStart = () => {
+      clearTimeout(release)
+      touchingRef.current = true
+    }
+    const onEnd = () => {
+      clearTimeout(release)
+      release = setTimeout(() => (touchingRef.current = false), 600)
+    }
     node.addEventListener('scroll', onScroll, { passive: true })
-    return () => node.removeEventListener('scroll', onScroll)
+    node.addEventListener('touchstart', onStart, { passive: true })
+    node.addEventListener('wheel', onStart, { passive: true })
+    node.addEventListener('touchend', onEnd, { passive: true })
+    node.addEventListener('touchcancel', onEnd, { passive: true })
+    return () => {
+      clearTimeout(release)
+      node.removeEventListener('scroll', onScroll)
+      node.removeEventListener('touchstart', onStart)
+      node.removeEventListener('wheel', onStart)
+      node.removeEventListener('touchend', onEnd)
+      node.removeEventListener('touchcancel', onEnd)
+    }
   }, [])
 
   useEffect(() => {
@@ -119,18 +153,19 @@ export function Chat({
     // sending a message or waiting still scrolls to the bottom sentinel,
     // same as before.
     const lastMessage = messages[messages.length - 1]
-    const scroll = () => {
-      // Scrolled up to read something? Leave it alone. The corrections
-      // below exist to fix a layout that shifted underneath an
-      // auto-scroll, not to drag the view back from where someone put it.
-      if (!pinnedToBottomRef.current) return
+    const scroll = (behavior: ScrollBehavior) => {
+      // Scrolled up to read something, or scrolling right now? Leave it
+      // alone. The corrections below exist to fix a layout that shifted
+      // underneath an auto-scroll, not to drag the view back from where
+      // someone put it.
+      if (!pinnedToBottomRef.current || touchingRef.current) return
       if (!sending && lastMessage?.role === 'assistant') {
-        lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        lastAssistantRef.current?.scrollIntoView({ behavior, block: 'start' })
       } else {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        messagesEndRef.current?.scrollIntoView({ behavior })
       }
     }
-    scroll()
+    scroll('smooth')
     // Two independent things can shift layout shortly after this first
     // scroll fires, landing the "top" of the message somewhere that isn't
     // actually the top by the time everything settles: iOS Safari's own
@@ -141,10 +176,15 @@ export function Chat({
     // changing line heights. A fixed-delay pass catches the first; waiting
     // on the font itself catches the second regardless of how long it
     // actually takes to load.
+    //
+    // The corrections jump rather than animate. They are repairing a
+    // view that has already settled, and a second smooth animation
+    // starting on top of a finished one is a half-second during which
+    // the conversation is moving for no reason a producer can see.
     let cancelled = false
-    const correction = setTimeout(scroll, 400)
+    const correction = setTimeout(() => scroll('auto'), 400)
     document.fonts?.ready.then(() => {
-      if (!cancelled) scroll()
+      if (!cancelled) scroll('auto')
     })
     return () => {
       cancelled = true

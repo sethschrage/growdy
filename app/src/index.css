@@ -388,6 +388,14 @@ body {
      --compose-height by Chat.tsx, plus the offset and safe area it sits
      above. The 90px fallback only applies before the first measurement. */
   padding-bottom: calc(var(--compose-height, 62px) + env(safe-area-inset-bottom) + 22px);
+  /* The padding keeps content clear of the header and the bar; this
+     keeps scrollIntoView clear of them too. Without it, "scroll the
+     start of the reply into view" aligns the reply with the top of the
+     scrollport -- which is underneath the floating header, measurably
+     so: the first 64px of every long answer landed behind it. Same
+     reasoning at the bottom, where the compose bar floats. */
+  scroll-padding-top: calc(var(--header-height, 64px) + 8px);
+  scroll-padding-bottom: calc(var(--compose-height, 62px) + env(safe-area-inset-bottom) + 22px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -398,6 +406,20 @@ body {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  /* A conversation shorter than the screen has nothing to scroll, so a
+     drag does nothing at all -- no movement, no rubber band, no sign the
+     area is even scrollable, which reads as frozen rather than as
+     finished. A little space past the end means the view always answers
+     a thumb. */
+  min-height: calc(100% + 40px);
+  /* Required by the line above, not decoration. A percentage min-height
+     replaces the `auto` that normally stops a flex item shrinking below
+     its own content, so without this a conversation taller than the
+     screen gets squeezed into the scrollport and its tail hangs out
+     past the container's bottom padding -- the end of the last reply,
+     and its feedback buttons, back underneath the compose bar with no
+     scroll left to reach them. */
+  flex-shrink: 0;
   max-width: 640px;
 }
 
