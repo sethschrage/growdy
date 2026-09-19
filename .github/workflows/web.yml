@@ -1,0 +1,44 @@
+name: Web app
+
+# The client had no CI at all until this file: `db-lint` runs on every
+# PR and checks the schema, so a PR touching only `app/` was merged --
+# auto-merge, no human review -- on the strength of a green check that
+# had not looked at a single line of it. Type errors, lint failures and
+# broken tests all reached `main` unopposed.
+#
+# No path filter, for the same reason db-lint.yml explains at length:
+# this is a required status check, and a filtered trigger means the
+# check never reports for a PR that doesn't touch the path, leaving the
+# PR blocked forever on something that will never run. It is cheap
+# enough to run on everything.
+on:
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      # Typecheck, lint, test -- in that order on purpose. A type error
+      # makes the lint and test output noise, so failing on it first is
+      # the shortest path to the actual problem.
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test

@@ -82,6 +82,7 @@ failures that are logged but that nothing currently watches.
 | Spatial | PostGIS |
 | File storage | Supabase Storage -- vineyard photos attached in chat, in a private bucket with tenancy enforced on the object path (see [`docs/decisions/0030`](docs/decisions/0030-every-observation-through-one-queue.md)); reads go through short-lived signed URLs, never a public bucket |
 | Schema history | Supabase CLI migrations, in `supabase/migrations/` |
+| Tests | Vitest + Testing Library, in `app/` beside what they test -- run in CI on every PR alongside `tsc` and `oxlint` |
 | Client | React (Vite), in `app/` -- see [`docs/decisions/0008`](docs/decisions/0008-app-as-research-tool.md) |
 | iOS | Capacitor shell wrapping the same build, in `app/ios/` -- **not shipped**: no App Store listing, and Sign in with Apple is required before submission (see [`docs/decisions/0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)) |
 | Hosting | [Vercel](https://app-blue-ten-25.vercel.app), connected to this GitHub repo -- auto-deploys production from `main`, preview builds per branch/PR |

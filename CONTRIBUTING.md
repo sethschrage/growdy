@@ -193,14 +193,58 @@ problems that are worth fixing structurally instead. Concretely:
   a search comes up empty, which then generalizes to every future case
   like it, not just this one.
 
+## Tests
+
+The client is tested with [Vitest](https://vitest.dev) and Testing
+Library, configured inside `app/vite.config.ts` so tests resolve and
+transform through the same pipeline the build uses. `npm test` in
+`app/` runs them; `npm run test:watch` while working. Tests sit beside
+what they test, as `x.test.ts` next to `x.ts`.
+
+The project reached `0.13.0` in its first seven days without a single
+test, and the cost showed up in one place repeatedly: the chat's scroll
+area needed fixing in four separate PRs in that week (#180, #181, #187,
+#189), each verified by hand once and never again. These rules are
+about where a test actually pays, not about a number:
+
+- **Every exported function in `app/src/data/` and `app/src/lib/` has
+  unit tests.** These are the pure-logic and data-access layers -- the
+  places where a wrong answer is silent, and the places the rest of the
+  app is about to be built on.
+- **Every bug fix ships a test that fails without the fix**, whenever
+  the bug is reachable from a test. Write it before the fix and watch it
+  fail: a regression test that has never been red is a guess about what
+  was broken.
+- **A component gets a behaviour test where its behaviour branches** --
+  empty, error, loading, gated, disabled. Not every component, and not
+  the shape of its markup.
+- **No snapshot tests.** A snapshot that breaks gets blessed rather than
+  read, so it records what the code did rather than what it should do.
+- **Touching an untested file brings it under test in the same PR.**
+  There is no backfill milestone; coverage arrives where work already
+  is. A file nobody has needed to touch in months is not where the next
+  bug is.
+
+There is no coverage threshold, deliberately. A number rewards testing
+what is easy to reach rather than what is expensive to get wrong, and
+the rules above name the risky parts outright.
+
 ## CI
 
-`.github/workflows/db-lint.yml` runs on any PR touching
-`supabase/migrations/**`. It starts a local Supabase stack (applying every
-migration from scratch) and runs `supabase db lint`, which is the same
+Two workflows, both running on every PR, both required:
+
+`.github/workflows/web.yml` typechecks (`tsc -b`), lints (`oxlint`) and
+runs the test suite for `app/`. None of those three ran in CI before it
+existed, so a PR touching only the client was auto-merged on the
+strength of a schema check that never looked at it.
+
+`.github/workflows/db-lint.yml` starts a local Supabase stack (applying
+every migration from scratch) and runs `supabase db lint`, the same
 check the Supabase security/performance advisors use. A migration that
 fails to apply cleanly, or introduces a lint-level issue (e.g. a table
-without RLS), fails the PR.
+without RLS), fails the PR. The lint steps are skipped internally for a
+PR that touches no migration, but the workflow itself still runs -- a
+required check has to report on every PR or it blocks them forever.
 
 ## Architecture Decision Records (ADRs)
 

@@ -47,6 +47,12 @@ there is no per-PR review. Nobody is going to catch it after you.
   dependency. Those bullets render in the app's own "What's new".
 - **Process decisions get committed, not agreed in chat.** If a rule
   isn't in git, it isn't a rule.
+- **Tests are not optional work.** A bug fix ships a test that fails
+  without it; a new function in `app/src/data/` or `app/src/lib/` ships
+  unit tests; touching an untested file brings it under test in the
+  same PR. `npm test` in `app/`, and CI runs it on every PR. The full
+  rules, including what deliberately isn't tested, are in
+  `CONTRIBUTING.md` under "Tests".
 
 ## Verify, don't assume
 
