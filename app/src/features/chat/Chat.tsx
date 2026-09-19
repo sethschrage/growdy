@@ -9,10 +9,12 @@ import {
   uploadPhoto,
   type PhotoLocation,
 } from '@/lib/photo'
-import { sendChatMessage } from '@/data/chat'
+import { streamChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
 import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
-import { PixelCloud, PixelSproutGrowth } from '@/ui/pixelArt'
+import { PixelCloud } from '@/ui/pixelArt'
+import { ThinkingStatus } from '@/features/chat/ThinkingStatus'
+import { IDLE_THINKING, reduceThinking, type ThinkingState } from '@/features/chat/thinking'
 import { MessageContent } from '@/features/chat/MessageContent'
 import { useConversationLog } from '@/features/chat/useConversationLog'
 import type { ChatMessage } from '@/features/chat/types'
@@ -29,6 +31,12 @@ export function Chat({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  // What the reply looks like while it is still arriving, and what the
+  // app is doing to produce it. Both come off the stream; neither is a
+  // guess about how long something usually takes.
+  const [streamingText, setStreamingText] = useState('')
+  const [thinking, setThinking] = useState<ThinkingState>(IDLE_THINKING)
+  const [sendingSince, setSendingSince] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [pendingPhoto, setPendingPhoto] = useState<{
     path: string
@@ -262,6 +270,9 @@ export function Chat({
     log(nextMessages)
     setInput('')
     setSending(true)
+    setStreamingText('')
+    setThinking(IDLE_THINKING)
+    setSendingSince(Date.now())
     setError(null)
 
     // Only role and content ever go to the function. ChatMessage also
@@ -297,22 +308,22 @@ export function Chat({
         photoMetaRef.current.set(photoPath, { location: here, takenOn: existing?.takenOn ?? null })
       }
     }
-    let data
+    let answer: string
     try {
-      data = await sendChatMessage({ messages: nextMessages, photoPath, photoTakenOn })
+      answer = await streamChatMessage({ messages: nextMessages, photoPath, photoTakenOn }, (event) => {
+        setThinking((previous) => reduceThinking(previous, event))
+        if (event.type === 'text') setStreamingText((previous) => previous + event.text)
+      })
     } catch (e) {
       setSending(false)
+      setStreamingText('')
       setError(e instanceof Error ? e.message : 'Could not reach growdy.')
       return
     }
     setSending(false)
+    setStreamingText('')
 
-    if (data.type === 'error') {
-      setError(data.message ?? 'Something went wrong.')
-      return
-    }
-
-    const withAssistant = [...nextMessages, { role: 'assistant' as const, content: data.text ?? '' }]
+    const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
     setMessages(withAssistant)
     log(withAssistant)
   }
@@ -377,9 +388,23 @@ export function Chat({
           ))}
           {sending && (
             <div className="chat-message-wrap chat-message-wrap--assistant">
-              <div className="chat-message chat-message-assistant chat-thinking" aria-live="polite" aria-label="Thinking">
-                <PixelSproutGrowth size={20} />
-              </div>
+              {/* The answer occupies its real bubble while it arrives,
+                  so nothing jumps when it finishes -- the status line
+                  sits under it and disappears, rather than a placeholder
+                  being replaced by a message. */}
+              {streamingText && (
+                <div className="chat-message chat-message-assistant">
+                  <MessageContent
+                    role="assistant"
+                    content={streamingText}
+                    session={session}
+                    conversationId={loggedConversationId}
+                    photoMetaFor={(path) => photoMetaRef.current.get(path) ?? null}
+                    lastPhotoPath={lastPhotoPath}
+                  />
+                </div>
+              )}
+              <ThinkingStatus key={sendingSince} state={thinking} since={sendingSince} />
             </div>
           )}
           {error && <p className="error">{error}</p>}

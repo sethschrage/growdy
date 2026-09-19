@@ -375,51 +375,77 @@
   color: #a3352c;
 }
 
-.chat-thinking {
+/* The status line under a reply that is still arriving.
+ *
+ * It replaces a sprout that grew through four frames on a 1.6s loop --
+ * the same animation whether the model answered from memory or ran nine
+ * queries, which told a producer nothing about a wait that is often
+ * twenty seconds long. What is here now says what is happening, how
+ * long it has taken and what it has cost, all of it read off the
+ * stream. The only animation left is one dot, because something has to
+ * show the thing is alive. */
+.thinking {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 14px 16px;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 75%, transparent);
+  border: var(--line) solid var(--wood);
+  border-radius: var(--radius-md);
+  max-width: 100%;
 }
 
-.thinking-sprout {
-  position: relative;
-  display: inline-block;
+.thinking-pulse {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--leaf);
+  align-self: center;
+  animation: thinking-pulse 1.1s ease-in-out infinite;
 }
 
-.thinking-sprout-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  animation: thinking-sprout-frame 1.6s steps(1, end) infinite;
-}
-
-.thinking-sprout-frame:nth-child(1) {
-  animation-delay: -1.6s;
-}
-
-.thinking-sprout-frame:nth-child(2) {
-  animation-delay: -1.2s;
-}
-
-.thinking-sprout-frame:nth-child(3) {
-  animation-delay: -0.8s;
-}
-
-.thinking-sprout-frame:nth-child(4) {
-  animation-delay: -0.4s;
-}
-
-@keyframes thinking-sprout-frame {
+@keyframes thinking-pulse {
   0%,
-  25% {
-    opacity: 1;
-  }
-  25.01%,
   100% {
-    opacity: 0;
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.thinking-phrase {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the tool is actually working on -- a search term, a date range.
+   Quieter than the phrase, and first to be clipped on a narrow phone. */
+.thinking-detail {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.thinking-meta {
+  margin-left: auto;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-pulse {
+    animation: none;
+    opacity: 0.8;
   }
 }
 

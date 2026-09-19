@@ -47,45 +47,6 @@ export function PixelSprout({ size = 28 }: { size?: number }) {
   )
 }
 
-// Four growth stages of the same sprout -- seed, sprout, full stem, bloom --
-// stacked and cross-faded by CSS (see .thinking-sprout-frame) instead of a
-// generic dot pulse, so "the model is thinking" reads as something actually
-// growing rather than a spinner borrowed from any other app.
-const SPROUT_GROWTH_FRAMES: { cells: readonly (readonly [number, number])[]; fill: string }[][] = [
-  [
-    { cells: [[5, 8]], fill: '#3f6b29' },
-    { cells: [[4, 8], [6, 8]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[4, 7], [6, 7]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 5], [5, 6], [5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[3, 6], [4, 6], [6, 6], [7, 6]], fill: '#6a9c40' },
-  ],
-  [
-    { cells: [[5, 2], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [5, 8]], fill: '#3f6b29' },
-    { cells: [[3, 6], [4, 6], [6, 6], [7, 6]], fill: '#6a9c40' },
-    { cells: [[4, 0], [6, 0], [4, 1], [6, 1], [5, 0]], fill: '#c1440e' },
-    { cells: [[5, 1]], fill: '#f6d998' },
-  ],
-]
-
-export function PixelSproutGrowth({ size = 20 }: { size?: number }) {
-  return (
-    <span className="thinking-sprout" style={{ width: size, height: size }} aria-hidden="true">
-      {SPROUT_GROWTH_FRAMES.map((groups, i) => (
-        <svg key={i} className="thinking-sprout-frame" viewBox="0 0 10 10" shapeRendering="crispEdges">
-          {groups.map(({ cells, fill }) =>
-            cells.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={fill} />),
-          )}
-        </svg>
-      ))}
-    </span>
-  )
-}
-
 const CLOUD_ROWS = [
   [5, 0, 4],
   [3, 1, 8],
