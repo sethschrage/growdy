@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { useObservationCandidates, type ObservationCandidate } from './useObservationCandidates'
-import { ObservationPhoto } from './ObservationPhoto'
+import { useObservationCandidates, type ObservationCandidate } from '@/features/observations/useObservationCandidates'
+import { ObservationPhoto } from '@/features/observations/ObservationPhoto'
 
 // Where a candidate came from decides how much scrutiny it deserves, so
 // the queue says it plainly instead of showing every row identically.

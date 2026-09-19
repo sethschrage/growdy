@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import ReactMarkdown from 'react-markdown'
-import { supabase } from './lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 type Release = {
   tag_name: string

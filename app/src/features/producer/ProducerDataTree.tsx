@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 type Parcel = { id: string; name: string }
 type Plot = { id: string; name: string }

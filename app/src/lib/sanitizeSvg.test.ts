@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeSvg } from './sanitizeSvg'
+import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 // The input here is a graphic the model wrote, rendered inline in chat
 // and -- since 0027 -- on a page a signed-out visitor can open with a

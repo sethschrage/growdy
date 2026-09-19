@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabaseClient'
-import { sanitizeSvg } from './sanitizeSvg'
+import { supabase } from '@/lib/supabaseClient'
+import { sanitizeSvg } from '@/lib/sanitizeSvg'
 
 // Renders SVG the chat model wrote itself (see docs/decisions -- chat's
 // system prompt now tells it a fenced ```svg block becomes a real picture,

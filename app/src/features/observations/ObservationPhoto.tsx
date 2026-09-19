@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { signedPhotoUrl } from './lib/photo'
+import { signedPhotoUrl } from '@/lib/photo'
 
 // The bucket is private (see the storage migration), so a photo can't be
 // rendered from its path -- every view has to mint a signed URL first,

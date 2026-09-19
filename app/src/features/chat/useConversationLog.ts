@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabaseClient'
-import type { ChatMessage } from './chatTypes'
+import { supabase } from '@/lib/supabaseClient'
+import type { ChatMessage } from '@/features/chat/types'
 
 // One row per chat session (docs/decisions/0011): the client generates
 // the id and upserts the full transcript after each message, so a

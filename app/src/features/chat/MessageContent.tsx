@@ -2,11 +2,11 @@ import { isValidElement, type ComponentPropsWithoutRef } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { ChatMessage } from './chatTypes'
-import { SvgGraphic } from './SvgGraphic'
-import { ConfirmWriteCard } from './ConfirmWriteCard'
-import { LogObservationCard } from './LogObservationCard'
-import type { PhotoLocation } from './lib/photo'
+import type { ChatMessage } from '@/features/chat/types'
+import { SvgGraphic } from '@/ui/SvgGraphic'
+import { ConfirmWriteCard } from '@/features/chat/ConfirmWriteCard'
+import { LogObservationCard } from '@/features/chat/LogObservationCard'
+import type { PhotoLocation } from '@/lib/photo'
 
 // Fence tags that render as a real component rather than a code block.
 // Both overrides below read this one set: the code() override picks the

@@ -1,8 +1,8 @@
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Geolocation } from '@capacitor/geolocation'
 import { Capacitor } from '@capacitor/core'
-import { supabase } from './supabaseClient'
-import { readExif, type PhotoExif } from './exif'
+import { supabase } from '@/lib/supabaseClient'
+import { readExif, type PhotoExif } from '@/lib/exif'
 
 // Taking and attaching a vineyard photo, which is two problems wearing
 // one coat: getting bytes out of a camera or a photo library, and

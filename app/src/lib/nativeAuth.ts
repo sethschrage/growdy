@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { SocialLogin } from '@capgo/capacitor-social-login'
-import { supabase } from './supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 // Sign-in has to split by platform, because the browser OAuth redirect
 // dance doesn't survive the iOS shell. Capacitor serves the app from

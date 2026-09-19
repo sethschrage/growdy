@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 // The real "click, not the model's own judgment" affordance 0022 requires
 // -- confirm_write is called from here, straight from the producer's own

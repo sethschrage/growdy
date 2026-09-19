@@ -8,6 +8,13 @@
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
+    /* Module resolution -- '@/x' is 'src/x'. Mirrored in
+       vite.config.ts's resolve.alias; a change to one without the
+       other type-checks and then fails at runtime, or vice versa. */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
