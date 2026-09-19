@@ -151,11 +151,24 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
   return { blob: await downscale(original), exif, location: exifLocation(exif) }
 }
 
-// The plugin hands back a parsed object rather than raw bytes, and keys
-// it the way the platform does -- so the two tags worth having are
-// pulled out by name into the same shape the web path produces, instead
-// of two call sites each knowing about two formats.
-function nativeExif(raw: Record<string, unknown>): PhotoExif | null {
+// The plugin hands back a parsed object rather than raw bytes, keyed
+// the way the platform keys it, so this is where the platform's shape
+// becomes the one shape the rest of the app knows.
+//
+// It got that shape wrong for a year's worth of photos -- not literally,
+// but for every photo this app has ever taken. It looked for a flat
+// `GPSLatitude`, and iOS does not have one: @capacitor/camera builds its
+// exif object as `exif["GPS"] = properties[kCGImagePropertyGPSDictionary]`
+// (CameraPlugin.swift), so the coordinates are a nested dictionary of
+// CoreGraphics keys. The lookup silently found nothing, every photo
+// uploaded with a date and no position, and nothing said so: an absent
+// GPS fix is completely ordinary, which is exactly why a bug that
+// produces one is invisible. Found by attaching a geotagged photo in the
+// simulator and reading back what landed in storage.
+//
+// Exported for the tests, which are the only place the plugin's shape
+// is written down other than the plugin's own Swift.
+export function nativeExif(raw: Record<string, unknown>): PhotoExif | null {
   const pick = (...names: string[]) => {
     for (const name of names) {
       const value = raw[name]
@@ -167,13 +180,47 @@ function nativeExif(raw: Record<string, unknown>): PhotoExif | null {
   const result: PhotoExif = {}
   const taken = pick('DateTimeOriginal', 'DateTimeDigitized', 'CreateDate', 'DateTime')
   if (taken) result.dateTimeOriginal = taken
-  const lat = raw.GPSLatitude ?? raw.Latitude
-  const lon = raw.GPSLongitude ?? raw.Longitude
-  if (typeof lat === 'number' && typeof lon === 'number') {
-    result.gpsLatitude = lat
-    result.gpsLongitude = lon
+
+  const location = nativeGps(raw)
+  if (location) {
+    result.gpsLatitude = location.latitude
+    result.gpsLongitude = location.longitude
   }
   return Object.keys(result).length > 0 ? result : null
+}
+
+// CoreGraphics stores the coordinate unsigned and puts the hemisphere in
+// a separate reference key, the same way the raw EXIF bytes do (see
+// lib/exif.ts, which has to do this too). A southern or western photo
+// read without the ref lands on the wrong side of the equator or the
+// meridian -- and on a vineyard map that is not a small error, it is
+// another continent.
+//
+// The flat keys are checked as well because Android's implementation of
+// the same plugin returns a flatter object, and neither shape is
+// documented anywhere but in the source.
+function nativeGps(raw: Record<string, unknown>): PhotoLocation | null {
+  const gps = (raw.GPS ?? raw.gps) as Record<string, unknown> | undefined
+  const read = (nested: string, flat: string): number | undefined => {
+    const value = gps?.[nested] ?? raw[flat]
+    return typeof value === 'number' ? value : undefined
+  }
+  const ref = (nested: string, flat: string): string | undefined => {
+    const value = gps?.[nested] ?? raw[flat]
+    return typeof value === 'string' ? value.trim().toUpperCase() : undefined
+  }
+
+  const latitude = read('Latitude', 'GPSLatitude')
+  const longitude = read('Longitude', 'GPSLongitude')
+  if (latitude === undefined || longitude === undefined) return null
+
+  const latitudeRef = ref('LatitudeRef', 'GPSLatitudeRef')
+  const longitudeRef = ref('LongitudeRef', 'GPSLongitudeRef')
+  return {
+    latitude: latitudeRef === 'S' ? -Math.abs(latitude) : latitude,
+    longitude: longitudeRef === 'W' ? -Math.abs(longitude) : longitude,
+    accuracyM: null,
+  }
 }
 
 function pickFromFileInput(): Promise<PickedPhoto | null> {
