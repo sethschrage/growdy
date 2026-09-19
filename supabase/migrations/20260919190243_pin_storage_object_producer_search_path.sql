@@ -1,0 +1,23 @@
+-- Pin the search_path on the storage tenancy helper.
+--
+-- private.storage_object_producer() reads the first path segment of a
+-- storage object name and returns it as the owning producer's uuid. It
+-- is called from the RLS policies on storage.objects, which is to say
+-- it is the thing deciding whether one vineyard can read another's
+-- photos.
+--
+-- It shipped without `set search_path`, and Supabase's security advisor
+-- flagged it (function_search_path_mutable) the moment the photo bucket
+-- went in. The function is security invoker rather than definer, so
+-- this is not the classic privilege-escalation shape -- but a function
+-- that resolves names against whatever search_path the caller happens
+-- to have, inside a policy that decides tenancy, is not something to
+-- leave to argument. `storage.foldername` is already called qualified,
+-- and the ::uuid cast resolves through pg_catalog, which is always
+-- searched implicitly, so an empty path is enough and leaves nothing
+-- resolvable by position.
+--
+-- Same reasoning as the qualified `extensions.` references elsewhere in
+-- these migrations: name resolution inside a security-relevant function
+-- is fixed at definition time, not left to the session.
+alter function private.storage_object_producer(text) set search_path = '';
