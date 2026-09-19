@@ -1,19 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { deleteObservation, listObservations, type Observation } from '@/data/observations'
 import { ObservationPhoto } from '@/features/observations/ObservationPhoto'
-
-type Observation = {
-  id: string
-  observed_date: string | null
-  note: string
-  created_at: string
-  planting_id: string | null
-  conversation_id: string | null
-  // The storage path of the photo this observation was made from, when
-  // there was one. Named photo_metadata because 0009 reserved the column
-  // long before anything wrote to it.
-  photo_metadata: string | null
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -42,11 +29,9 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
 
   function refresh() {
-    supabase
-      .from('observations')
-      .select('id, observed_date, note, created_at, planting_id, conversation_id, photo_metadata')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setObservations((data as Observation[]) ?? []))
+    listObservations()
+      .then(setObservations)
+      .catch(() => setObservations([]))
   }
 
   useEffect(() => {
@@ -56,15 +41,17 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
   async function handleDelete(id: string) {
     setDeletingId(id)
     setError(null)
-    const { error: deleteError } = await supabase.from('observations').delete().eq('id', id)
-    setDeletingId(null)
-    if (deleteError) {
+    try {
+      await deleteObservation(id)
+    } catch (e) {
       // Worth surfacing rather than silently leaving the row in place --
       // a delete that looks like it worked and didn't is the same class
       // of bug as a write reported before it was confirmed.
-      setError(deleteError.message)
+      setDeletingId(null)
+      setError(e instanceof Error ? e.message : 'Could not delete this observation.')
       return
     }
+    setDeletingId(null)
     setConfirmingId(null)
     refresh()
   }

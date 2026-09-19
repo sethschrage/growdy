@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createObservationCandidate } from '@/data/observations'
 import type { PhotoLocation } from '@/lib/photo'
 
 // A fenced ```log-observation block in the model's own reply becomes a
@@ -104,28 +104,27 @@ export function LogObservationCard({
     const meta = photoPath && photoMetaFor ? photoMetaFor(photoPath) : null
     const location = meta?.location ?? null
 
-    const { error } = await supabase.rpc('create_observation_candidate', {
-      p_summary: note,
-      p_note: note,
-      // The capture date, for the same reason as the path: the model is
-      // told it once, on the turn the photo arrives, and a block written
-      // later has no way to know it. Its own answer wins when it gave one.
-      p_observed_date: observedDate ?? meta?.takenOn ?? null,
-      p_planting_id: plantingId,
-      p_photo_path: photoPath,
-      p_conversation_id: conversationId,
-      p_source: photoPath ? 'photo' : 'chat_tool',
-      p_photo_latitude: location?.latitude ?? null,
-      p_photo_longitude: location?.longitude ?? null,
-      p_photo_accuracy_m: location?.accuracyM ?? null,
-    })
-
-    if (error) {
+    try {
+      await createObservationCandidate({
+        summary: note,
+        note,
+        // The capture date, for the same reason as the path: the model is
+        // told it once, on the turn the photo arrives, and a block written
+        // later has no way to know it. Its own answer wins when it gave one.
+        observedDate: observedDate ?? meta?.takenOn ?? null,
+        plantingId,
+        photoPath,
+        conversationId,
+        source: photoPath ? 'photo' : 'chat_tool',
+        photoLatitude: location?.latitude ?? null,
+        photoLongitude: location?.longitude ?? null,
+        photoAccuracyM: location?.accuracyM ?? null,
+      })
+      setStatus('logged')
+    } catch (e) {
       setStatus('error')
-      setErrorMessage(error.message)
-      return
+      setErrorMessage(e instanceof Error ? e.message : 'Could not file this observation.')
     }
-    setStatus('logged')
   }
 
   return (

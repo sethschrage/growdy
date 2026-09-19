@@ -22,7 +22,9 @@ flowchart TD
     PublicViewer -->|"/a/:id, no sign-in"| Vercel
 
     subgraph App["app/ -- React + Vite, no server of its own"]
-        Client["Client"]
+        Features["Features<br/>chat, observations, producer, artifacts"]
+        DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
+        Features --> DataLayer
     end
     Vercel --> App
     iPhone -->|"runs a bundled copy of dist/ -- no Vercel at runtime"| App
@@ -75,6 +77,17 @@ flowchart TD
 
 ## Reading this diagram
 
+- **The client is one box here and four layers inside it.** Features
+  (chat, observations, producer data, artifacts) hold the components and
+  their hooks; `app/src/data/` holds every table, view and RPC call the
+  client makes, typed against the generated schema in `data/schema.ts`;
+  `lib/` holds platform work (the Supabase client itself, native
+  sign-in, the camera and the photo bucket) and `ui/` shared
+  presentation. Two things deliberately sit outside `data/`: auth calls
+  (`supabase.auth.*`), which are a different API rather than this
+  project's data, and Storage reads and writes, which live in
+  `lib/photo.ts` because the object path is the tenancy check there.
+  See [`0032`](decisions/0032-client-organised-by-feature.md).
 - **Four deploy paths, four different amounts of automation.** Vercel
   is connected straight to GitHub and deploys the app on every push to
   `main` with no manual step -- see

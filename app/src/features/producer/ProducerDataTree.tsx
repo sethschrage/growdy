@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-
-type Parcel = { id: string; name: string }
-type Plot = { id: string; name: string }
-type PlotRow = {
-  id: string
-  number: number
-  length_meters: number | null
-  spacing_meters: number | null
-  end_post_count: number | null
-}
-type Planting = {
-  id: string
-  position: number | null
-  nickname: string | null
-  variety: string | null
-  scion: string | null
-  rootstock: string | null
-  dead_date: string | null
-}
+import {
+  listParcels,
+  listPlotRows,
+  listPlots,
+  listRowPlantings,
+  updatePlotRow,
+  type Parcel,
+  type Plot,
+  type PlotRow,
+  type RowPlanting as Planting,
+} from '@/data/vineyard'
 
 function plantingLabel(p: Planting): string {
   if (p.nickname) return p.nickname
@@ -131,11 +122,9 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    supabase
-      .from('parcels')
-      .select('id, name')
-      .order('name')
-      .then(({ data }) => setParcels((data as Parcel[]) ?? []))
+    listParcels()
+      .then(setParcels)
+      .catch(() => setParcels([]))
   }, [])
 
   function toggle(key: string) {
@@ -150,8 +139,8 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   async function toggleParcel(parcel: Parcel) {
     const key = `parcel:${parcel.id}`
     if (!expanded.has(key) && !plotsByParcel.has(parcel.id)) {
-      const { data } = await supabase.from('plots').select('id, name').eq('parcel_id', parcel.id).order('name')
-      setPlotsByParcel((prev) => new Map(prev).set(parcel.id, (data as Plot[]) ?? []))
+      const plots = await listPlots(parcel.id).catch(() => [])
+      setPlotsByParcel((prev) => new Map(prev).set(parcel.id, plots))
     }
     toggle(key)
   }
@@ -159,19 +148,18 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   async function togglePlot(plot: Plot) {
     const key = `plot:${plot.id}`
     if (!expanded.has(key) && !rowsByPlot.has(plot.id)) {
-      const { data } = await supabase
-        .from('plot_rows')
-        .select('id, number, length_meters, spacing_meters, end_post_count')
-        .eq('plot_id', plot.id)
-        .order('number')
-      setRowsByPlot((prev) => new Map(prev).set(plot.id, (data as PlotRow[]) ?? []))
+      const rows = await listPlotRows(plot.id).catch(() => [])
+      setRowsByPlot((prev) => new Map(prev).set(plot.id, rows))
     }
     toggle(key)
   }
 
   async function saveRowMeasurements(plot: Plot, row: PlotRow, updated: Partial<PlotRow>) {
-    const { error } = await supabase.from('plot_rows').update(updated).eq('id', row.id)
-    if (error) return error.message
+    try {
+      await updatePlotRow(row.id, updated)
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Could not save these measurements.'
+    }
     setRowsByPlot((prev) => {
       const next = new Map(prev)
       next.set(
@@ -186,14 +174,8 @@ export function ProducerDataTree({ onSelectPlanting }: { onSelectPlanting: (id: 
   async function toggleRow(plot: Plot, row: PlotRow) {
     const key = `row:${row.id}`
     if (!expanded.has(key) && !plantingsByRow.has(row.id)) {
-      const { data } = await supabase
-        .from('planting_readable')
-        .select('id, position, nickname, variety, scion, rootstock, dead_date')
-        .eq('plot', plot.name)
-        .eq('row_number', row.number)
-        .is('removed_date', null)
-        .order('position')
-      setPlantingsByRow((prev) => new Map(prev).set(row.id, (data as Planting[]) ?? []))
+      const plantings = await listRowPlantings(plot.name, row.number).catch(() => [])
+      setPlantingsByRow((prev) => new Map(prev).set(row.id, plantings))
     }
     toggle(key)
   }

@@ -89,6 +89,13 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   advisors for anything new -- a schema change is the most likely place
   a fresh finding shows up, and it's easy to miss since `execute_sql`
   and other elevated-access checks won't surface it.
+- **A migration that changes a table, view or function the client reads
+  regenerates `app/src/data/schema.ts` in the same PR**
+  (`supabase gen types typescript --project-id <id>`, or the Supabase
+  MCP server's `generate_typescript_types`). That file is the only
+  description of the database the client has, and it is generated, so a
+  stale copy does not fail loudly -- it type-checks against a schema
+  that no longer exists.
 - A migration that adds a table or column includes a `COMMENT ON`
   explaining it, in the same migration -- context captured once, when the
   thing is created, not researched and retrofitted later by whoever needs

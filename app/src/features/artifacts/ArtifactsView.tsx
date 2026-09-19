@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { deleteArtifact, listArtifacts, type Artifact } from '@/data/artifacts'
 import { sanitizeSvg } from '@/lib/sanitizeSvg'
-
-type Artifact = { id: string; title: string | null; content: string; created_at: string }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -41,7 +39,7 @@ function ArtifactDetail({
 
   async function handleDelete() {
     setDeleting(true)
-    await supabase.from('artifacts').delete().eq('id', artifact.id)
+    await deleteArtifact(artifact.id)
     setDeleting(false)
     onDeleted()
   }
@@ -101,11 +99,7 @@ export function ArtifactsView({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<Artifact | null>(null)
 
   function refresh() {
-    supabase
-      .from('artifacts')
-      .select('id, title, content, created_at')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setArtifacts((data as Artifact[]) ?? []))
+    listArtifacts().then(setArtifacts)
   }
 
   useEffect(() => {

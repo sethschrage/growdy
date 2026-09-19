@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import ReactMarkdown from 'react-markdown'
-import { supabase } from '@/lib/supabaseClient'
+import { fetchLastSeenRelease, markReleaseSeen } from '@/data/profile'
 
 type Release = {
   tag_name: string
@@ -49,12 +49,13 @@ export function ReleaseNotes({ session }: { session: Session }) {
       .then(setReleases)
       .catch(() => setReleases([]))
 
-    supabase
-      .from('profiles')
-      .select('last_seen_release')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setLastSeen(data?.last_seen_release ?? null))
+    fetchLastSeenRelease(session.user.id)
+      .then(setLastSeen)
+      // Undefined means "not known yet" and holds the banner back;
+      // null means "never dismissed one". A failed lookup is closer to
+      // the second: showing What's new twice is a smaller mistake than
+      // a banner that never renders again.
+      .catch(() => setLastSeen(null))
   }, [session.user.id])
 
   const latest = releases?.[0] ?? null
@@ -63,7 +64,7 @@ export function ReleaseNotes({ session }: { session: Session }) {
   async function dismiss() {
     if (!latest) return
     setDismissing(true)
-    await supabase.from('profiles').update({ last_seen_release: latest.tag_name }).eq('id', session.user.id)
+    await markReleaseSeen(session.user.id, latest.tag_name)
     setDismissing(false)
     setLastSeen(latest.tag_name)
   }

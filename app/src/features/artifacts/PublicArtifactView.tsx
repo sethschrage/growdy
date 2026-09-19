@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { fetchPublicArtifact, type PublicArtifact } from '@/data/artifacts'
 import { PixelSprout } from '@/ui/icons'
 import { sanitizeSvg } from '@/lib/sanitizeSvg'
-
-type Artifact = { title: string | null; content: string; created_at: string }
 
 // The one page in this app a signed-out visitor can reach (see
 // docs/decisions/0027) -- App.tsx renders this before any auth check
@@ -12,15 +10,15 @@ type Artifact = { title: string | null; content: string; created_at: string }
 // content is stored raw, never trusted as pre-sanitized just because
 // it's already in the database.
 export function PublicArtifactView({ id }: { id: string }) {
-  const [state, setState] = useState<'loading' | 'not-found' | { artifact: Artifact }>('loading')
+  const [state, setState] = useState<'loading' | 'not-found' | { artifact: PublicArtifact }>('loading')
 
   useEffect(() => {
-    supabase
-      .rpc('get_public_artifact', { p_id: id })
-      .then(({ data }) => {
-        const row = (data as Artifact[] | null)?.[0]
-        setState(row ? { artifact: row } : 'not-found')
-      })
+    fetchPublicArtifact(id)
+      .then((artifact) => setState(artifact ? { artifact } : 'not-found'))
+      // A signed-out visitor has nothing to do about a failure here, and
+      // a revoked link and an unreachable database look the same from
+      // the outside: both are "this link doesn't show anything".
+      .catch(() => setState('not-found'))
   }, [id])
 
   if (state === 'loading') return null

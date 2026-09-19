@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { confirmWrite, declineWrite } from '@/data/writes'
 
 // The real "click, not the model's own judgment" affordance 0022 requires
 // -- confirm_write is called from here, straight from the producer's own
@@ -63,18 +63,17 @@ export function ConfirmWriteCard({ code }: { code: string }) {
 
   async function handleConfirm() {
     setStatus('confirming')
-    const { data, error } = await supabase.rpc('confirm_write', { p_proposal_id: proposalId })
-    if (error) {
-      setErrorMessage(error.message)
+    try {
+      setResult(await confirmWrite(proposalId))
+      setStatus('applied')
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Could not apply the change.')
       setStatus('error')
-      return
     }
-    setResult(data)
-    setStatus('applied')
   }
 
   async function handleDecline() {
-    await supabase.from('pending_writes').update({ status: 'declined' }).eq('id', proposalId)
+    await declineWrite(proposalId)
     setStatus('declined')
   }
 

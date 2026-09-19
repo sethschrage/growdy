@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { NoProducerScreen } from '@/app/NoProducerScreen'
 import { SignedIn } from '@/app/SignedIn'
-import { supabase } from '@/lib/supabaseClient'
+import { hasProfile } from '@/data/profile'
 
 // Every screen below this assumes profiles.producer_id exists -- nothing
 // creates that row automatically (see docs/decisions/0026), so this is
@@ -26,18 +26,19 @@ import { supabase } from '@/lib/supabaseClient'
 // is deliberately left in the database: it is how a producer gets created
 // by hand in the meantime, and the purchase flow will want it back.
 export function SessionRouter({ session }: { session: Session }) {
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
+  const [profileFound, setProfileFound] = useState<boolean | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', session.user.id)
-      .maybeSingle()
-      .then(({ data }) => setHasProfile(data !== null))
+    hasProfile(session.user.id)
+      .then(setProfileFound)
+      // A failed check is not a missing producer: showing the dead-end
+      // screen because the network dropped would tell someone their
+      // account is not set up when it is. Null keeps the app on its
+      // blank loading state instead.
+      .catch(() => setProfileFound(null))
   }, [session.user.id])
 
-  if (hasProfile === null) return null
-  if (!hasProfile) return <NoProducerScreen />
+  if (profileFound === null) return null
+  if (!profileFound) return <NoProducerScreen />
   return <SignedIn session={session} />
 }

@@ -1,15 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
-
-type PlantingOption = {
-  id: string
-  label: string | null
-  nickname: string | null
-  variety: string | null
-  scion: string | null
-  parcel: string
-}
+import { createObservationCandidate } from '@/data/observations'
+import { fetchProducerId } from '@/data/profile'
+import { searchPlantings, type PlantingSearchResult as PlantingOption } from '@/data/vineyard'
 
 function plantingOptionLabel(option: PlantingOption): string {
   const position = option.label ?? option.parcel
@@ -43,28 +36,17 @@ function PlantingPicker({
   const requestId = useRef(0)
 
   useEffect(() => {
-    // Strip characters meaningful to PostgREST's filter grammar (the
-    // .or() string below) rather than escaping them -- none of them can
-    // ever appear in a real label/variety search anyway.
-    const trimmed = query.trim().replace(/[,()%*]/g, '')
-    if (!trimmed) {
+    if (!query.trim()) {
       setResults(null)
       return
     }
     const thisRequest = ++requestId.current
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('planting_readable')
-        .select('id, label, nickname, variety, scion, parcel')
-        .is('removed_date', null)
-        .or(
-          `label.ilike.%${trimmed}%,nickname.ilike.%${trimmed}%,variety.ilike.%${trimmed}%,scion.ilike.%${trimmed}%`,
-        )
-        .order('label')
-        .limit(20)
-      if (requestId.current === thisRequest) {
-        setResults((data as PlantingOption[]) ?? [])
-      }
+      // The request id guards against an out-of-order reply: typing
+      // fast fires several of these, and the slowest is not the one
+      // whose results belong on screen.
+      const found = await searchPlantings(query).catch(() => [])
+      if (requestId.current === thisRequest) setResults(found)
     }, 300)
     return () => clearTimeout(timeout)
   }, [query])
@@ -133,12 +115,9 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
   const [savedCount, setSavedCount] = useState(0)
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('producer_id')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setProducerId(data?.producer_id ?? null))
+    fetchProducerId(session.user.id)
+      .then(setProducerId)
+      .catch(() => setProducerId(null))
   }, [session.user.id])
 
   async function handleSubmit(event: FormEvent) {
@@ -151,26 +130,20 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
     // -- they are the ground truth for their own vineyard -- but it goes
     // through the same door as everything else, so there is one way in
     // rather than one way plus an exception.
-    const { error } = await supabase.rpc('create_observation_candidate', {
-      p_summary: note.trim(),
-      p_note: note.trim(),
-      p_observed_date: observedDate || null,
-      p_planting_id: planting?.id ?? null,
-      p_photo_path: null,
-      p_conversation_id: null,
-      p_source: 'producer',
-      // Explicit nulls rather than relying on defaults: PostgREST picks a
-      // function by the argument names it is handed, and leaving some out
-      // makes resolution depend on an overload set staying tidy.
-      p_photo_latitude: null,
-      p_photo_longitude: null,
-      p_photo_accuracy_m: null,
-    })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
+    try {
+      await createObservationCandidate({
+        summary: note.trim(),
+        note: note.trim(),
+        observedDate: observedDate || null,
+        plantingId: planting?.id ?? null,
+        source: 'producer',
+      })
+    } catch (e) {
+      setSubmitting(false)
+      setError(e instanceof Error ? e.message : 'Could not save this observation.')
       return
     }
+    setSubmitting(false)
     setNote('')
     setPlanting(null)
     setSavedCount((c) => c + 1)

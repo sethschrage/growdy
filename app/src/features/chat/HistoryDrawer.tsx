@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { listConversations, type Conversation } from '@/data/conversations'
 import { MessageContent } from '@/features/chat/MessageContent'
 import type { ChatMessage } from '@/features/chat/types'
 
-export type Conversation = {
-  id: string
-  mode: 'submit' | 'ask'
-  transcript: ChatMessage[]
-  updated_at: string
-}
+export type { Conversation }
 
 function firstPrompt(transcript: ChatMessage[]): string {
   return transcript.find((m) => m.role === 'user')?.content ?? '(empty conversation)'
@@ -49,11 +44,9 @@ export function HistoryDrawer({
   const [selected, setSelected] = useState<Conversation | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('conversations')
-      .select('id, mode, transcript, updated_at')
-      .order('updated_at', { ascending: false })
-      .then(({ data }) => setConversations((data as Conversation[]) ?? []))
+    listConversations()
+      .then(setConversations)
+      .catch(() => setConversations([]))
   }, [])
 
   return (

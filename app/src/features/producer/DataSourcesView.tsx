@@ -1,6 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import {
+  addDataSource,
+  addWeatherSource,
+  deleteSource,
+  setSourceEnabled,
+  updateSourceConfig,
+} from '@/data/dataSources'
 import { useDataSources, type DataProvider, type DataSource, type DeviceLocationConfig } from '@/features/producer/useDataSources'
 
 function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded: () => void }) {
@@ -15,21 +21,14 @@ function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded:
     if (!name.trim() || !externalId.trim() || !secret.trim()) return
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.functions.invoke('add-weather-source', {
-      body: { provider_id: provider.id, name, station_id: externalId, secret },
-    })
-    setSubmitting(false)
-    if (error) {
-      let message = error.message
-      try {
-        const body = await error.context.json()
-        if (body?.error) message = body.error
-      } catch {
-        // error.context wasn't a JSON response -- fall back to error.message
-      }
-      setError(message)
+    try {
+      await addWeatherSource({ providerId: provider.id, name, stationId: externalId, secret })
+    } catch (e) {
+      setSubmitting(false)
+      setError(e instanceof Error ? e.message : 'Could not add this source.')
       return
     }
+    setSubmitting(false)
     setName('')
     setExternalId('')
     setSecret('')
@@ -108,13 +107,13 @@ function DeviceLocationPanel({
           captured_at: new Date().toISOString(),
         }
         if (source) {
-          await supabase.from('data_sources').update({ config }).eq('id', source.id)
+          await updateSourceConfig(source.id, config)
         } else {
-          await supabase.rpc('add_data_source', {
-            p_provider_id: provider.id,
-            p_name: 'This device',
-            p_external_id: 'device',
-            p_config: config,
+          await addDataSource({
+            providerId: provider.id,
+            name: 'This device',
+            externalId: 'device',
+            config,
           })
         }
         setRequesting(false)
@@ -172,16 +171,18 @@ function EnableProviderPanel({
   async function enable() {
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.rpc('add_data_source', {
-      p_provider_id: provider.id,
-      p_name: provider.name,
-      p_external_id: 'default',
-    })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
+    try {
+      await addDataSource({
+        providerId: provider.id,
+        name: provider.name,
+        externalId: 'default',
+      })
+    } catch (e) {
+      setSubmitting(false)
+      setError(e instanceof Error ? e.message : 'Could not enable this source.')
       return
     }
+    setSubmitting(false)
     onChanged()
   }
 
@@ -207,12 +208,12 @@ function EnableProviderPanel({
 
 function SourceRow({ source, onChanged }: { source: DataSource; onChanged: () => void }) {
   async function toggle() {
-    await supabase.from('data_sources').update({ enabled: !source.enabled }).eq('id', source.id)
+    await setSourceEnabled(source.id, !source.enabled)
     onChanged()
   }
 
   async function remove() {
-    await supabase.from('data_sources').delete().eq('id', source.id)
+    await deleteSource(source.id)
     onChanged()
   }
 
