@@ -142,18 +142,39 @@ export function PixelBurger({ size = 20 }: { size?: number }) {
   )
 }
 
-// These two reuse BURGER_ROWS's own geometry rather than drawing new
-// shapes -- each row becomes a column (row index -> new x, row's x/width
-// span -> new y-range), turning the closed icon's horizontal layers into
-// vertical ones for the open menu bar.
-const BUN_ROW_COLOR = BURGER_ROWS[0].fill
-
-export function PixelBunSlice({ className }: { className?: string }) {
+// The burger's own rows, reused rather than redrawn: the closed icon's
+// top and bottom buns become the menu's cap and its closing tap target,
+// and the lettuce-and-cheese pair becomes the divider under the toggle.
+// An earlier version turned each row into a column for a menu that
+// spread sideways; the menu drops now, so the rows stay rows.
+export function PixelBunRow({ width = 44, className }: { width?: number; className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 7 10" shapeRendering="crispEdges" aria-hidden="true">
-      {BURGER_ROWS.map(({ y, x, w }) => (
-        <rect key={y} x={y} y={x} width={1} height={w} fill={BUN_ROW_COLOR} />
-      ))}
+    <svg
+      className={className}
+      width={width}
+      height={(width * 2) / 10}
+      viewBox="0 0 10 2"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      <rect x={0} y={0} width={10} height={1} fill={BURGER_ROWS[5].fill} />
+      <rect x={1} y={1} width={8} height={1} fill={BURGER_ROWS[6].fill} />
+    </svg>
+  )
+}
+
+export function PixelToppingRow({ width = 36, className }: { width?: number; className?: string }) {
+  return (
+    <svg
+      className={className}
+      width={width}
+      height={(width * 2) / 10}
+      viewBox="0 0 10 2"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      <rect x={0} y={0} width={10} height={1} fill={BURGER_ROWS[2].fill} />
+      <rect x={0} y={1} width={10} height={1} fill={BURGER_ROWS[3].fill} />
     </svg>
   )
 }

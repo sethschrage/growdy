@@ -63,75 +63,206 @@
   transform: none;
 }
 
-.app-menu-bar {
-  position: absolute;
-  right: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
+/* The toggle and its expand chevron, side by side in the header. */
+.app-menu-head,
+.sprout-menu-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  z-index: 1;
-  transform-origin: right center;
-  animation: menu-bar-open 0.2s ease;
+  gap: var(--space-1);
 }
 
-@keyframes menu-bar-open {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) scaleX(0.6);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1);
-  }
-}
-
-.menu-bun {
-  width: 20px;
-  height: 28px;
-}
-
-.menu-topping {
-  width: 6px;
-  height: 28px;
-}
-
-.menu-icon-button {
-  width: 44px;
-  height: 44px;
+/* Grows every button in the menu into a labelled oval, in place. The
+   chevron turns rather than being swapped for another glyph, so the
+   state change is one continuous movement. */
+.menu-expand {
+  width: 26px;
+  height: 26px;
   padding: 0;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
   background: var(--wood);
-  border-color: var(--wood-dark);
-  box-shadow: 0 4px 0 var(--wood-dark);
+  border: var(--line) solid var(--wood-dark);
+  color: var(--cream);
+  box-shadow: 0 var(--press) 0 var(--wood-dark);
+  transition: transform var(--menu-speed) var(--menu-ease);
+}
+
+.menu-expand--open {
+  transform: rotate(180deg);
+}
+
+/* The burger comes apart downwards: the toggle keeps the top bun, the
+   fillings fall out beneath it, and the bottom bun lands at the end of
+   the stack. Anchored to the right edge so it cannot run off a narrow
+   phone, which the sideways version could. */
+.app-menu-bar {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  /* Same stacking problem .sprout-menu-bar documents below. */
+  z-index: 2;
+  transform-origin: top right;
+  animation: menu-drop var(--menu-speed) var(--menu-ease);
+}
+
+.app-menu-close-bun {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: var(--space-1) 0 0;
+  cursor: pointer;
+  display: flex;
+}
+
+.app-menu-close-bun:active {
+  transform: translateY(var(--press));
+}
+
+.menu-bun-row,
+.menu-topping-row {
+  display: block;
+}
+
+@keyframes menu-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* A circle that becomes an oval without the layout jumping. `width:
+   auto` can't be transitioned, so the label carries a max-width
+   instead -- 0 collapsed, wide enough for the longest label expanded --
+   and the button's width follows its content. */
+.menu-icon-button {
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background: var(--wood);
+  border: var(--line-strong) solid var(--wood-dark);
+  box-shadow: 0 var(--press) 0 var(--wood-dark);
+  overflow: hidden;
+  transition: padding var(--menu-speed) var(--menu-ease);
 }
 
 .menu-icon-button:active {
   box-shadow: 0 0 0 var(--wood-dark);
 }
 
+.menu-icon-button-glyph {
+  width: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-label {
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  transition:
+    max-width var(--menu-speed) var(--menu-ease),
+    opacity calc(var(--menu-speed) * 0.7) var(--menu-ease);
+}
+
+.menu-icon-button--expanded {
+  padding-right: var(--space-3);
+}
+
+.menu-icon-button--expanded .menu-label {
+  max-width: 180px;
+  opacity: 1;
+}
+
+/* A short stagger down the stack, so the menu unfolds rather than
+   arriving all at once. */
+.app-menu-bar > *,
+.sprout-menu-bar > * {
+  animation: menu-item-in var(--menu-speed) var(--menu-ease) backwards;
+}
+
+.app-menu-bar > *:nth-child(2),
+.sprout-menu-bar > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+
+.app-menu-bar > *:nth-child(3),
+.sprout-menu-bar > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+
+.app-menu-bar > *:nth-child(4),
+.sprout-menu-bar > *:nth-child(4) {
+  animation-delay: 90ms;
+}
+
+.app-menu-bar > *:nth-child(5),
+.sprout-menu-bar > *:nth-child(5) {
+  animation-delay: 120ms;
+}
+
+.app-menu-bar > *:nth-child(6),
+.sprout-menu-bar > *:nth-child(6) {
+  animation-delay: 150ms;
+}
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Someone who asked for less movement gets the menu, not the
+   choreography. */
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-bar,
+  .sprout-menu-bar,
+  .app-menu-bar > *,
+  .sprout-menu-bar > * {
+    animation: none;
+  }
+
+  .menu-icon-button,
+  .menu-label,
+  .menu-expand {
+    transition: none;
+  }
+}
+
+/* The sideways bar had to shrink to fit across a narrow phone. A
+   dropping one doesn't compete for width, so the only thing worth
+   tightening is how far it reaches down the screen. */
 @media (max-width: 400px) {
-  .app-menu-bar {
-    gap: 5px;
-  }
-
-  .menu-bun {
-    width: 15px;
-    height: 22px;
-  }
-
-  .menu-topping {
-    width: 4px;
-    height: 22px;
-  }
-
   .menu-icon-button {
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .menu-icon-button-glyph {
     width: 36px;
-    height: 36px;
   }
 }
 
@@ -173,17 +304,9 @@
      buttons were visible but not actually clickable, since
      .chat-messages was capturing the clicks over that shared region. */
   z-index: 2;
-  transform-origin: top center;
-  animation: menu-bar-open-down 0.2s ease;
+  transform-origin: top left;
+  align-items: flex-start;
+  animation: menu-drop var(--menu-speed) var(--menu-ease);
 }
 
-@keyframes menu-bar-open-down {
-  from {
-    opacity: 0;
-    transform: scaleY(0.6);
-  }
-  to {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
+
