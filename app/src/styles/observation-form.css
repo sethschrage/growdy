@@ -1,0 +1,129 @@
+/* Entering an observation by hand, and the planting typeahead it uses. */
+
+/* Same full-screen treatment as .data-sources-overlay -- its own class
+   family rather than a shared one, matching this codebase's existing
+   pattern of each full-screen feature owning its names even when the
+   chrome is visually identical (see .history-overlay vs
+   .data-sources-overlay). */
+.observation-form-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--parchment);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+.observation-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 3px solid var(--wood);
+}
+
+.observation-form-header h2 {
+  margin: 0;
+  color: var(--wood-dark);
+}
+
+.observation-form-close {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--wood-dark);
+  font-size: 24px;
+  line-height: 1;
+  /* 44x44 is Apple's minimum touch target and this was ~32. Sized with
+     min-width/height and centring rather than more padding so the glyph
+     stays put and only the hit area grows. */
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.observation-form-close:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.observation-form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.observation-form-status {
+  margin: 0;
+  color: var(--leaf-dark);
+  font-weight: 700;
+}
+
+.observation-planting-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.observation-planting-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.observation-planting-results li button {
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 2px solid var(--wood);
+  color: var(--ink);
+  box-shadow: none;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.observation-planting-results li button:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.observation-planting-empty {
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.observation-planting-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel);
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.observation-planting-change {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--wood);
+  border-color: var(--wood-dark);
+  box-shadow: 0 3px 0 var(--wood-dark);
+  flex-shrink: 0;
+}

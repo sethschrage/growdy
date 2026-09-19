@@ -1,0 +1,519 @@
+/* The conversation: messages, model-written graphics and cards, the thinking state, feedback buttons, and the floating compose bar. */
+
+.chat {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  padding-top: calc(var(--header-height, 64px) + 8px);
+  /* Reserves the floating compose bar's real height, measured and set as
+     --compose-height by Chat.tsx, plus the offset and safe area it sits
+     above. The 90px fallback only applies before the first measurement. */
+  padding-bottom: calc(var(--compose-height, 62px) + env(safe-area-inset-bottom) + 22px);
+  /* The padding keeps content clear of the header and the bar; this
+     keeps scrollIntoView clear of them too. Without it, "scroll the
+     start of the reply into view" aligns the reply with the top of the
+     scrollport -- which is underneath the floating header, measurably
+     so: the first 64px of every long answer landed behind it. Same
+     reasoning at the bottom, where the compose bar floats. */
+  scroll-padding-top: calc(var(--header-height, 64px) + 8px);
+  scroll-padding-bottom: calc(var(--compose-height, 62px) + env(safe-area-inset-bottom) + 22px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chat-messages-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  /* A conversation shorter than the screen has nothing to scroll, so a
+     drag does nothing at all -- no movement, no rubber band, no sign the
+     area is even scrollable, which reads as frozen rather than as
+     finished. A little space past the end means the view always answers
+     a thumb. */
+  min-height: calc(100% + 40px);
+  /* Required by the line above, not decoration. A percentage min-height
+     replaces the `auto` that normally stops a flex item shrinking below
+     its own content, so without this a conversation taller than the
+     screen gets squeezed into the scrollport and its tail hangs out
+     past the container's bottom padding -- the end of the last reply,
+     and its feedback buttons, back underneath the compose bar with no
+     scroll left to reach them. */
+  flex-shrink: 0;
+  max-width: 640px;
+}
+
+.chat-message-wrap {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  gap: 4px;
+}
+
+.chat-message-wrap--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-message-wrap--assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.chat-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 16px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chat-message-user {
+  background: var(--leaf);
+  color: var(--cream);
+  border: 2px solid var(--leaf-dark);
+  white-space: pre-line;
+}
+
+/* The pixel-art display font's digits are ambiguous at a glance (2 can
+   read as 8) -- fine for decorative UI chrome, not for reporting real
+   vineyard counts. Assistant answers use a plain, legible font instead;
+   the game-like feel stays everywhere else (chrome, the producer's own
+   messages). */
+.chat-message-assistant {
+  background: var(--panel);
+  color: var(--ink);
+  border: 2px solid var(--wood);
+  font-family: system-ui, sans-serif;
+}
+
+.chat-message-assistant p,
+.chat-message-assistant ul,
+.chat-message-assistant ol {
+  margin: 0 0 8px;
+}
+
+.chat-message-assistant ul,
+.chat-message-assistant ol {
+  padding-left: 20px;
+}
+
+.chat-message-assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-assistant table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.chat-message-assistant th,
+.chat-message-assistant td {
+  border: 1px solid var(--wood);
+  padding: 4px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.chat-message-assistant th {
+  background: var(--wood);
+  color: var(--cream);
+}
+
+/* Layout safety only, not a creative constraint -- the model decides what
+   to draw (see supabase/functions/chat/index.ts's system prompt), this
+   just keeps one drawing from overflowing or dominating the page. */
+.chat-graphic {
+  max-width: 100%;
+  max-height: 480px;
+  overflow: hidden;
+  margin: 0;
+  cursor: zoom-in;
+}
+
+.chat-graphic svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chat-graphic-hint {
+  margin: 2px 0 8px;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.65;
+}
+
+.chat-graphic-fallback {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.chat-graphic-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.chat-graphic-overlay-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--cream);
+  font-size: 32px;
+  line-height: 1;
+  padding: 4px 8px;
+  z-index: 1;
+}
+
+.chat-graphic-overlay-close:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.chat-graphic-overlay-actions {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  right: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.chat-graphic-overlay-actions > button {
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.chat-graphic-share-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-graphic-share-link input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.chat-graphic-share-link button {
+  font-size: 12px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.chat-graphic-share-error {
+  position: absolute;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 1;
+  color: var(--cream);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.chat-graphic-overlay-content {
+  width: min(90vw, 480px);
+  max-height: 100%;
+  cursor: default;
+}
+
+.chat-graphic-overlay-content svg {
+  /* A model-written svg often has only a viewBox, no width/height
+     attributes -- width and height both `auto` inside a flex-centered
+     parent then has no definite size to resolve from and collapses to
+     0x0 (confirmed directly). A definite width lets the viewBox's own
+     aspect ratio resolve height. */
+  width: 100%;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  height: auto;
+  display: block;
+}
+
+/* The real confirm/decline affordance 0022 requires -- a fenced
+   confirm-write block from the model becomes this, never a plain-text
+   "reply yes" the model could be talked past. */
+.write-confirm-card {
+  border: 3px solid var(--wood);
+  border-radius: 10px;
+  background: var(--parchment);
+  padding: 12px;
+  margin: 4px 0 8px;
+}
+
+.write-confirm-summary {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+.write-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.write-confirm-actions button {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.write-confirm-decline {
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--wood);
+  box-shadow: 0 4px 0 var(--wood);
+}
+
+.write-confirm-status {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* A fenced log-observation block from the model becomes this -- the
+   button that puts a field note in the record, on the message where the
+   note was actually worked out. Same frame as .write-confirm-card: both
+   are "the model is offering you a real action," and they read as one
+   family rather than two. */
+.log-observation-card {
+  border: 3px solid var(--wood);
+  border-radius: 10px;
+  background: var(--parchment);
+  padding: 12px;
+  margin: 4px 0 8px;
+}
+
+.log-observation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.log-observation-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+.log-observation-date {
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.log-observation-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+.log-observation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-observation-log {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.log-observation-done,
+.log-observation-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.log-observation-error {
+  color: #a3352c;
+}
+
+.chat-thinking {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.thinking-sprout {
+  position: relative;
+  display: inline-block;
+}
+
+.thinking-sprout-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: thinking-sprout-frame 1.6s steps(1, end) infinite;
+}
+
+.thinking-sprout-frame:nth-child(1) {
+  animation-delay: -1.6s;
+}
+
+.thinking-sprout-frame:nth-child(2) {
+  animation-delay: -1.2s;
+}
+
+.thinking-sprout-frame:nth-child(3) {
+  animation-delay: -0.8s;
+}
+
+.thinking-sprout-frame:nth-child(4) {
+  animation-delay: -0.4s;
+}
+
+@keyframes thinking-sprout-frame {
+  0%,
+  25% {
+    opacity: 1;
+  }
+  25.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.feedback-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* Was a 22px circle with zero padding -- well under the ~44px minimum
+   touch target, and a plain 0.4->1 opacity shift on tap was easy to miss
+   on a real phone screen. Reported as "the checkboxes are broken": taps
+   were registering (verified directly), the problem was too-small/too-
+   subtle, not non-functional. */
+.feedback-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--leaf);
+  border-color: var(--leaf-dark);
+  box-shadow: 0 2px 0 var(--leaf-dark);
+  opacity: 0.55;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.feedback-button:hover {
+  opacity: 0.8;
+}
+
+.feedback-button:active {
+  box-shadow: 0 0 0 var(--leaf-dark);
+}
+
+.feedback-button--selected {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.feedback-button--down {
+  background: var(--berry);
+  border-color: var(--berry-dark);
+  box-shadow: 0 2px 0 var(--berry-dark);
+}
+
+.feedback-button--down:active {
+  box-shadow: 0 0 0 var(--berry-dark);
+}
+
+/* The compose area as a whole is what floats, so anything stacked above
+   the input (the pending photo) rides with it instead of falling out of
+   the flex column behind it. */
+.chat-compose {
+  position: fixed;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  width: calc(100% - 24px);
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-input {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  background: var(--soil);
+  border: 3px solid var(--leaf);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 8px 10px;
+}
+
+.icon-button {
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  box-shadow: none;
+}
+
+.icon-button:active {
+  box-shadow: none;
+}

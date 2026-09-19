@@ -1,0 +1,124 @@
+/* Photos: the one waiting to be sent, and the one shown beside an observation it produced. */
+
+/* The photo waiting to be sent, above the compose row. Deliberately a
+   strip rather than an inline chip: a producer needs to see enough of
+   the image to know they photographed the right thing before spending a
+   turn on it. */
+.chat-pending-photo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--parchment);
+  border: 3px solid var(--leaf);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  color: var(--wood-dark);
+}
+
+.chat-pending-photo img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.chat-pending-photo span {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-pending-photo button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--wood-dark);
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* A photo shown beside the note it produced, in the review queue and the
+   observation log. Capped rather than full-bleed: it's evidence for a
+   decision about the text, not a gallery, and a phone-shaped photo at
+   full width pushes the actual note off the screen. */
+.observation-photo {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  max-height: 200px;
+  object-fit: cover;
+  border: 2px solid var(--wood);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.observation-photo-loading {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: 120px;
+  border: 2px dashed var(--wood);
+  border-radius: 8px;
+  margin: 8px 0;
+  opacity: 0.4;
+}
+
+.observation-photo-missing {
+  display: block;
+  font-size: 12px;
+  color: var(--wood-dark);
+  opacity: 0.7;
+  margin: 8px 0;
+}
+
+.candidate-note {
+  white-space: pre-wrap;
+}
+
+.candidates-log-link {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 8px;
+}
+
+.candidates-log-link button {
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+/* The camera/library chooser, stacked above the compose bar so it shares
+   the same floating group and can't be pushed off-screen by it. */
+.chat-photo-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--soil);
+  border: 3px solid var(--leaf);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.chat-photo-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 44px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.chat-pending-photo-location {
+  display: block;
+  margin-top: 2px;
+  font-weight: 700;
+}

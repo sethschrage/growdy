@@ -1,0 +1,24 @@
+/* One stylesheet, split along the seams it already had.
+ *
+ * The order of these imports is the cascade: several of these files
+ * override rules from the ones above them, so this list is the original
+ * file's own top-to-bottom order and moving a line changes what the app
+ * looks like. Adding a feature means adding a file at the end, not
+ * slotting one in alphabetically.
+ *
+ * Verified at the split: the built CSS was byte-identical before and
+ * after, so nothing here is a re-write of a rule -- only a move. */
+
+@import './tokens.css';
+@import './login.css';
+@import './shell.css';
+@import './chat.css';
+@import './forms.css';
+@import './data-sources.css';
+@import './observation-form.css';
+@import './producer-data.css';
+@import './observation-log.css';
+@import './artifacts.css';
+@import './history.css';
+@import './release-notes.css';
+@import './photos.css';

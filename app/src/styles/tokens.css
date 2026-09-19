@@ -1,0 +1,48 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+  --wood: #8b5a2b;
+  --wood-dark: #5c3a1a;
+  --parchment: #fbe8c0;
+  --panel: #f6d998;
+  --ink: #4a2f1c;
+  --leaf: #5b8c3e;
+  --leaf-dark: #3f6b29;
+  --berry: #c1440e;
+  --berry-dark: #8a3009;
+  --cream: #fff8ea;
+  --soil: #3d2b1a;
+  --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
+  font: 16px/1.5 'Pixelify Sans', system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html {
+  background: var(--sky);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  background: var(--sky);
+  color: var(--ink);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: var(--app-height, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

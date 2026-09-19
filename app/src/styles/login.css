@@ -1,0 +1,132 @@
+/* Signed-out screens: the login page, its sky, and the public artifact page a shared link opens (0027). */
+
+.login-screen {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  width: 100%;
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  background: var(--sky);
+}
+
+.login-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.cloud {
+  position: absolute;
+  z-index: 0;
+  animation-name: drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(24px);
+  }
+}
+
+.star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--cream);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.login-screen h1 {
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 42px;
+  margin: 0;
+  color: var(--wood-dark);
+}
+
+.public-artifact-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+}
+
+.public-artifact-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--wood-dark);
+  border-bottom: 2px solid var(--wood);
+}
+
+.public-artifact-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.public-artifact-graphic svg {
+  /* A model-written svg often has only a viewBox, no width/height
+     attributes -- width and height both `auto` then has no definite
+     size to resolve from and collapses to 0x0. A definite width lets
+     the viewBox's own aspect ratio resolve height. */
+  width: min(100%, 480px);
+  max-height: calc(100dvh - 120px);
+  height: auto;
+  display: block;
+}
+
+.google-signin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 16px;
+  background: #fff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-family: Roboto, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.google-signin-button:hover {
+  box-shadow:
+    0 1px 2px 0 rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.google-signin-button:active {
+  transform: none;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+}
