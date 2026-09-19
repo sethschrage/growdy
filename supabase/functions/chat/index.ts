@@ -489,6 +489,134 @@ You can also change other data, not just read it -- correcting a note, saving so
 Answer in plain conversational language, matching the level of detail to how the question was actually phrased -- a quick total for "how many," a fuller breakdown for "where." Don't just restate a raw number if the data supports a more useful answer, and proactively mention anything notable you notice in the results, even if it wasn't explicitly asked about.`;
 }
 
+// What the client is told while it waits. Every one of these
+// corresponds to something that actually happened on this request --
+// a model turn starting, a named tool running, tokens being spent --
+// rather than a timer pretending to narrate.
+type ChatEvent =
+  | { type: "turn"; index: number }
+  | { type: "tool"; name: string; state: "start" | "done" | "error"; detail?: string }
+  | { type: "text"; text: string }
+  | { type: "usage"; inputTokens: number; outputTokens: number }
+  | { type: "done"; text: string }
+  | { type: "error"; message: string };
+
+type Emit = (event: ChatEvent) => void;
+
+/**
+ * One model turn, streamed.
+ *
+ * Anthropic answers with its own SSE stream: content blocks opening,
+ * deltas arriving, usage at the end. This reassembles the blocks (the
+ * loop below still needs whole tool_use blocks to run them) while
+ * forwarding text deltas onward as they arrive, which is the difference
+ * between a producer watching an answer appear and a producer watching
+ * a spinner.
+ *
+ * Tool arguments stream as partial JSON, so a tool_use block is only
+ * complete at content_block_stop -- parsing before that yields
+ * fragments of a JSON object, which is why the input is accumulated as
+ * a string and parsed once at the end.
+ */
+async function streamAnthropic(
+  conversation: unknown[],
+  systemPrompt: string,
+  tools: unknown[] | null,
+  emit: Emit,
+) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": anthropicKey(),
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      ...(tools ? { tools } : {}),
+      messages: conversation,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const message = await response.text();
+    throw new Error(`Anthropic API error (${response.status}): ${message}`);
+  }
+
+  const blocks: Record<string, unknown>[] = [];
+  const partialToolInput: Record<number, string> = {};
+  let text = "";
+  let usage = { inputTokens: 0, outputTokens: 0 };
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE frames are separated by a blank line. A frame can arrive split
+    // across reads, so anything after the last separator stays buffered.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      const dataLine = frame.split("\n").find((line) => line.startsWith("data:"));
+      if (!dataLine) continue;
+      const payload = dataLine.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+
+      let event: Record<string, any>;
+      try {
+        event = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+
+      if (event.type === "content_block_start") {
+        const block = event.content_block ?? {};
+        blocks[event.index] = { ...block };
+        if (block.type === "tool_use") partialToolInput[event.index] = "";
+      } else if (event.type === "content_block_delta") {
+        const delta = event.delta ?? {};
+        if (delta.type === "text_delta") {
+          const chunk = delta.text ?? "";
+          text += chunk;
+          const block = blocks[event.index];
+          if (block) block.text = String(block.text ?? "") + chunk;
+          emit({ type: "text", text: chunk });
+        } else if (delta.type === "input_json_delta") {
+          partialToolInput[event.index] = (partialToolInput[event.index] ?? "") + (delta.partial_json ?? "");
+        }
+      } else if (event.type === "content_block_stop") {
+        const block = blocks[event.index];
+        if (block?.type === "tool_use") {
+          const raw = partialToolInput[event.index] ?? "";
+          try {
+            block.input = raw ? JSON.parse(raw) : {};
+          } catch {
+            block.input = {};
+          }
+        }
+      } else if (event.type === "message_start") {
+        usage.inputTokens += event.message?.usage?.input_tokens ?? 0;
+      } else if (event.type === "message_delta") {
+        usage.outputTokens += event.delta?.usage?.output_tokens ?? event.usage?.output_tokens ?? 0;
+      } else if (event.type === "error") {
+        throw new Error(event.error?.message ?? "Anthropic stream error");
+      }
+    }
+  }
+
+  emit({ type: "usage", ...usage });
+  return { content: blocks.filter(Boolean), text, usage };
+}
+
 async function callAnthropic(conversation: unknown[], systemPrompt: string, tools: unknown[] | null) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -514,6 +642,140 @@ async function callAnthropic(conversation: unknown[], systemPrompt: string, tool
   return response.json();
 }
 
+/**
+ * The streaming twin of runAgentLoop.
+ *
+ * Same loop, same tools, same ceiling -- the difference is that every
+ * step announces itself: which turn is running, which tool started and
+ * whether it worked, what the answer is as it arrives, and what it
+ * cost. A producer watching this sees the work; the old version showed
+ * a growing sprout for however long the whole thing took, which was
+ * the same animation whether the model answered from memory or ran
+ * nine queries.
+ */
+async function runAgentLoopStreaming(
+  conversation: unknown[],
+  supabase: SupabaseClient,
+  systemPrompt: string,
+  tools: unknown[],
+  emit: Emit,
+) {
+  const said: string[] = [];
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    emit({ type: "turn", index: i + 1 });
+    const turn = await streamAnthropic(conversation, systemPrompt, tools, emit);
+    const toolUses = turn.content.filter((block) => block.type === "tool_use") as {
+      id: string;
+      name: string;
+      input: Record<string, unknown>;
+    }[];
+
+    if (turn.text.trim()) said.push(turn.text.trim());
+
+    if (toolUses.length === 0) {
+      const text = said.join("\n\n");
+      emit({ type: "done", text });
+      return { type: "text", text };
+    }
+
+    conversation.push({ role: "assistant", content: turn.content });
+
+    const toolResults = await Promise.all(
+      toolUses.map(async (toolUse) => {
+        console.log(`chat tool call (iteration ${i + 1}): ${toolUse.name} ${JSON.stringify(toolUse.input)}`);
+        emit({ type: "tool", name: toolUse.name, state: "start", detail: toolDetail(toolUse) });
+        const result = await runTool(supabase, toolUse);
+        emit({
+          type: "tool",
+          name: toolUse.name,
+          state: result.is_error ? "error" : "done",
+          detail: toolDetail(toolUse),
+        });
+        return result;
+      }),
+    );
+
+    conversation.push({ role: "user", content: toolResults });
+
+    // A turn that said something before reaching for a tool has already
+    // been shown to the producer; the next turn's text continues it, so
+    // the paragraph break goes in here rather than being lost.
+    if (turn.text.trim()) emit({ type: "text", text: "\n\n" });
+  }
+
+  console.error(`chat hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}) without a final answer`);
+  const finalTurn = await streamAnthropic(conversation, systemPrompt, null, emit);
+  const text = [...said, finalTurn.text.trim()].filter(Boolean).join("\n\n") ||
+    "That took more searching than expected -- try asking a narrower question.";
+  emit({ type: "done", text });
+  return { type: "text", text };
+}
+
+/**
+ * Something short and true about what a tool is doing, for the status
+ * line. Deliberately not the whole input: a producer watching a wait
+ * does not need 400 characters of SQL, and the query is in the function
+ * logs for anyone debugging.
+ */
+function toolDetail(toolUse: { name: string; input: Record<string, unknown> }): string | undefined {
+  if (toolUse.name === "search_memory") return String(toolUse.input.query ?? "").slice(0, 60);
+  if (toolUse.name === "web_search") return String(toolUse.input.query ?? "").slice(0, 60);
+  if (toolUse.name === "get_grape_phenology") {
+    return `${toolUse.input.start_date ?? ""} to ${toolUse.input.end_date ?? ""}`.trim();
+  }
+  return undefined;
+}
+
+/** One tool call, run and shaped into a tool_result block. */
+async function runTool(
+  supabase: SupabaseClient,
+  toolUse: { id: string; name: string; input: Record<string, unknown> },
+) {
+  let content: unknown;
+  let isError = false;
+  try {
+    if (toolUse.name === "execute_readonly_query") {
+      const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
+        query: toolUse.input.query as string,
+      });
+      if (error) throw new Error(error.message);
+      content = rows ?? [];
+    } else if (toolUse.name === "get_grape_phenology") {
+      content = await fetchGrapePhenology(
+        supabase,
+        toolUse.input.start_date as string,
+        toolUse.input.end_date as string,
+      );
+    } else if (toolUse.name === "search_memory") {
+      content = await searchMemory(supabase, toolUse.input.query as string);
+    } else if (toolUse.name === "propose_write_query") {
+      content = await proposeWrite(supabase, toolUse.input.query as string);
+    } else if (toolUse.name === "view_photo") {
+      content = await viewPhoto(supabase, toolUse.input.path as string);
+    } else {
+      throw new Error(`unknown tool: ${toolUse.name}`);
+    }
+  } catch (err) {
+    console.error(`chat tool call failed (${toolUse.name}): ${err}`);
+    content = { error: String(err) };
+    isError = true;
+  }
+  // Every other tool answers with JSON text. view_photo answers with
+  // real content blocks, because an image cannot be stringified into a
+  // tool result and still be looked at.
+  const blocks =
+    content && typeof content === "object" && "__contentBlocks" in content
+      ? (content as { __contentBlocks: unknown[] }).__contentBlocks
+      : null;
+  return {
+    type: "tool_result",
+    tool_use_id: toolUse.id,
+    content: blocks ?? JSON.stringify(content),
+    is_error: isError,
+  };
+}
+
 async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, systemPrompt: string, tools: unknown[]) {
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const data = await callAnthropic(conversation, systemPrompt, tools);
@@ -529,48 +791,7 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
     const toolResults = await Promise.all(
       toolUses.map(async (toolUse: { id: string; name: string; input: Record<string, unknown> }) => {
         console.log(`chat tool call (iteration ${i + 1}): ${toolUse.name} ${JSON.stringify(toolUse.input)}`);
-        let content: unknown;
-        let isError = false;
-        try {
-          if (toolUse.name === "execute_readonly_query") {
-            const { data: rows, error } = await supabase.rpc("execute_readonly_query", {
-              query: toolUse.input.query as string,
-            });
-            if (error) throw new Error(error.message);
-            content = rows ?? [];
-          } else if (toolUse.name === "get_grape_phenology") {
-            content = await fetchGrapePhenology(
-              supabase,
-              toolUse.input.start_date as string,
-              toolUse.input.end_date as string,
-            );
-          } else if (toolUse.name === "search_memory") {
-            content = await searchMemory(supabase, toolUse.input.query as string);
-          } else if (toolUse.name === "propose_write_query") {
-            content = await proposeWrite(supabase, toolUse.input.query as string);
-          } else if (toolUse.name === "view_photo") {
-            content = await viewPhoto(supabase, toolUse.input.path as string);
-          } else {
-            throw new Error(`unknown tool: ${toolUse.name}`);
-          }
-        } catch (err) {
-          console.error(`chat tool call failed (${toolUse.name}): ${err}`);
-          content = { error: String(err) };
-          isError = true;
-        }
-        // Every other tool answers with JSON text. view_photo answers
-        // with real content blocks, because an image cannot be
-        // stringified into a tool result and still be looked at.
-        const blocks =
-          content && typeof content === "object" && "__contentBlocks" in content
-            ? (content as { __contentBlocks: unknown[] }).__contentBlocks
-            : null;
-        return {
-          type: "tool_result",
-          tool_use_id: toolUse.id,
-          content: blocks ?? JSON.stringify(content),
-          is_error: isError,
-        };
+        return runTool(supabase, toolUse);
       }),
     );
 
@@ -595,6 +816,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const wantsStream = (req.headers.get("accept") ?? "").includes("text/event-stream");
     const { messages, photoPath, photoTakenOn } = await req.json();
 
     // The Anthropic API rejects any key it doesn't recognise on a
@@ -679,10 +901,52 @@ Deno.serve(async (req: Request) => {
       WEB_SEARCH_TOOL,
       WEB_FETCH_TOOL,
     ];
-    const result = await runAgentLoop(conversationMessages, supabase, systemPrompt, tools);
+    // Two shapes, one loop's worth of work behind each.
+    //
+    // A client that asks for an event stream gets the work as it
+    // happens; one that doesn't gets the single JSON object this
+    // function has always returned. The buffered path is not legacy
+    // baggage -- it is what keeps a deploy safe in both directions,
+    // since the function and the client ship separately (the function
+    // by hand after merge, the client by Vercel on merge) and either
+    // can be newer for a while.
+    if (!wantsStream) {
+      const result = await runAgentLoop(conversationMessages, supabase, systemPrompt, tools);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "content-type": "application/json" },
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const emit = (event: ChatEvent) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        };
+        try {
+          await runAgentLoopStreaming(conversationMessages, supabase, systemPrompt, tools, emit);
+        } catch (err) {
+          // The stream has already been accepted with a 200 by now, so
+          // a failure cannot be an HTTP status -- it has to travel as an
+          // event, and the client has to treat it as one.
+          console.error(`chat stream crashed: ${err}`);
+          emit({ type: "error", message: String(err) });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        // Without this a proxy is free to buffer the whole response and
+        // hand it over at the end, which is exactly the thing being
+        // fixed here.
+        "x-accel-buffering": "no",
+      },
     });
   } catch (err) {
     console.error(`chat crashed: ${err}`);
