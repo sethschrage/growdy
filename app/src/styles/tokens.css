@@ -49,6 +49,12 @@
   /* How far a button sinks when pressed. The tactile press is worth
      keeping; 4px of it was a novelty toy next to real UI. */
   --press: 2px;
+
+  /* Menu choreography. Slow enough to read as a movement rather than a
+     jump; short enough that a producer opening a menu to do something
+     isn't waiting on it. */
+  --menu-speed: 240ms;
+  --menu-ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --wood: #8b5a2b;
   --wood-dark: #5c3a1a;
   --parchment: #fbe8c0;

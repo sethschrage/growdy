@@ -180,3 +180,16 @@ export function PictureIcon({ size = 20, className }: IconProps) {
     </Icon>
   )
 }
+
+/**
+ * Expand a menu from icons to labelled rows. Points down when the menu
+ * is closed-up and up when it is expanded, rotated by CSS rather than
+ * by swapping paths, so the turn is animatable.
+ */
+export function ChevronIcon({ size = 16, className }: IconProps) {
+  return (
+    <Icon size={size} className={className}>
+      <path d="M7 10l5 5 5-5" />
+    </Icon>
+  )
+}
