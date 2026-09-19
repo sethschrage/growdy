@@ -1,0 +1,106 @@
+/* The observation log -- what was accepted into the record, newest first, with the delete that is the correction mechanism after approval (0030). */
+
+/* ObservationLogView -- the whole log, newest first, with a delete on
+   every row. This is what replaced 0009's review gate, so the delete is
+   the primary affordance here rather than a tucked-away one. Lives
+   inside .pdv-overlay and inherits its dense palette. */
+.obs-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.obs-log-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #f4f6f8;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.obs-log-item-main {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.obs-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--pdv-muted);
+  margin-bottom: 4px;
+}
+
+.obs-log-source {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef1f4;
+}
+
+.obs-log-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.obs-log-delete-toggle {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 5px 11px;
+  background: none;
+  border: 1px solid #d8514a;
+  box-shadow: none;
+  color: #d8514a;
+  border-radius: 6px;
+}
+
+.obs-log-delete-confirm {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: #fbe4e2;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a1f1a;
+}
+
+.obs-log-delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.obs-log-delete-confirm-yes {
+  font-size: 12px;
+  padding: 5px 13px;
+  background: #d8514a;
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.obs-log-delete-confirm-actions button:not(.obs-log-delete-confirm-yes) {
+  font-size: 12px;
+  padding: 5px 13px;
+  background: none;
+  border: 1px solid var(--pdv-border);
+  box-shadow: none;
+  color: var(--pdv-ink);
+  border-radius: 6px;
+}

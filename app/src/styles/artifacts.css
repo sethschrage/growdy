@@ -1,0 +1,150 @@
+/* Saved graphics and their share links. */
+
+/* ArtifactsView (0027/0.14.0) -- lives inside .pdv-overlay, so it
+   inherits the same modern/dense palette rather than defining its own. */
+.artifacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.artifacts-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--pdv-border);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: left;
+  box-shadow: none;
+}
+
+.artifacts-card:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.artifacts-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f4f6f8;
+  border-radius: 6px;
+}
+
+.artifacts-thumb svg {
+  width: 90%;
+  height: auto;
+  max-height: 90%;
+  display: block;
+}
+
+.artifacts-thumb--empty {
+  opacity: 0.5;
+}
+
+.artifacts-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2430;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artifacts-card-date {
+  font-size: 11px;
+  color: var(--pdv-muted);
+}
+
+.artifacts-detail-graphic svg {
+  width: 100%;
+  height: auto;
+  max-height: 50vh;
+  display: block;
+}
+
+.artifacts-detail-date {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pdv-muted);
+}
+
+.artifacts-share-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.artifacts-share-link input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--pdv-border);
+  border-radius: 6px;
+  background: #f4f6f8;
+  color: #1c2430;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.artifacts-share-link button {
+  font-size: 13px;
+  padding: 8px 14px;
+  background: var(--pdv-accent);
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.artifacts-delete-toggle {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid #d8514a;
+  box-shadow: none;
+  color: #d8514a;
+  border-radius: 6px;
+}
+
+.artifacts-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #fbe4e2;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a1f1a;
+}
+
+.artifacts-delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.artifacts-delete-confirm-yes {
+  font-size: 13px;
+  padding: 6px 14px;
+  background: #d8514a;
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.artifacts-delete-confirm-actions button:not(.artifacts-delete-confirm-yes) {
+  font-size: 13px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid var(--pdv-border);
+  box-shadow: none;
+  color: #1c2430;
+  border-radius: 6px;
+}
