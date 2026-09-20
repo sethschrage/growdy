@@ -14,6 +14,11 @@ vi.mock('@/data/vineyard', () => ({
 }))
 vi.mock('@/data/profile', () => ({ fetchProducerId: async () => 'producer-1' }))
 vi.mock('@/data/observations', () => ({ createObservationCandidate: async () => 'candidate-1' }))
+// The form captures through the queue now, and the queue imports the
+// photo helpers, which build the Supabase client at module load and
+// throw without a .env -- fine locally, fatal in CI. Mocked for the same
+// reason photo.test.ts mocks it: the client is not what this file tests.
+vi.mock('@/lib/photo', () => ({ uploadPhoto: async () => 'producer-1/photo.jpg' }))
 
 const session = { user: { id: 'user-1' } } as Session
 
