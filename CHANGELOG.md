@@ -174,6 +174,85 @@ this repo could have caught that one, which is worth noticing right after
 a batch that added several: the claim was about GitHub's behaviour, not
 about a file, and the checks only ever see files.
 
+Then the producer used it, which is the part no amount of the above
+substitutes for. Four things came back, and each one was a measurement
+waiting to be taken.
+
+The burger menu was wrong in three independent ways at once, which is why
+it read as broken rather than as a bug. The ovals grow sideways, and in
+opposite directions for the two menus -- both toward the middle of the
+screen -- while the chevron turned up and down through a single shared
+rotation that could not be right for either. `PixelBunRow` drew rows 5
+and 6, the heel, and was used at both ends of the open stack, so the
+burger had two bottoms and no top underneath two comments asserting
+otherwise. And the top bun sat 38px left of the column it was meant to
+cap, because the chevron rendered after the toggle in a right-anchored
+menu. All three were measured in a harness that rendered every state
+against the real stylesheets rather than reasoned about
+([#210](https://github.com/sethschrage/growdy/pull/210)); the bun then
+dropped 11px on open, which was the same mistake once more, and is now
+0px ([#213](https://github.com/sethschrage/growdy/pull/213)).
+
+"I asked what the weather was today and it took 90,000 tokens. Really?"
+It took 146,681, of which 135,504 was the same cached prompt read eight
+times at a tenth of the price -- about six cents. But the eight turns
+were the story: the first query hit `execute_readonly_query`'s
+five-second timeout and the model spent seven more working around a
+failure it could not see. That query takes 77ms. What timed out was the
+tenancy check, and its shape looked entirely reasonable:
+`using (private.user_can_access_producer(producer_id))` passes review,
+is correct, and runs a non-inlinable `SECURITY DEFINER` function once per
+row -- 1,500ms over 143,588 of them, against 15ms for the same test with
+the caller resolved once. Thirty policies across fourteen tables were
+rewritten to compare against a value hoisted into an InitPlan, which is
+provably the same test because `profiles.id` is the primary key
+([`0036`](docs/decisions/0036-rls-predicates-are-evaluated-once.md),
+[#211](https://github.com/sethschrage/growdy/pull/211)). The same
+question now answers in two turns and about a penny. Reading all thirty
+also turned up a policy nothing could satisfy: `plot_rows`' update rule
+called a function querying `parcel_shares`, which
+[`0028`](docs/decisions/0028-what-uat-removed.md) dropped, so editing a
+row's length or spacing had been failing since -- unnoticed, because a
+dead policy reads as a permissions error rather than a crash.
+
+"When it uses a source like the Tempest, is that a tool?" No: weather is
+ordinary schema, read with SQL, exactly as
+[`0019`](docs/decisions/0019-external-data-channels.md) decided. But the
+answer can say so, and almost all of what it needed was already on the
+wire and being thrown away -- the reducer had accumulated a list of
+finished tools since streaming landed and nothing rendered it. One
+addition server-side, the relation names a query read, is the difference
+between "your vineyard records" and "Lockehaven Field (Tempest)". It
+sits under the answer with what the question cost, which the status line
+used to show and then unmount, taking the number with it
+([#212](https://github.com/sethschrage/growdy/pull/212)). That display
+was also wrong in the flattering direction: it counted cache reads at
+full weight and ignored cache writes entirely, so the cheapest-looking
+request of the evening -- 126 tokens on screen -- was really the second
+most expensive.
+
+"What happens when there isn't signal?" Nothing deliberate, which for a
+vineyard app is the wrong answer to have. A capture made in a block
+failed, said `Load failed`, and was gone. The app now names the
+situation rather than the mechanism, keeps the question, and sends it
+when the connection returns
+([#214](https://github.com/sethschrage/growdy/pull/214)) -- and every
+observation is written to a local queue before anything is sent, then
+flushed immediately. Not "send, and queue if that fails": one path, so
+the delivery code that runs with no bars is the code that runs at a desk
+with five, which is [`0030`](docs/decisions/0030-every-observation-through-one-queue.md)'s
+one-door argument a layer down
+([`0037`](docs/decisions/0037-what-happens-with-no-signal.md),
+[#215](https://github.com/sethschrage/growdy/pull/215),
+[#216](https://github.com/sethschrage/growdy/pull/216)). The rules are
+about not losing what somebody walked out to a vine to record and not
+filing it twice: oldest first, stop at the first failure rather than
+burning every attempt counter on one bad minute, upload the photo once
+and remember it, and an item that has failed five times stays visible
+rather than disappearing. That last pair caught a real bug before it
+shipped -- the failure path forgot a photo it had just uploaded, which
+would have orphaned a copy in the bucket on every retry.
+
 Both halves of this release are the same idea pointed in two directions.
 A system that says what it is doing -- to the producer waiting on it, and
 to whoever reads it next -- is one you can catch being wrong. A system
