@@ -35,6 +35,29 @@
   pointer-events: auto;
 }
 
+/* Start a new chat, permanently on screen.
+   It is dressed as one of the burger's own buttons -- same wood, same
+   size, same press -- because the header now has two controls in it and
+   they should look like they belong to the same app. It takes the slot
+   the sprout toggle had, which is why the header's own geometry did not
+   have to move.
+   36px rather than the menu's --menu-button, so that it matches the
+   toggle's 36px head opposite it and the header keeps the height that
+   --header-height is measured from. */
+.new-chat {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--cream);
+  background: var(--wood);
+  border: var(--line-strong) solid var(--wood-dark);
+  box-shadow: 0 var(--press) 0 var(--wood-dark);
+}
+
 .app-header-left {
   display: flex;
   align-items: center;
@@ -200,8 +223,7 @@
   --bar-top: calc(var(--burger-top) + var(--bun-height) + var(--space-2));
 }
 
-.app-menu-head,
-.sprout-menu-head {
+.app-menu-head {
   display: flex;
   align-items: center;
 }
@@ -226,11 +248,17 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  /* The same gap the sprout menu has always had. These were 4px and 8px
-     respectively, which does not read as two spacings -- it reads as two
-     button sizes, and the buttons are identical. */
+  /* One gap, not two. The head and the stack used 4px and 8px between
+     them, which does not read as two spacings -- it reads as two button
+     sizes, and the buttons are identical. */
   gap: var(--space-2);
-  /* Same stacking problem .sprout-menu-bar documents below. */
+  /* The same problem .chat-input already solved: opening downward
+     extends past the header into .chat-messages's own stacking area,
+     which carries z-index: 1 too and paints later in DOM order. At
+     z-index: 1 the buttons were visible but not clickable, because
+     .chat-messages was capturing the taps over that shared region.
+     (This note used to defer to the sprout menu's copy of the rule,
+     which has gone along with the sprout menu.) */
   z-index: 2;
   transform-origin: top right;
   /* How far open it is, 0 to 1, written by AccountMenu -- from a gesture
@@ -293,18 +321,15 @@
  *   half of the same complaint for free: the chevron was 4px from the
  *   burger and is now the length of the stack away from it.
  *
- * The foot hangs off its own menu's edge like everything else in the
- * stack, so the two menus stay mirrors. AccountMenu's is right-anchored
- * with the heel flush to the edge and the chevron inboard of it, the
- * same relation the chevron had to the toggle; SproutMenu's is
- * left-anchored and holds the chevron alone, because SproutMenu has
- * never had a bun or a topping row -- the mirroring is of the anchor
- * edge and the growth direction, not of the burger's anatomy. */
+ * The foot hangs off the menu's own edge like everything else in the
+ * stack: right-anchored, with the heel flush to that edge and the
+ * chevron inboard of it, the same relation the chevron had to the
+ * toggle. This paragraph used to describe two menus mirroring each
+ * other; the sprout menu is gone and the burger is the only one. */
 /* The foot: the burger's heel, and under it the glass chevron that
    shuts the menu. A column, because the heel ends the burger and the
    control is a separate thing sitting below it rather than beside. */
-.app-menu-foot,
-.sprout-menu-foot {
+.app-menu-foot {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -323,10 +348,15 @@
    and the fillings up the whole stack and puts them back under the lid,
    and opening drops them out of it. */
 .app-menu-bar > .app-menu-foot {
-  /* Nine buttons above it, so nine seats plus the stack's own offset --
-     the rail sits between them in the markup but is taken out of flow,
-     so its index is not a row. */
-  --travel: calc(var(--bar-top) + var(--seat) * 9);
+  /* Eight buttons above it, so eight seats plus the stack's own offset
+     -- the rail sits between them in the markup but is taken out of
+     flow, so its index is not a row.
+     This is the one number in here that does not follow from --i, so it
+     is the one that has to be changed by hand when the menu gains or
+     loses an item. Get it wrong and the burger's own slices stop landing
+     in the crown and start overtaking the meat on the way up. New chat
+     leaving for the header is what took it from nine to eight. */
+  --travel: calc(var(--bar-top) + var(--seat) * 8);
   /* The foot keeps its own opacity out of it, so that the slices can be
      solid for the whole of that journey. Faded by the shared rule they
      arrived home invisible, which is the flash again in slow motion:
@@ -600,15 +630,6 @@
 .app-menu-bar .menu-grip--open svg {
   transform: rotate(-90deg);
 }
-
-.sprout-menu-bar .menu-grip svg {
-  transform: rotate(-90deg);
-}
-
-.sprout-menu-bar .menu-grip--open svg {
-  transform: rotate(90deg);
-}
-
 .app-menu-bar .menu-rail {
   right: calc(100% + var(--space-1));
   /* Chrome, not burger: it does not go home with the rest of it, it
@@ -633,11 +654,6 @@
     var(--space-2) + var(--bun-height) * 2 + var(--space-2) + 36px + var(--rail-shy)
   );
 }
-
-.sprout-menu-bar .menu-rail {
-  left: calc(100% + var(--space-1));
-}
-
 /* Closing, in the same glass as the rail: an upward chevron under the
    heel, pointing the way the menu goes when it shuts. */
 .menu-close-grip {
@@ -685,11 +701,6 @@
   display: block;
   align-self: flex-end;
 }
-
-.sprout-menu-foot .menu-close-grip {
-  align-self: center;
-}
-
 /* Nothing animates while a finger is setting the width: a transition
    during a drag is the control lagging behind the hand. */
 .app-menu-bar--dragging .menu-label,
@@ -706,13 +717,11 @@
    only when the producer let go. As a calc it is always true: item n
    starts at n * --stagger and covers what is left, so the bottom one
    arrives exactly as the menu reaches open. */
-.app-menu-bar > *:not(.menu-rail),
-.sprout-menu-bar > *:not(.menu-rail) {
+.app-menu-bar > *:not(.menu-rail) {
   position: relative;
 }
 
-.app-menu-bar > *,
-.sprout-menu-bar > * {
+.app-menu-bar > * {
   --i: 0;
   /* Each item's own slice of the drag: it starts --stagger later than
      the one above it and takes --window to arrive. Thirteen possible
@@ -794,63 +803,51 @@
   pointer-events: none;
 }
 
-.app-menu-bar > *:nth-child(2),
-.sprout-menu-bar > *:nth-child(2) {
+.app-menu-bar > *:nth-child(2) {
   --i: 1;
 }
 
-.app-menu-bar > *:nth-child(3),
-.sprout-menu-bar > *:nth-child(3) {
+.app-menu-bar > *:nth-child(3) {
   --i: 2;
 }
 
-.app-menu-bar > *:nth-child(4),
-.sprout-menu-bar > *:nth-child(4) {
+.app-menu-bar > *:nth-child(4) {
   --i: 3;
 }
 
-.app-menu-bar > *:nth-child(5),
-.sprout-menu-bar > *:nth-child(5) {
+.app-menu-bar > *:nth-child(5) {
   --i: 4;
 }
 
-.app-menu-bar > *:nth-child(6),
-.sprout-menu-bar > *:nth-child(6) {
+.app-menu-bar > *:nth-child(6) {
   --i: 5;
 }
 
-.app-menu-bar > *:nth-child(7),
-.sprout-menu-bar > *:nth-child(7) {
+.app-menu-bar > *:nth-child(7) {
   --i: 6;
 }
 
-.app-menu-bar > *:nth-child(8),
-.sprout-menu-bar > *:nth-child(8) {
+.app-menu-bar > *:nth-child(8) {
   --i: 7;
 }
 
-.app-menu-bar > *:nth-child(9),
-.sprout-menu-bar > *:nth-child(9) {
+.app-menu-bar > *:nth-child(9) {
   --i: 8;
 }
 
-.app-menu-bar > *:nth-child(10),
-.sprout-menu-bar > *:nth-child(10) {
+.app-menu-bar > *:nth-child(10) {
   --i: 9;
 }
 
-.app-menu-bar > *:nth-child(11),
-.sprout-menu-bar > *:nth-child(11) {
+.app-menu-bar > *:nth-child(11) {
   --i: 10;
 }
 
-.app-menu-bar > *:nth-child(12),
-.sprout-menu-bar > *:nth-child(12) {
+.app-menu-bar > *:nth-child(12) {
   --i: 11;
 }
 
-.app-menu-bar > *:nth-child(13),
-.sprout-menu-bar > *:nth-child(13) {
+.app-menu-bar > *:nth-child(13) {
   --i: 12;
 }
 
@@ -869,9 +866,7 @@
    the cascade would still be there with nothing to carry it. */
 @media (prefers-reduced-motion: reduce) {
   .app-menu-bar,
-  .sprout-menu-bar,
-  .app-menu-bar > *,
-  .sprout-menu-bar > * {
+  .app-menu-bar > * {
     transition: none;
     --stagger: 0;
     --window: 1;
@@ -894,56 +889,3 @@
     --menu-button: 40px;
   }
 }
-
-.sprout-menu {
-  position: relative;
-}
-
-.sprout-menu-toggle {
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: transform 0.2s ease;
-}
-
-.sprout-menu-toggle:active:not(.sprout-menu-toggle--open) {
-  box-shadow: none;
-  transform: none;
-}
-
-.sprout-menu-toggle--open {
-  transform: rotate(90deg);
-}
-
-.sprout-menu-bar {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  /* Same problem .chat-input already solved: opening downward extends
-     past the header into .chat-messages's own stacking area, which has
-     z-index: 1 too and paints later in DOM order -- at z-index: 1 the
-     buttons were visible but not actually clickable, since
-     .chat-messages was capturing the clicks over that shared region. */
-  z-index: 2;
-  transform-origin: top left;
-  /* Same position model as the burger's, so that whenever this menu
-     gains something to show it arrives the same way. Nothing writes
-     --openness here yet, which is what the 1 is for. */
-  --openness: 1;
-  opacity: var(--openness);
-  transform: translateY(calc((1 - var(--openness)) * -6px))
-    scaleY(calc(0.7 + var(--openness) * 0.3));
-  transition:
-    opacity var(--menu-speed) var(--menu-ease),
-    transform var(--menu-speed) var(--menu-ease);
-}
-
-

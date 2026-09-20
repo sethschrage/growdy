@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AccountMenu } from '@/app/AccountMenu'
-import { SproutMenu } from '@/app/SproutMenu'
+import { NewChatButton } from '@/app/NewChatButton'
 import { ArtifactsView } from '@/features/artifacts/ArtifactsView'
 import { Chat } from '@/features/chat/Chat'
 import { HistoryDrawer, type Conversation } from '@/features/chat/HistoryDrawer'
@@ -59,19 +59,24 @@ export function SignedIn({ session }: { session: Session }) {
     observationCandidatesOpen ||
     artifactsOpen
 
+  // Starting over: forget whichever conversation was resumed and remount
+  // Chat with a fresh key, which is what gives it an empty transcript.
+  // Nothing is lost -- useConversationLog has already written the old one
+  // -- so this is a change of subject, not a delete.
+  function startNewChat() {
+    setResumed(null)
+    setChatKey((k) => k + 1)
+  }
+
   return (
     <div className="app-shell" ref={shellRef}>
       <header className="app-header" ref={headerRef}>
         <div className="app-header-left">
-          <SproutMenu />
+          <NewChatButton onNewChat={startNewChat} />
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
           covered={screenOpen}
-          onNewChat={() => {
-            setResumed(null)
-            setChatKey((k) => k + 1)
-          }}
           onOpenHistory={() => setHistoryOpen(true)}
           onOpenDataSources={() => setDataSourcesOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
