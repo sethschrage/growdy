@@ -32,6 +32,28 @@ export type Capture = {
   location?: PhotoLocation | null
 }
 
+// Deliveries that happened without anybody asking, counted outside React.
+//
+// It was state inside the hook, which meant it belonged to whichever
+// screen happened to be mounted when the signal came back -- and the
+// producer, who had put the phone away and come back to the observation
+// log afterwards, saw nothing at all. The queue is a thing about the
+// device rather than about a screen, so what it has done lives at the
+// same level and any screen that mounts can report it.
+let deliveredUnprompted = 0
+const listeners = new Set<() => void>()
+
+function recordUnpromptedDelivery(count: number) {
+  deliveredUnprompted += count
+  for (const listener of listeners) listener()
+}
+
+/** For tests, which must not inherit a count from the file before them. */
+export function forgetUnpromptedDeliveries() {
+  deliveredUnprompted = 0
+  for (const listener of listeners) listener()
+}
+
 export function useObservationQueue(producerId: string | null) {
   // Falls back to memory where IndexedDB is missing -- a private window,
   // an old WebView. Captures then last as long as the screen does, which
@@ -43,7 +65,14 @@ export function useObservationQueue(producerId: string | null) {
   // not tell whether their observations had been sent or dropped:
   // "it just goes... no indication that signal returned". A count the
   // screen can render is the difference between those two readings.
-  const [deliveredOnItsOwn, setDeliveredOnItsOwn] = useState(0)
+  const [deliveredOnItsOwn, setDeliveredOnItsOwn] = useState(deliveredUnprompted)
+
+  useEffect(() => {
+    const listener = () => setDeliveredOnItsOwn(deliveredUnprompted)
+    listeners.add(listener)
+    listener()
+    return () => void listeners.delete(listener)
+  }, [])
 
   const refresh = useCallback(async () => {
     setWaiting(inCaptureOrder(await store.all()))
@@ -102,7 +131,7 @@ export function useObservationQueue(producerId: string | null) {
    */
   const flushQuietly = useCallback(async () => {
     const result = await flush()
-    if (result && result.sent > 0) setDeliveredOnItsOwn((already) => already + result.sent)
+    if (result && result.sent > 0) recordUnpromptedDelivery(result.sent)
   }, [flush])
 
   // Delivers whatever a previous session left behind. oxlint warns
