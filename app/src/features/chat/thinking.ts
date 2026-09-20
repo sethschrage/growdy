@@ -26,6 +26,21 @@ const TOOL_PHRASES: Record<string, string> = {
  */
 export type SourceKind = 'weather' | 'vineyard' | 'memory' | 'phenology' | 'web' | 'photo'
 
+/**
+ * One thing the answer did, as the stream reported it.
+ *
+ * `running` is the difference between a step that is taking a while and
+ * a step that finished a while ago, which is the whole reason a producer
+ * opens this: a wait with four completed steps and a fifth still going
+ * is a working answer, and the same wait with nothing running is a stuck
+ * one.
+ */
+export type Step = {
+  phrase: string
+  detail?: string
+  running: boolean
+}
+
 export type ThinkingState = {
   phrase: string
   detail?: string
@@ -43,8 +58,16 @@ export type ThinkingState = {
    * about the bill. See cost.ts.
    */
   cacheWriteTokens: number
-  /** Tools finished this request, oldest first. */
-  done: string[]
+  /**
+   * Every step this answer has taken, oldest first, running one last.
+   *
+   * This used to be `done: string[]` -- the phrases of finished tools,
+   * and nothing rendered it. The detail was dropped on the floor, which
+   * is the half worth having: "Reading your vineyard data" is a
+   * category, "weather_observations, plantings" is what it actually
+   * went and looked at.
+   */
+  steps: Step[]
   /** What this answer looked at, first mention first. */
   sources: SourceKind[]
 }
@@ -56,7 +79,7 @@ export const IDLE_THINKING: ThinkingState = {
   outputTokens: 0,
   cachedTokens: 0,
   cacheWriteTokens: 0,
-  done: [],
+  steps: [],
   sources: [],
 }
 
@@ -85,6 +108,25 @@ function sourceFor(name: string, detail?: string): SourceKind | undefined {
   }
 }
 
+/**
+ * Marks the most recent still-running step with this phrase as finished.
+ *
+ * The most recent rather than the first, because a turn can call the
+ * same tool twice and the end event that just arrived belongs to the one
+ * that started last. An end with no matching start leaves the list
+ * alone: a step that was never announced is not a step this can close.
+ */
+function endLastRunning(steps: Step[], phrase: string): Step[] {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (steps[i].running && steps[i].phrase === phrase) {
+      const next = [...steps]
+      next[i] = { ...next[i], running: false }
+      return next
+    }
+  }
+  return steps
+}
+
 /** Folds one stream event into what the status line should say. */
 export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): ThinkingState {
   switch (event.type) {
@@ -97,24 +139,31 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
         phrase: event.index === 1 ? 'Thinking' : 'Working out what that means',
         detail: undefined,
       }
-    case 'tool':
+    case 'tool': {
+      const phrase = TOOL_PHRASES[event.name] ?? event.name.replace(/_/g, ' ')
       if (event.state === 'start') {
         const source = sourceFor(event.name, event.detail)
         return {
           ...state,
-          phrase: TOOL_PHRASES[event.name] ?? event.name.replace(/_/g, ' '),
+          phrase,
           detail: event.detail,
+          steps: [...state.steps, { phrase, detail: event.detail, running: true }],
           // First mention wins, so the line reads in the order the
           // answer actually went looking.
           sources:
             source && !state.sources.includes(source) ? [...state.sources, source] : state.sources,
         }
       }
+      // Ends the matching step rather than appending a second one. The
+      // last running step with this phrase, because the same tool can be
+      // called more than once in a turn and the one that just finished
+      // is the one that started most recently.
       return {
         ...state,
-        done: [...state.done, TOOL_PHRASES[event.name] ?? event.name.replace(/_/g, ' ')],
+        steps: endLastRunning(state.steps, phrase),
         detail: undefined,
       }
+    }
     case 'text':
       // Text arriving means the answer itself has started.
       return { ...state, phrase: 'Writing', detail: undefined }
