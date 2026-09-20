@@ -7,3 +7,5 @@ node_modules/
 supabase/.branches
 supabase/.temp
 .claude/settings.local.json
+# Session worktrees are created inside the project.
+.claude/worktrees/

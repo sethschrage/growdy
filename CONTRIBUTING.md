@@ -54,9 +54,17 @@ and `AGENTS.md` mentions it, both move in the same PR.
    project *is* -- a new client, a new deploy path, a new external
    dependency -- has almost certainly made at least one of them wrong.
 5. CI runs automatically (see below). Review the diff.
-6. Merge via the PR (squash merge -- see "Merge strategy"). GitHub
-   auto-merge is on for this repo: once opened, a PR merges itself as soon
-   as CI passes, with no separate go-ahead needed per PR. Review happens
+6. Merge via the PR (squash merge -- see "Merge strategy"). **Auto-merge
+   is requested on the PR as it is opened** -- `gh pr merge <n> --auto
+   --squash` -- so it merges itself the moment CI goes green, with no
+   separate go-ahead needed per PR. The repo setting only *permits*
+   that; it does not do it. Three PRs sat green and open on 2026-09-19
+   while this file claimed they would merge themselves, which is the
+   kind of wrong a doc check cannot catch: the claim is about GitHub's
+   behaviour, not about a file. **The release PR is the exception** and
+   is merged by hand, because Releases step 2 puts a producer in front
+   of the running app before anything is tagged, and that is the one
+   review this process has. Review happens
    at the release step instead (see "Releases") -- the CHANGELOG entry
    is where a mistake actually gets caught, not a manual look at every
    individual PR. That makes step 4 load-bearing rather than tidy-up:
