@@ -72,6 +72,34 @@ and `AGENTS.md` mentions it, both move in the same PR.
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
 
+   **Except when the live function is the only place a change can be
+   verified.** Some Edge Function work cannot be checked anywhere else:
+   prompt caching only reports cache hits against the real API,
+   streaming only breaks against a real model, and an Edge Function
+   failing in production cannot be reproduced on a branch, because
+   there are no branch deploys for functions on this plan. Deploying
+   first to find out whether a thing works -- and then opening the PR
+   with the measurement in it -- produces a better PR than shipping an
+   unverified claim and finding out afterwards.
+
+   The conditions, all of them:
+
+   - It is an Edge Function. **Migrations are never exempt**: a
+     migration applied before review is a schema change nobody agreed
+     to, and it is the one thing here that cannot be rolled back by
+     redeploying.
+   - The PR goes up the same session, carrying what the deploy
+     measured, and says at the top that it was deployed first and why.
+   - The previous version is a redeploy away, and you are willing to do
+     that if review goes badly.
+   - Fixing a function that is already live and broken is not a
+     deviation at all -- that is an incident, and the live fix comes
+     first.
+
+   This is written down because it happened twice in one day before it
+   was a rule, and a rule broken twice in a day is either wrong or
+   missing a case. This one was missing a case.
+
 `main` is protected: pull requests are required, direct pushes (including
 by admins) are blocked, and force-pushes/branch deletion are disabled.
 
