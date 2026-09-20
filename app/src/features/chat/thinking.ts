@@ -70,6 +70,15 @@ export type ThinkingState = {
   steps: Step[]
   /** What this answer looked at, first mention first. */
   sources: SourceKind[]
+  /**
+   * The model's own reasoning for this request, as far as it has come.
+   *
+   * Kept whole rather than cut into steps: it is prose, and the function
+   * forwards it in whatever chunks the API produced. Empty against a
+   * function deployed without the thinking parameter -- that one never
+   * sends the event, and this stays "".
+   */
+  reasoning: string
 }
 
 export const IDLE_THINKING: ThinkingState = {
@@ -81,6 +90,7 @@ export const IDLE_THINKING: ThinkingState = {
   cacheWriteTokens: 0,
   steps: [],
   sources: [],
+  reasoning: '',
 }
 
 /**
@@ -164,6 +174,11 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
         detail: undefined,
       }
     }
+    case 'thinking':
+      // Accumulated, and it does not change the phrase. The line already
+      // says "Thinking"; reasoning arriving is that phrase being true,
+      // not a new state to announce.
+      return { ...state, reasoning: state.reasoning + event.text }
     case 'text':
       // Text arriving means the answer itself has started.
       return { ...state, phrase: 'Writing', detail: undefined }

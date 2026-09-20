@@ -848,6 +848,25 @@
   box-shadow: none;
 }
 
+/* The reasoning itself. Prose, so it gets a paragraph rather than the
+   stepped list treatment -- and a size below the answer's, because it is
+   the working and not the result. */
+.thinking-reasoning {
+  margin: 0;
+  padding: 0 0 0 10px;
+  border-left: var(--line-strong) solid rgba(74, 47, 28, 0.18);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--ink);
+  opacity: 0.75;
+  white-space: pre-wrap;
+  /* It can run long. A cap with its own scroll keeps a slow answer from
+     pushing the conversation off the screen while somebody is reading
+     it. */
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
 /* Above the line, so it grows into the conversation rather than under
    the compose bar. */
 .thinking-steps {

@@ -142,6 +142,22 @@ describe('reduceThinking', () => {
     expect(state.steps.map((s) => s.running)).toEqual([false, false])
   })
 
+  it('accumulates the reasoning without touching the answer', () => {
+    // Two events, one word each: the reducer must join them, and must
+    // not let either reach the phrase or be mistaken for answer text.
+    const state = fold([
+      { type: 'thinking', text: 'The frost question ' },
+      { type: 'thinking', text: 'needs last week.' },
+    ])
+    expect(state.reasoning).toBe('The frost question needs last week.')
+    expect(state.phrase).toBe('Thinking')
+  })
+
+  it('leaves the reasoning empty against a function that never sends it', () => {
+    const state = fold([{ type: 'tool', name: 'search_memory', state: 'start' }])
+    expect(state.reasoning).toBe('')
+  })
+
   it('ignores an end for a step that was never announced', () => {
     const state = fold([{ type: 'tool', name: 'search_memory', state: 'done' }])
     expect(state.steps).toEqual([])
