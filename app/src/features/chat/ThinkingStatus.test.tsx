@@ -27,10 +27,13 @@ describe('the steps behind the status line', () => {
   })
 
   it('counts the steps so far, in words that match the number', () => {
+    // The count is in the label rather than on screen: the control is a
+    // chevron in the status line, and a screen reader is the reader that
+    // needs the number.
     const { rerender } = render(
       <ThinkingStatus state={state({ steps: [{ phrase: 'One', running: false }] })} since={1} />,
     )
-    expect(screen.getByRole('button').textContent).toBe('1 step')
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe('Show the 1 step so far')
     rerender(
       <ThinkingStatus
         state={state({
@@ -42,7 +45,25 @@ describe('the steps behind the status line', () => {
         since={1}
       />,
     )
-    expect(screen.getByRole('button').textContent).toBe('2 steps')
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe('Show the 2 steps so far')
+  })
+
+  it('puts the list above the status line, not below it', () => {
+    // The line is the last thing in the conversation and the compose bar
+    // floats over the bottom of that scroller, so anything under the line
+    // is under the bar. This is the bug that shipped: the disclosure was
+    // never once reachable while an answer was running.
+    const { container } = render(
+      <ThinkingStatus
+        state={state({ steps: [{ phrase: 'Reading your vineyard data', running: true }] })}
+        since={1}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button'))
+    const block = container.querySelector('.thinking-block')!
+    const children = [...block.children].map((child) => child.className)
+    expect(children[0]).toContain('thinking-steps')
+    expect(children[1]).toContain('thinking')
   })
 
   it('shows each step and what it looked at when opened', () => {
@@ -61,7 +82,7 @@ describe('the steps behind the status line', () => {
     expect(screen.getByText('Reading your vineyard data')).toBeTruthy()
     expect(screen.getByText('plantings, parcels')).toBeTruthy()
     expect(screen.getByText('Searching what it remembers')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Hide steps' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hide the steps so far' })).toBeTruthy()
   })
 
   it('marks the running step apart from the finished ones', () => {

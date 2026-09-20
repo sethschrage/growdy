@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { estimateThinkingCostUsd, formatCostUsd } from '@/features/chat/cost'
 import type { ThinkingState } from '@/features/chat/thinking'
+import { ChevronIcon } from '@/ui/icons'
 
 // What the app shows while it is working.
 //
@@ -29,6 +30,11 @@ function useElapsedSeconds(since: number) {
   return seconds
 }
 
+/** "3 steps", for the label a screen reader reads out. */
+function label(steps: number): string {
+  return `${steps} ${steps === 1 ? 'step' : 'steps'}`
+}
+
 export function ThinkingStatus({ state, since }: { state: ThinkingState; since: number }) {
   // Shut by default and remembered only for this request: the component
   // is keyed on the send, so opening the steps on one answer does not
@@ -42,8 +48,30 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
   // last one with and money on its own loses that.
   const cost = estimateThinkingCostUsd(state)
 
+  const hasSteps = state.steps.length > 0
+
   return (
     <div className="thinking-block">
+      {/* Above the line, not below it.
+          The status line is the last thing in the conversation and the
+          compose bar floats over the bottom of that scroller, so anything
+          rendered under the line is under the bar: the disclosure shipped
+          and was never once reachable while an answer ran, which is the
+          only time it exists. Opening upward grows the list into the
+          conversation, which is empty space at that moment anyway. */}
+      {open && hasSteps && (
+        <ol className="thinking-steps">
+          {state.steps.map((step, i) => (
+            <li
+              key={`${step.phrase}-${i}`}
+              className={`thinking-step${step.running ? ' thinking-step--running' : ''}`}
+            >
+              <span className="thinking-step-phrase">{step.phrase}</span>
+              {step.detail ? <span className="thinking-step-detail">{step.detail}</span> : null}
+            </li>
+          ))}
+        </ol>
+      )}
     <div className="thinking" aria-live="polite">
       <span className="thinking-pulse" aria-hidden="true" />
       <span className="thinking-phrase">
@@ -70,41 +98,21 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
           <span className="thinking-cost"> · about {formatCostUsd(cost)}</span>
         ) : null}
       </span>
-    </div>
-      {/* The steps behind the summary.
-          The line above says what is happening now, which answers "is it
-          stuck". This answers the question after it -- what has it
-          actually done -- and it is the difference between a twenty
-          second wait you trust and one you don't. Shut by default,
-          because most answers do not need explaining and a list that
-          opens itself would push the conversation around every time. */}
-      {state.steps.length > 0 && (
-        <>
-          <button
-            type="button"
-            className="thinking-steps-toggle"
-            onClick={() => setOpen((was) => !was)}
-            aria-expanded={open}
-          >
-            {open ? 'Hide steps' : `${state.steps.length} ${state.steps.length === 1 ? 'step' : 'steps'}`}
-          </button>
-          {open && (
-            <ol className="thinking-steps">
-              {state.steps.map((step, i) => (
-                <li
-                  key={`${step.phrase}-${i}`}
-                  className={`thinking-step${step.running ? ' thinking-step--running' : ''}`}
-                >
-                  <span className="thinking-step-phrase">{step.phrase}</span>
-                  {step.detail ? (
-                    <span className="thinking-step-detail">{step.detail}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          )}
-        </>
+      {/* The control lives inside the line, for the same reason the list
+          lives above it: the line is the one part of this that is always
+          on screen. */}
+      {hasSteps && (
+        <button
+          type="button"
+          className={`thinking-steps-toggle${open ? ' thinking-steps-toggle--open' : ''}`}
+          onClick={() => setOpen((was) => !was)}
+          aria-expanded={open}
+          aria-label={open ? 'Hide the steps so far' : `Show the ${label(state.steps.length)} so far`}
+        >
+          <ChevronIcon size={14} />
+        </button>
       )}
+    </div>
     </div>
   )
 }
