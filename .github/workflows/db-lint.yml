@@ -1,4 +1,4 @@
-name: Database lint
+name: Schema and docs
 
 # No path filter at the trigger level -- this job is now a required
 # status check on main (see CONTRIBUTING.md), and a path-filtered
@@ -13,6 +13,9 @@ on:
   pull_request:
 
 jobs:
+  # The job name is the required status check's context on main. It says
+  # "lint" for historical reasons and must keep saying it: renaming the
+  # job leaves main waiting forever on a check that no longer reports.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -30,6 +33,14 @@ jobs:
       # change to a checker cannot land unverified.
       - name: Test the schema checks themselves
         run: node --test scripts/*.test.mjs
+
+      # Needs no database and no network, so it reports on every PR --
+      # including the many that only touch docs, which are exactly the
+      # PRs where a link breaks.
+      - name: Documentation
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/check-docs.mjs
 
       - name: Check for migration changes
         id: changes
@@ -74,3 +85,4 @@ jobs:
             sudo apt-get install -y -qq postgresql-client
           fi
           node scripts/check-schema-docs.mjs
+          node scripts/check-docs-db.mjs

@@ -214,8 +214,7 @@
   "use strict";
 
   var CATEGORIES = [
-    { group: "Review queues", groupHint: "Rows waiting on a human decision -- see docs/monitoring.md section 1.", id: "pending_observations", label: "Pending observations", hint: "observations.status = 'pending'" },
-    { group: "Review queues", id: "pending_candidates", label: "Pending candidates", hint: "observation_candidates.status = 'pending'" },
+    { group: "Review queues", groupHint: "Rows waiting on a human decision -- see docs/monitoring.md section 1.", id: "pending_candidates", label: "Pending candidates", hint: "observation_candidates.status = 'pending'" },
     { group: "Review queues", id: "pending_plant_types", label: "Plant type proposals", hint: "plant_types.status = 'pending'" },
     { group: "Review queues", id: "stuck_writes", label: "Stuck write proposals", hint: "pending_writes stuck > 1hr" },
 

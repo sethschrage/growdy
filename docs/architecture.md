@@ -9,7 +9,7 @@ itself versus what has to be deployed on purpose.
 ```mermaid
 flowchart TD
     GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
-    CI["db-lint CI<br/>fresh local Postgres per PR"]
+    CI["CI on every PR<br/>db-lint: fresh local Postgres + schema/doc checks<br/>web: tsc, oxlint, vitest"]
     Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
     Browser["Producer's browser"]
     iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
@@ -170,9 +170,10 @@ flowchart TD
   cannot see a photo the producer couldn't. Deferred since
   [`0009`](decisions/0009-chat-based-observation-submission.md) and
   built by [`0030`](decisions/0030-every-observation-through-one-queue.md).
-- **CI is independent of every deploy path.** `db-lint` runs against a
-  disposable local Postgres on every PR that touches a migration; it
-  never touches the live `growdybase` project either way.
+- **CI is independent of every deploy path.** Two workflows run on every
+  PR: `web` typechecks, lints and tests the client, and `db-lint` builds
+  a disposable local Postgres from every migration and checks the schema
+  and the docs against it. Neither touches the live `growdybase` project.
 - **Every open tab also polls one small status check** -- a build-time
   version stamp plus a manually-toggleable `app_status.maintenance`
   flag -- and hard-blocks itself if either says something changed that
@@ -185,7 +186,7 @@ flowchart TD
   something needs attention. It isn't drawn here because it isn't part
   of growdy's own deploy paths (nothing about it lives in this repo's
   CI, Supabase, or Vercel) -- see
-  [`docs/monitoring.md`](monitoring.md#8-the-live-dashboard-and-scheduled-check----and-where-it-actually-lives)
+  [`docs/monitoring.md`](monitoring.md#9-the-live-dashboard-and-scheduled-check----and-where-it-actually-lives)
   for exactly where it runs and its one real fragility.
 
 ## History

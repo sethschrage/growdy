@@ -319,8 +319,10 @@ gh api repos/sethschrage/growdy/branches/main/protection/required_status_checks
 gh api repos/sethschrage/growdy --jq '{allow_auto_merge, allow_squash_merge, delete_branch_on_merge}'
 ```
 
-Confirmed 2026-09-18: `contexts: ["lint"]`, `strict: false`, and all
-three repo flags true.
+Confirmed 2026-09-19: `contexts: ["lint", "web"]`, `strict: false`, and
+all three repo flags true. (`web` became required when the client got CI
+of its own; before that a PR touching only `app/` was merged on the
+strength of a schema check that never looked at it.)
 
 **A `clean status` refusal is not always a bug.** If CI has already
 finished and passed, there is nothing left for auto-merge to wait on and

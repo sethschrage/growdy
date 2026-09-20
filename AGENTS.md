@@ -19,7 +19,10 @@ any PR, ask of each:
 - `README.md` -- does the Stack table still describe what actually runs?
 - `docs/architecture.md` -- does the diagram still show what talks to
   what? If not, move the old diagram into `## History` with a date and a
-  reason *before* editing the live one.
+  reason *before* editing the live one. That applies to a diagram that
+  has stopped being true, not to one that was drawn wrong: correcting an
+  omission is a fix, and copying 180 lines into `## History` to record
+  that a box was missing buries the epochs that entry exists to mark.
 - `docs/data-model.md` -- does it still match the schema?
 - `docs/monitoring.md` -- did this add something that can fail quietly?
 - `docs/decisions/` -- does this contradict or amend an existing ADR?
@@ -29,6 +32,14 @@ where the answer is yes are exactly the ones nobody will remember a
 month later. A change to what the project *is* -- a new client, a new
 deploy path, a new external dependency -- has almost certainly made at
 least one of these wrong.
+
+Part of this is now checked on every PR
+([`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md)):
+dead links and anchors, ADR numbering and collisions, the Edge Functions
+and tables the diagrams draw, the scheduled jobs the docs name, the
+dashboard's columns. That covers pointers, counts and names -- the
+mechanical half. Whether a paragraph is still *true* is still on you,
+and it is the half that matters.
 
 This matters more here than in most repos because auto-merge is on and
 there is no per-PR review. Nobody is going to catch it after you.

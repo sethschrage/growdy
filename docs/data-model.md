@@ -165,6 +165,11 @@ erDiagram
         uuid pending_write_id FK "nullable"
         timestamptz reverted_at "nullable -- see docs/decisions/0022"
     }
+    APP_STATUS {
+        boolean id PK "CHECK (id) plus the primary key: exactly one row can ever exist"
+        boolean maintenance "hard-blocks every open tab when true"
+        text message "nullable -- shown on the block screen"
+    }
 
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns

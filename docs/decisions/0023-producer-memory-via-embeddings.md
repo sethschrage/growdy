@@ -4,7 +4,7 @@
 
 ## Context
 
-The chat has no memory today, at any level -- confirmed directly, not assumed: `chat` is a stateless Edge Function, and a "continued" conversation only works because the client resends the entire prior transcript as fresh context on every turn ([Chat.tsx](../../app/src/Chat.tsx)). Nothing persists across separate conversations, and there is no API-level persistent-memory feature to lean on either -- Anthropic's own cross-conversation memory is a claude.ai consumer-app feature, not something exposed to a third-party app via the Messages API, and using it wouldn't fit this project's own goal of staying easy to move to a different model provider anyway.
+The chat has no memory today, at any level -- confirmed directly, not assumed: `chat` is a stateless Edge Function, and a "continued" conversation only works because the client resends the entire prior transcript as fresh context on every turn ([Chat.tsx](../../app/src/features/chat/Chat.tsx)). Nothing persists across separate conversations, and there is no API-level persistent-memory feature to lean on either -- Anthropic's own cross-conversation memory is a claude.ai consumer-app feature, not something exposed to a third-party app via the Messages API, and using it wouldn't fit this project's own goal of staying easy to move to a different model provider anyway.
 
 The explicit direction for this decision: not a purely structured table of discrete facts, and not an unstructured blob either -- something that lets the model *search* quickly across both a producer's explicit memory entries and their past conversations, the way a person would recall "didn't we already talk about this."
 

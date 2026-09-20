@@ -219,4 +219,6 @@ function main() {
   )
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main()
+// `node -e` and some loaders leave argv[1] unset; a module imported
+// for its exports must not run main() as a side effect either way.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

@@ -141,12 +141,12 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   code change, no redeploy. Keeping one *out* is the decision that takes
   an edit: a reason in `NOT_DESCRIBED` in
   `supabase/functions/chat/index.ts`, in the same PR
-  ([`0033`](decisions/0033-what-goes-in-the-cached-prompt.md),
-  [`0034`](decisions/0034-a-schema-change-has-to-explain-itself.md)).
+  ([`0033`](docs/decisions/0033-what-goes-in-the-cached-prompt.md),
+  [`0034`](docs/decisions/0034-a-schema-change-has-to-explain-itself.md)).
 - A migration that adds a table or column includes a `COMMENT ON`
   explaining it, in the same migration -- context captured once, when the
   thing is created, not researched and retrofitted later by whoever needs
-  it next (see [`0018`](decisions/0018-plant-types-common-name.md), which
+  it next (see [`0018`](docs/decisions/0018-plant-types-common-name.md), which
   had to do exactly that retrofit for two views that had shipped with no
   column comments at all). This isn't "write it once and never touch it
   again" -- a comment that turns out incomplete or wrong gets corrected
@@ -308,6 +308,24 @@ without RLS would sail through a green check.
 table or adds a column without answering the six questions. It needs no
 database, so it runs first.
 
+`scripts/check-docs.mjs` checks the claims in the docs that something in
+the repo can contradict: every relative markdown link and heading anchor
+resolves, ADR numbers are unique and match their own headings (and an
+ADR added on a branch cannot take a number `main` already used), the
+architecture diagram draws the Edge Functions that exist, migrations
+follow the filename convention, every released tag has a CHANGELOG
+entry, and no component queries Supabase outside `app/src/data/`. It
+needs no database, so it reports on every PR --- including the ones that
+only touch docs. `scripts/check-docs-db.mjs` does the same against the
+schema: the ER diagram draws every table, the scheduled jobs are the
+documented ones, and the dashboard's cards name columns that exist.
+
+What those two deliberately do *not* do is require a doc to change when
+code changes. That is a gate rather than a check: it is satisfied by
+touching the file, and it fires on the many PRs where nothing has gone
+stale. [`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md)
+records what else was tried and rejected, which is most of it.
+
 `scripts/check-schema-docs.mjs` reads the freshly built database and
 fails on a relation the chat describes with no `COMMENT ON`, on a
 `NOT_DESCRIBED` entry naming a relation that no longer exists, and on
@@ -324,9 +342,9 @@ than a cap: the number falls and then stays down.
 The stack-dependent steps are skipped internally for a PR that touches
 no migration, but the workflow itself still runs -- a required check has
 to report on every PR or it blocks them forever. The checkers' own tests
-(`node --test scripts/check-migration-answers.test.mjs`) run
-unconditionally, because a regex that has quietly stopped matching looks
-exactly like a PR with nothing wrong in it.
+(`node --test scripts/*.test.mjs`) run unconditionally, because a regex
+that has quietly stopped matching looks exactly like a PR with nothing
+wrong in it.
 
 ## Architecture Decision Records (ADRs)
 
