@@ -424,7 +424,31 @@ to pile up alongside it. When it's time to cut one:
    be tagged; catch that here; don't let it accumulate. Check Supabase's
    security and performance advisors too, so a finding doesn't sit
    unnoticed across a release.
-2. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): prose
+2. **Every bullet the Release will carry is exercised on the client a
+   producer actually uses, before the tag.** A bullet is a claim that
+   somebody can now do a thing; until somebody does that thing, nobody
+   has checked the claim. `Frontend` and `Backend` bullets are exercised
+   in the running app -- the iOS build for anything reachable there,
+   since that is what the producer opens, and **the iOS build has to be
+   rebuilt from the commit being released**, or what was tested is an
+   older app. `Infra` bullets have nothing producer-visible to exercise
+   and need none.
+
+   Record it in the release PR as one line per bullet, saying what was
+   observed rather than that it was tested: not "streaming works" but
+   "sent a question from the phone, the status line said it was reading
+   vineyard data, the answer arrived a word at a time." A bullet that
+   cannot be exercised does not ship in that release -- it waits for the
+   one where it can.
+
+   This is here because skipping it nearly shipped a lie. `0.15.0` was
+   drafted with "replies now arrive as they're written" while the iOS
+   shell could not read a streamed reply at all: the function answered
+   `200`, ran the model, and logged a complete turn, and the producer
+   saw `Load failed`. **Server logs are not evidence that a producer got
+   an answer.** The only evidence is someone using the app.
+
+3. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): prose
    that leads with the theme -- why this batch of changes happened --
    and keeps that why running through every paragraph, not just the
    opening line. A paragraph that only lists what changed, without
@@ -432,7 +456,7 @@ to pile up alongside it. When it's time to cut one:
    pass. Not a categorized bullet list. **This is the engineering
    record** -- it documents *why*, references PR numbers and ADRs by
    name, and is never shown inside the app.
-3. A matching git tag and GitHub Release are published. **The Release's
+4. A matching git tag and GitHub Release are published. **The Release's
    body is not the CHANGELOG entry** -- it's a separate, short bullet
    list (four or more bullets), written for the producer using the app,
    not for another engineer: one real, user-visible change per bullet

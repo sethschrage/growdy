@@ -155,6 +155,28 @@ table, never anything polled. Real call sites:
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
 
+**The one that logs nothing at all: an answer the client cannot read.**
+Everything above is a failure that reaches a log. This one does not. On
+2026-09-19 the iOS shell rejected a streamed reply with a bare `Load
+failed`; server-side, the request was a `POST | 200`, the model ran, and
+`chat usage: in=79 out=182 cacheRead=0 cacheWrite=16938` was logged like
+any other healthy turn. Every signal in this document said the chat was
+fine. The producer had an error on screen and no answer.
+
+It was intermittent, which is the other half of why it logs nothing
+useful: twenty minutes later the same shell streamed the same kind of
+request without trouble, and the logs for the two are indistinguishable.
+Counting requests is the one signal that does distinguish them -- a
+fallback shows up as two `POST`s about a second apart for one question,
+where two questions are fifteen seconds apart.
+
+The client now falls back to a buffered request when a streamed one
+fails, so this fault produces a slower answer instead of no answer. The
+general shape stays: **a complete `chat usage` line means the model
+answered, not that anybody received it.** The only check for that is
+using the app, which is why it is now a step in the release process
+rather than a habit.
+
 **The prompt cache, which fails by getting quietly expensive.** The
 chat's system prompt -- instructions, tool definitions, schema
 description -- is on the order of fifteen thousand tokens and is cached
