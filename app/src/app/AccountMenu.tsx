@@ -82,7 +82,7 @@ export function AccountMenu({
           aria-expanded={open}
           onClick={() => (open ? close() : setOpen(true))}
         >
-          {open ? <PixelBunTop width={44} className="menu-bun-row" /> : <PixelBurger size={30} />}
+          {open ? <PixelBunTop width={44} className="menu-bun-row" /> : <PixelBurger size={44} />}
         </button>
       </div>
       {open && (
