@@ -38,6 +38,12 @@ export function useObservationQueue(producerId: string | null) {
   // is worse than the queue and better than the RPC failing outright.
   const store = useMemo(() => (canQueue() ? indexedDbStore() : memoryStore()), [])
   const [waiting, setWaiting] = useState<QueuedObservation[]>([])
+  // What went out without anybody pressing anything. The producer
+  // watched a queue empty itself when the signal came back and could
+  // not tell whether their observations had been sent or dropped:
+  // "it just goes... no indication that signal returned". A count the
+  // screen can render is the difference between those two readings.
+  const [deliveredOnItsOwn, setDeliveredOnItsOwn] = useState(0)
 
   const refresh = useCallback(async () => {
     setWaiting(inCaptureOrder(await store.all()))
@@ -89,6 +95,16 @@ export function useObservationQueue(producerId: string | null) {
     return result
   }, [store, producerId, refresh])
 
+  /**
+   * A flush nobody asked for -- on opening the screen, or when the
+   * browser says the connection is back. Its result is remembered rather
+   * than returned, because there is no caller waiting on it.
+   */
+  const flushQuietly = useCallback(async () => {
+    const result = await flush()
+    if (result && result.sent > 0) setDeliveredOnItsOwn((already) => already + result.sent)
+  }, [flush])
+
   // Delivers whatever a previous session left behind. oxlint warns
   // about setState in an effect here and the warning is a false one it
   // cannot see through: `flush` is async, so nothing is set during the
@@ -97,10 +113,10 @@ export function useObservationQueue(producerId: string | null) {
   // effect exists to synchronise with. Neither disable directive is
   // honoured by this version, so the reasoning lives here instead.
   useEffect(() => {
-    void flush()
-  }, [flush])
+    void flushQuietly()
+  }, [flushQuietly])
 
-  useEffect(() => onBackOnline(() => void flush()), [flush])
+  useEffect(() => onBackOnline(() => void flushQuietly()), [flushQuietly])
 
   /**
    * Records the capture and tries to deliver it. Resolves once it is
@@ -137,5 +153,5 @@ export function useObservationQueue(producerId: string | null) {
     [store, refresh, flush],
   )
 
-  return { capture, waiting, flush }
+  return { capture, waiting, flush, deliveredOnItsOwn }
 }

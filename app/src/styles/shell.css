@@ -84,12 +84,16 @@
   transform: none;
 }
 
-/* The toggle and its expand chevron, side by side in the header. */
+/* The head is the toggle and nothing else now. It stays a named box
+   rather than collapsing into the menu div because the head/stack
+   distinction is what the rest of this file is written against, and
+   because its height is measured: SignedIn.tsx feeds the header's
+   offsetHeight into --header-height and the chat's top padding reads
+   it, so anything that lands in here moves the whole conversation. */
 .app-menu-head,
 .sprout-menu-head {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
 }
 
 /* Grows every button in the menu into a labelled oval, in place. The
@@ -162,11 +166,72 @@
   animation: menu-drop var(--menu-speed) var(--menu-ease);
 }
 
+/* The expand chevron rides at the foot of the stack, not in the head.
+ *
+ * It used to sit beside the toggle, and on a phone the expanded ovals
+ * ran straight through it. Measured at 375x812: with the labels showing,
+ * the "New chat" oval reached left to x=250 while the chevron held
+ * 285-311 across and 17-43 down, so the two overlapped by 26x6px and the
+ * first button of the menu was sitting under the control that had just
+ * grown it.
+ *
+ * That is structural, not a spacing accident. .app-menu-bar hangs from
+ * the bun at top: calc(9px + var(--space-1)) rather than from the whole
+ * head, because hanging it off the head left the lid floating an inch
+ * above the fillings -- which means the head's lower 23px are the
+ * stack's space now. Anything else parked in the head is in the stack's
+ * way by construction, and the ovals grow toward the middle of the
+ * screen, which is exactly where the chevron was.
+ *
+ * Four ways out, and why this one:
+ *
+ * - Keep it in the head and move it clear. There is nowhere to move it
+ *   to. The ovals grow inboard and the widest of them ("Knowledge
+ *   Categories") reaches x=167 on a 375px screen, so clearing it would
+ *   put the chevron in the other menu's half of the header; capping the
+ *   ovals to clear the chevron instead would leave about 48px for a
+ *   label. Pushing the stack back down below the head is the floating
+ *   lid again.
+ * - Make it a member of the stack. Then it is a .menu-icon-button, and
+ *   every .menu-icon-button grows a label when expanded -- so the
+ *   control that expands the labels would grow a label of its own, and
+ *   in AccountMenu it would be a filling in a burger that is not a
+ *   filling. Exempting it makes it a stack member that behaves unlike
+ *   every other stack member, which is a lie about what the stack is.
+ * - A row of its own below the heel. It works, but it parks a 26px
+ *   "expand" target 4px directly under the 44px "close" target with
+ *   both flush to the same edge, and closing the menu by accident is
+ *   the worse of the two mistakes.
+ * - Beside the closing bun, which is this. It cannot collide by
+ *   construction: nothing in the stack sits below it, so no oval can
+ *   reach it however wide the labels get. It costs no extra height. It
+ *   puts the menu's two chrome controls -- close, and tell me what
+ *   these icons are -- in one row at the end. And it answers the other
+ *   half of the same complaint for free: the chevron was 4px from the
+ *   burger and is now the length of the stack away from it.
+ *
+ * The foot hangs off its own menu's edge like everything else in the
+ * stack, so the two menus stay mirrors. AccountMenu's is right-anchored
+ * with the heel flush to the edge and the chevron inboard of it, the
+ * same relation the chevron had to the toggle; SproutMenu's is
+ * left-anchored and holds the chevron alone, because SproutMenu has
+ * never had a bun or a topping row -- the mirroring is of the anchor
+ * edge and the growth direction, not of the burger's anatomy. */
+.app-menu-foot,
+.sprout-menu-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .app-menu-close-bun {
   background: none;
   border: none;
   box-shadow: none;
-  padding: var(--space-1) 0 0;
+  /* No top padding any more. It existed to hold the heel off the last
+     oval; the foot row is 26px tall because the chevron is, and
+     centring the 8.8px heel in it already leaves that clearance. */
+  padding: 0;
   cursor: pointer;
   display: flex;
 }

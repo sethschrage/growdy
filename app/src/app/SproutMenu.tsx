@@ -10,10 +10,13 @@ import { PixelSprout } from '@/ui/pixelArt'
 // right.
 //
 // Five icons with no labels is a memory test, and the fix is not a
-// drawer: a chevron next to the sprout grows every button into a
+// drawer: a chevron at the foot of the stack grows every button into a
 // labelled oval in place, so the menu stays where it was and says what
 // it does. Collapsed remains the default because most of the time the
-// producer is here to read a conversation, not to read a menu.
+// producer is here to read a conversation, not to read a menu. The
+// chevron sat next to the sprout until the same control on the other
+// menu turned out to be standing in the ovals' way; see the comment on
+// the foot below.
 export function SproutMenu({
   onNewObservation,
   onOpenObservationLog,
@@ -61,19 +64,6 @@ export function SproutMenu({
         >
           <PixelSprout size={44} />
         </button>
-        {open && (
-          <button
-            type="button"
-            className={`menu-expand menu-expand--inward-right${expanded ? ' menu-expand--open' : ''}`}
-            aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <span className="menu-expand-glyph">
-              <ChevronIcon size={16} />
-            </span>
-          </button>
-        )}
       </div>
       {open && (
         <div
@@ -131,6 +121,33 @@ export function SproutMenu({
           >
             <PictureIcon size={20} />
           </MenuButton>
+          {/* The chevron sits at the foot of the stack, mirroring
+              AccountMenu's, which keeps the two menus the same object
+              seen from opposite edges. It is alone in its row here
+              because this menu has no closing bun to share it with --
+              the mirroring is of the anchor edge and the direction the
+              ovals grow, not of the burger's anatomy.
+
+              It moved out of the head because in AccountMenu, where the
+              stack hangs from the bun rather than from the whole head,
+              the expanded ovals grew straight through it. Nothing
+              overlapped on this side, but leaving one chevron in the
+              head and moving the other would have been worse than the
+              bug: the shared .menu-expand would then mean two different
+              things. shell.css, on .sprout-menu-foot, has the numbers. */}
+          <div className="sprout-menu-foot">
+            <button
+              type="button"
+              className={`menu-expand menu-expand--inward-right${expanded ? ' menu-expand--open' : ''}`}
+              aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <span className="menu-expand-glyph">
+                <ChevronIcon size={16} />
+              </span>
+            </button>
+          </div>
         </div>
       )}
     </div>

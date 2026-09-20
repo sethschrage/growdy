@@ -40,21 +40,54 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  /* A conversation shorter than the screen has nothing to scroll, so a
-     drag does nothing at all -- no movement, no rubber band, no sign the
-     area is even scrollable, which reads as frozen rather than as
-     finished. A little space past the end means the view always answers
-     a thumb. */
-  min-height: calc(100% + 40px);
-  /* Required by the line above, not decoration. A percentage min-height
-     replaces the `auto` that normally stops a flex item shrinking below
-     its own content, so without this a conversation taller than the
-     screen gets squeezed into the scrollport and its tail hangs out
-     past the container's bottom padding -- the end of the last reply,
-     and its feedback buttons, back underneath the compose bar with no
-     scroll left to reach them. */
-  flex-shrink: 0;
   max-width: 640px;
+}
+
+/* Elasticity on a conversation that does not need to scroll.
+ *
+ * A conversation shorter than the screen has nothing to scroll, so a drag
+ * does nothing at all -- no movement, no rubber band, no sign the area is
+ * even scrollable, which reads as frozen rather than as finished. Making
+ * the content taller than the scrollport is what gets iOS to treat this
+ * as a scroller at all and rubber-band it.
+ *
+ * Two pixels, and the number is measured rather than chosen. On an
+ * iPhone simulator, three identical scrollers overflowing by 0, 2 and 40
+ * pixels were dragged past their top edge: the 0 one fired no scroll
+ * events whatsoever -- dead under a finger -- while the 2 and the 40 both
+ * rubber-banded to exactly the same depth, a scrollTop of -64. WebKit
+ * decides whether to bounce, not how far to bounce, from the overflow.
+ * So the elasticity costs 2px and everything past that is real scrolling
+ * bought by mistake.
+ *
+ * It used to be 40px, and those extra 38 were the "scroll is broken and
+ * weird even though the message technically fits" the producer reported.
+ * They were real scrollable distance, and the auto-scroll below spent it:
+ * when a reply lands, Chat.tsx calls scrollIntoView({block: 'start'}) on
+ * it, which scrolls as far as it can toward putting that reply at the
+ * top. On a conversation that fits the screen twice over there is nothing
+ * to scroll *to*, so it ran to the end of the slack instead -- measured
+ * at 375x812, the list scrolled 40px, which pushed the producer's own
+ * question 32px up underneath the floating header and opened a 40px void
+ * above the compose bar. Every reply, on a chat that needed no scrolling.
+ * At 2px that same overshoot is 2px, which nothing can hide behind.
+ *
+ * Touch pointers only. Overflow a desktop browser can see is a permanent
+ * scrollbar down the side of a two-line conversation, and a mouse gets
+ * nothing back for it -- there is no rubber band to buy. */
+@media (hover: none) and (pointer: coarse) {
+  .chat-messages-inner {
+    min-height: calc(100% + 2px);
+    /* Required by the line above, not decoration. A percentage min-height
+       replaces the `auto` that normally stops a flex item shrinking below
+       its own content, so without this a conversation taller than the
+       screen gets squeezed into the scrollport and its tail hangs out
+       past the container's bottom padding -- the end of the last reply,
+       and its feedback buttons, back underneath the compose bar with no
+       scroll left to reach them. Outside this query there is no
+       percentage min-height, so `auto` is back doing that job itself. */
+    flex-shrink: 0;
+  }
 }
 
 .chat-message-wrap {
