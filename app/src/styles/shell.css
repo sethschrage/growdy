@@ -68,6 +68,14 @@
      --header-height, which the chat's top padding reads, so a toggle
      that changes height nudges the whole conversation. */
   min-height: 36px;
+  /* The burger is a handle now -- pull it down and the stack comes with
+     your finger -- and a vertical drag is exactly what iOS takes for a
+     scroll unless it is told not to. Same three declarations as the
+     rail's grip, for the same three reasons. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Open, the toggle is the burger's own crown and nothing else. It needs
@@ -101,6 +109,23 @@
    because its height is measured: SignedIn.tsx feeds the header's
    offsetHeight into --header-height and the chat's top padding reads
    it, so anything that lands in here moves the whole conversation. */
+/* The pull-down bar under the closed burger. The same glass as the
+   rail and the close chevron, because it is the same kind of thing: a
+   place to put a finger. Small, because the burger is the icon and this
+   is a note underneath it. */
+.app-menu-grab {
+  display: block;
+  width: 20px;
+  height: 4px;
+  margin: 4px auto 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 /* The burger's measurements, once, because three rules need them and
    two of them had them wrong.
    The closed icon is PixelBurger at 44, drawn on a 10x7 grid, so it is
@@ -153,7 +178,23 @@
   /* Same stacking problem .sprout-menu-bar documents below. */
   z-index: 2;
   transform-origin: top right;
-  animation: menu-drop var(--menu-speed) var(--menu-ease);
+  /* How far open it is, 0 to 1, written by AccountMenu. The 1 is the
+     fallback, not the normal case: if the inline style ever fails to
+     arrive, the menu should be a visible menu rather than an invisible
+     one. */
+  --openness: 1;
+  /* How far open it is, 0 to 1, written by AccountMenu -- from a
+     gesture while a finger is on it, from a state change otherwise. The
+     transition is what happens when nobody is holding it; with a finger
+     down, --openness changes every pointermove and .app-menu-bar--held
+     turns the transition off so the menu is where the finger is rather
+     than 340ms behind it. */
+  opacity: var(--openness);
+  transform: translateY(calc((1 - var(--openness)) * -6px))
+    scaleY(calc(0.7 + var(--openness) * 0.3));
+  transition:
+    opacity var(--menu-speed) var(--menu-ease),
+    transform var(--menu-speed) var(--menu-ease);
 }
 
 /* The expand chevron rides at the foot of the stack, not in the head.
@@ -226,17 +267,6 @@
   display: block;
   width: var(--menu-button);
   height: auto;
-}
-
-@keyframes menu-drop {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scaleY(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scaleY(1);
-  }
 }
 
 /* A circle that becomes an oval without the layout jumping. `width:
@@ -472,6 +502,11 @@
      edge the heel hangs from: it closes the whole menu, so it belongs
      to the middle of it and not to one corner. */
   align-self: center;
+  /* Pushed, not only pressed -- see .app-menu-toggle above. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   width: 36px;
   height: 36px;
   padding: 0;
@@ -519,93 +554,93 @@
   transition: none;
 }
 
-/* Shutting takes as long as opening. The menu used to simply stop
-   existing, which after building a drop worth watching read as the
-   thing being yanked off the screen. */
-.app-menu-bar--closing {
-  animation: menu-lift var(--menu-speed) var(--menu-ease) forwards;
-}
-
-.app-menu-bar--closing > * {
-  animation: none;
-}
-
-@keyframes menu-lift {
-  from {
-    opacity: 1;
-    transform: translateY(0) scaleY(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-6px) scaleY(0.7);
-  }
-}
-
 /* A short stagger down the stack, so the menu unfolds rather than
-   arriving all at once. */
+   arriving all at once.
+   Each item's own progress is worked out from --openness rather than
+   from a delay on an animation. A delay only exists while an animation
+   is running, so under a finger the whole stack moved as one slab and
+   the cascade -- the thing that makes it read as unfolding -- appeared
+   only when the producer let go. As a calc it is always true: item n
+   starts at n * --stagger and covers what is left, so the bottom one
+   arrives exactly as the menu reaches open. */
 .app-menu-bar > *,
 .sprout-menu-bar > * {
-  animation: menu-item-in var(--menu-speed) var(--menu-ease) backwards;
+  --i: 0;
+  --stagger: 0.055;
+  --start: calc(var(--i) * var(--stagger));
+  --p: clamp(0, calc((var(--openness) - var(--start)) / (1 - var(--start))), 1);
+  opacity: var(--p);
+  transform: translateY(calc((1 - var(--p)) * -8px));
+  transition:
+    opacity var(--menu-speed) var(--menu-ease),
+    transform var(--menu-speed) var(--menu-ease);
+}
+
+/* A finger is on it: it goes where the finger is, now, not 340ms from
+   now. */
+.app-menu-bar--held,
+.app-menu-bar--held > * {
+  transition: none;
 }
 
 .app-menu-bar > *:nth-child(2),
 .sprout-menu-bar > *:nth-child(2) {
-  animation-delay: 26ms;
+  --i: 1;
 }
 
 .app-menu-bar > *:nth-child(3),
 .sprout-menu-bar > *:nth-child(3) {
-  animation-delay: 52ms;
+  --i: 2;
 }
 
 .app-menu-bar > *:nth-child(4),
 .sprout-menu-bar > *:nth-child(4) {
-  animation-delay: 78ms;
+  --i: 3;
 }
 
 .app-menu-bar > *:nth-child(5),
 .sprout-menu-bar > *:nth-child(5) {
-  animation-delay: 104ms;
+  --i: 4;
 }
 
 .app-menu-bar > *:nth-child(6),
 .sprout-menu-bar > *:nth-child(6) {
-  animation-delay: 130ms;
+  --i: 5;
 }
 
 .app-menu-bar > *:nth-child(7),
 .sprout-menu-bar > *:nth-child(7) {
-  animation-delay: 156ms;
+  --i: 6;
 }
 
 .app-menu-bar > *:nth-child(8),
 .sprout-menu-bar > *:nth-child(8) {
-  animation-delay: 182ms;
+  --i: 7;
 }
 
 .app-menu-bar > *:nth-child(9),
 .sprout-menu-bar > *:nth-child(9) {
-  animation-delay: 208ms;
+  --i: 8;
 }
 
 .app-menu-bar > *:nth-child(10),
 .sprout-menu-bar > *:nth-child(10) {
-  animation-delay: 234ms;
+  --i: 9;
 }
 
 .app-menu-bar > *:nth-child(11),
 .sprout-menu-bar > *:nth-child(11) {
-  animation-delay: 260ms;
+  --i: 10;
 }
 
 .app-menu-bar > *:nth-child(12),
 .sprout-menu-bar > *:nth-child(12) {
-  animation-delay: 286ms;
+  --i: 11;
 }
 
 .app-menu-bar > *:nth-child(13),
 .sprout-menu-bar > *:nth-child(13) {
-  animation-delay: 312ms;
+  --i: 12;
 }
 
 /* The stagger stopped at six, and the stack grew to twelve when every
@@ -614,28 +649,20 @@
    made the unfold look like it stalled. Written out to thirteen rather
    than generated, because there is no way to compute an index in CSS
    and a stagger that silently stops is exactly what this is fixing.
-   26ms a step: the last item starts 312ms in, about when the first one
-   finishes. */
-
-@keyframes menu-item-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+   These were animation delays and are now indices, which is the same
+   cascade said in the one way that survives a finger being on it. */
 
 /* Someone who asked for less movement gets the menu, not the
-   choreography. */
+   choreography. Transitions rather than animations now -- and the
+   stagger has to go too, by collapsing every item's start to zero, or
+   the cascade would still be there with nothing to carry it. */
 @media (prefers-reduced-motion: reduce) {
   .app-menu-bar,
   .sprout-menu-bar,
   .app-menu-bar > *,
   .sprout-menu-bar > * {
-    animation: none;
+    transition: none;
+    --stagger: 0;
   }
 
   .menu-icon-button,
@@ -694,7 +721,16 @@
      .chat-messages was capturing the clicks over that shared region. */
   z-index: 2;
   transform-origin: top left;
-  animation: menu-drop var(--menu-speed) var(--menu-ease);
+  /* Same position model as the burger's, so that whenever this menu
+     gains something to show it arrives the same way. Nothing writes
+     --openness here yet, which is what the 1 is for. */
+  --openness: 1;
+  opacity: var(--openness);
+  transform: translateY(calc((1 - var(--openness)) * -6px))
+    scaleY(calc(0.7 + var(--openness) * 0.3));
+  transition:
+    opacity var(--menu-speed) var(--menu-ease),
+    transform var(--menu-speed) var(--menu-ease);
 }
 
 
