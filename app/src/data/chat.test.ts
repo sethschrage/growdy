@@ -52,7 +52,7 @@ describe('streamChatMessage', () => {
         frame({ type: 'tool', name: 'execute_readonly_query', state: 'start' }),
         frame({ type: 'text', text: 'Quiet ' }),
         frame({ type: 'text', text: 'since the rain.' }),
-        frame({ type: 'usage', inputTokens: 1200, outputTokens: 90 }),
+        frame({ type: 'usage', inputTokens: 1200, outputTokens: 90, cacheReadTokens: 0, cacheWriteTokens: 6600 }),
         frame({ type: 'done', text: 'Quiet since the rain.' }),
       ]),
     )
