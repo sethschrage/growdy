@@ -155,6 +155,20 @@ table, never anything polled. Real call sites:
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
 
+**A policy nothing could satisfy, for two days, silently.** `plot_rows`'
+update policy called `private.user_can_edit_parcel`, which queries
+`public.parcel_shares` --- a table
+[0028](decisions/0028-what-uat-removed.md) dropped. Every attempt to
+update a row's length, spacing or end-post count has failed with
+"relation parcel_shares does not exist" since that migration. Nothing
+reported it: the app rarely does it, and a broken policy reads as a
+permissions error rather than a crash. Fixed in
+[0036](decisions/0036-rls-predicates-are-evaluated-once.md). The general
+lesson is that dropping a table does not fail the policies and functions
+that reference it --- Postgres only notices when one runs --- so a
+migration that drops a relation is worth a `grep` across
+`supabase/migrations/` for the name.
+
 **The one that logs nothing at all: an answer the client cannot read.**
 Everything above is a failure that reaches a log. This one does not. On
 2026-09-19 the iOS shell rejected a streamed reply with a bare `Load
