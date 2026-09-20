@@ -4,7 +4,7 @@
 
 ## Context
 
-`docs/vision.md`'s "Graphs and visuals" section had already named this gap without designing it: trends and comparisons are exactly the kind of answer a chat response renders badly as prose or an improvised markdown table. A real question made the gap impossible to ignore rather than theoretical -- asked for a windrose, the chat could only produce a broken plain-text table trying to stand in for a picture that plain text can't actually draw.
+Graphs and visuals had been named as a gap without being designed: trends and comparisons are exactly the kind of answer a chat response renders badly as prose or an improvised markdown table. A real question made the gap impossible to ignore rather than theoretical -- asked for a windrose, the chat could only produce a broken plain-text table trying to stand in for a picture that plain text can't actually draw.
 
 The first instinct was the same shape `0016` already rejected once for SQL: a fixed menu of chart types, each with its own required JSON data shape a resolver would turn into a rendering. Explicit direction rejected that before any of it was built -- give the model a general drawing capability and let it decide what to draw and how, not a menu to pick from. This is `0016`'s own reasoning ("prefer one general capability... over a fixed menu of shapes with a resolver behind each one") applied to graphics instead of queries, and the user's redirect made that the explicit bar rather than something inferred after the fact.
 
@@ -21,7 +21,7 @@ The first instinct was the same shape `0016` already rejected once for SQL: a fi
 ## Consequences
 
 - The chat's answer-shape ceiling is no longer "whatever markdown and tables can express" -- it's bounded by what SVG can draw and what the model chooses to draw, the same way `0016` made the query ceiling "SQL's own expressiveness" instead of a list of resolvers someone remembered to write.
-- Closes the "Graphs and visuals" item `docs/vision.md` named as deferred; also partway toward "Maps" (same rendering mechanism, though nothing here queries or draws real geospatial data yet -- that's still unbuilt).
+- Closes the graphs-and-visuals gap that had been carried as deferred; also partway toward maps (same rendering mechanism, though nothing here queries or draws real geospatial data yet -- that's still unbuilt).
 - Real risk surface is now "arbitrary markup the model chooses to emit," bounded by DOMPurify's SVG profile rather than trusting the model to emit only safe markup -- the same "safety lives in the mechanism, not in trusting the input" discipline `0016` applies to SQL, worth re-verifying any time the sanitization step itself changes.
 - Because this added no backend capability, the same fenced-code-block dispatch pattern generalizes for free to any future output shape worth rendering specially (nothing else needs this yet) -- it's a frontend lookup by language tag, not a new tool or schema change per shape.
 - The inline drawing is deliberately capped small to fit a chat bubble, which isn't enough detail for anything more complex than a simple shape -- a follow-up shipped a tap-to-enlarge full-screen view reusing the exact same sanitized markup, not a second render path or a second sanitize call.

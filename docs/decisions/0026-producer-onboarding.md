@@ -4,7 +4,7 @@
 
 ## Context
 
-Nothing has ever created a `producers`/`profiles` row automatically. The original tenancy migration (`0001`) said as much directly: "with no front-end, onboarding (creating a producer and attaching the first user to it) happens via service_role for now." Every profile that exists today, including Virgil's and every tester's, was inserted by hand outside the app. `docs/vision.md` listed "a second producer's onboarding flow" under "Deliberately not doing (yet)" -- a real gap, not an oversight, waiting on evidence it was actually needed.
+Nothing has ever created a `producers`/`profiles` row automatically. The original tenancy migration (`0001`) said as much directly: "with no front-end, onboarding (creating a producer and attaching the first user to it) happens via service_role for now." Every profile that exists today, including Virgil's and every tester's, was inserted by hand outside the app. A second producer's onboarding flow sat on the deliberately-not-doing-yet list -- a real gap, not an oversight, waiting on evidence it was actually needed.
 
 That evidence is now direct: a real Google account (`seth.schrage@gmail.com`) exists in `auth.users` with no matching `profiles` row, from a real sign-in that hit exactly this gap. `profiles.producer_id` is `not null`, and every feature in the app -- chat, forms, the data views, the write tool -- assumes a profile already exists. A sign-in with no profile doesn't get a clear error; it gets a string of queries silently returning nothing.
 
