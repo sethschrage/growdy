@@ -50,9 +50,11 @@ connection back, and there is a button for when the browser is wrong.
 The transcript write is now allowed to fail quietly, because the next
 turn writes the whole transcript again: a missed write heals itself.
 
-**Observations queue locally --- not built here, and specified below.**
-This is the one that matters and the one with real decisions in it, so it
-gets its own work rather than being smuggled into a fix for error copy.
+**Observations queue locally.** Specified below, and built in the two
+PRs that followed this ADR rather than alongside the error copy, because
+it has real decisions in it. One of those decisions changed while the
+producer was answering the six questions for its migration, and it
+changed for the better --- see "one path" below.
 
 ## The observation queue, specified
 
@@ -60,7 +62,16 @@ What a producer needs: to stand in front of a vine with no signal, say
 what they see, photograph it, and have that arrive when they are back at
 the house. What the app currently offers is a failed RPC.
 
-The shape, when it is built:
+**One path, not two.** The first draft queued only when a send failed,
+which meant the delivery code ran solely in a field, where nobody is
+watching it. Asked whether a browser on a laptop ever loses signal, the
+answer is obviously yes, and the better shape fell out: every capture is
+written to the queue and the queue is flushed immediately. The code that
+runs in a block with no bars is the code that runs at a desk with five,
+every single time. It is [`0030`](0030-every-observation-through-one-queue.md)'s
+argument for one door, one layer down.
+
+The shape, as built:
 
 - **The queue holds observation candidates, not observations.** Every
   observation already enters through
@@ -106,6 +117,15 @@ for.
 - **`navigator.onLine` is trusted only when false.** It reports true for
   a phone connected to a network that goes nowhere, so the automatic
   retry can fail; that costs one request and leaves the button in place.
-- **The queue is still missing.** Until it is built, an observation made
-  with no signal is lost the moment the screen is dismissed, and this ADR
-  is the record that it is a known gap rather than an oversight.
+- **A capture is never lost, and never filed twice.** The photo upload is
+  remembered across a failed flush so a retry does not leave a second
+  copy in the bucket, and the candidate's client id makes redelivery a
+  no-op on the server.
+- **A flush stops at the first failure** rather than working through the
+  rest. Almost always the reason is that there is still no signal, and
+  trying them all would burn every item's attempt counter at once and
+  declare the whole queue stuck over one bad minute.
+- **Nothing here is visible from the server**, and the producer agreed
+  that is acceptable: a phone with no bars never reaches it, so the only
+  evidence is a queued item on the producer's own screen. Which is why
+  the screen shows it.

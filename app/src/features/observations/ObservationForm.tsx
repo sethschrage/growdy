@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { createObservationCandidate } from '@/data/observations'
+import { useObservationQueue } from '@/features/observations/useObservationQueue'
 import { fetchProducerId } from '@/data/profile'
 import { searchPlantings, type PlantingSearchResult as PlantingOption } from '@/data/vineyard'
 
@@ -123,6 +123,8 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedCount, setSavedCount] = useState(0)
+  const [waitingForSignal, setWaitingForSignal] = useState(false)
+  const { capture } = useObservationQueue(producerId)
 
   useEffect(() => {
     fetchProducerId(session.user.id)
@@ -140,19 +142,24 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
     // -- they are the ground truth for their own vineyard -- but it goes
     // through the same door as everything else, so there is one way in
     // rather than one way plus an exception.
+    let delivered = false
     try {
-      await createObservationCandidate({
+      // Written down first, sent second. The promise being made is that
+      // the observation is recorded -- with no signal it is recorded
+      // here, and goes when the phone can.
+      ;({ delivered } = await capture({
         summary: note.trim(),
         note: note.trim(),
         observedDate: observedDate || null,
         plantingId: planting?.id ?? null,
         source: 'producer',
-      })
+      }))
     } catch (e) {
       setSubmitting(false)
       setError(e instanceof Error ? e.message : 'Could not save this observation.')
       return
     }
+    setWaitingForSignal(!delivered)
     setSubmitting(false)
     setNote('')
     setPlanting(null)
@@ -195,10 +202,19 @@ export function ObservationForm({ session, onClose }: { session: Session; onClos
             />
           </label>
           {error && <p className="error">{error}</p>}
-          {savedCount > 0 && !error && (
+          {savedCount > 0 && !error && !waitingForSignal && (
             <p className="observation-form-status">
               Sent for review{savedCount > 1 ? ` (${savedCount})` : ''} -- approve it in Review
               observations and it joins your log.
+            </p>
+          )}
+          {/* Saved either way -- the difference is only whether it has
+              left the phone yet, and saying so beats a success message
+              that quietly means something else. */}
+          {savedCount > 0 && !error && waitingForSignal && (
+            <p className="observation-form-status">
+              Saved on this phone{savedCount > 1 ? ` (${savedCount})` : ''}. It will send itself
+              for review as soon as you have signal.
             </p>
           )}
           <button type="submit" disabled={submitting || !producerId}>
