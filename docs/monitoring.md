@@ -163,12 +163,19 @@ failed`; server-side, the request was a `POST | 200`, the model ran, and
 any other healthy turn. Every signal in this document said the chat was
 fine. The producer had an error on screen and no answer.
 
-There is no query for this. The client now falls back to a buffered
-request when a streamed one fails, so the same fault produces a slower
-answer instead of no answer -- but the general shape stays: **a complete
-`chat usage` line means the model answered, not that anybody received
-it.** The only check for that is using the app, which is why it is now a
-step in the release process rather than a habit.
+It was intermittent, which is the other half of why it logs nothing
+useful: twenty minutes later the same shell streamed the same kind of
+request without trouble, and the logs for the two are indistinguishable.
+Counting requests is the one signal that does distinguish them -- a
+fallback shows up as two `POST`s about a second apart for one question,
+where two questions are fifteen seconds apart.
+
+The client now falls back to a buffered request when a streamed one
+fails, so this fault produces a slower answer instead of no answer. The
+general shape stays: **a complete `chat usage` line means the model
+answered, not that anybody received it.** The only check for that is
+using the app, which is why it is now a step in the release process
+rather than a habit.
 
 **The prompt cache, which fails by getting quietly expensive.** The
 chat's system prompt -- instructions, tool definitions, schema

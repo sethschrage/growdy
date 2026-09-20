@@ -104,14 +104,20 @@ function headers(token: string, accept: string) {
  * Returns the finished text, the same as the buffered call, so the
  * transcript is stored identically however it arrived.
  *
- * Not every client can read a streamed body. The iOS shell's WebView
- * rejected one with a bare "Load failed" while the function answered
- * 200, finished the work and logged its usage -- the answer existed and
- * the producer saw an error. So a transport failure with nothing
- * received falls back to asking the same question again buffered, which
- * is how this worked before streaming existed. It costs a second model
- * turn, which is the right price for the difference between a slower
- * answer and no answer.
+ * A streamed reply can fail to arrive while the function is perfectly
+ * healthy. The iOS shell rejected one with a bare "Load failed" while
+ * the function answered 200, ran the model and logged a complete turn --
+ * the answer existed and the producer saw an error. Twenty minutes later
+ * the same shell streamed the same kind of request without trouble, so
+ * this is an intermittent transport failure rather than a client that
+ * cannot stream: a dropped connection, a backgrounded app, a cold start
+ * landing badly.
+ *
+ * Which is exactly the case worth a fallback. A transport failure with
+ * nothing received asks the same question again buffered -- how this
+ * worked before streaming existed -- at the cost of a second model turn,
+ * which is the right price for the difference between a slower answer
+ * and no answer.
  */
 export async function streamChatMessage(
   request: ChatRequest,
