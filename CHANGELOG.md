@@ -15,6 +15,130 @@ GitHub Release published alongside each entry here carries its own,
 separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
+## [0.15.0] - 2026-09-19
+
+Two silences, and this release is about both of them. The chat went
+quiet for twenty seconds and then produced a paragraph, with nothing in
+between to say whether it was working or broken. And the database handed
+the model a list of table names and let it infer the rest -- which
+columns meant what, which record joined to which -- from the names
+alone. Neither was anybody's feature request. Both are the kind of gap
+that produces a confidently wrong answer at one end and a patient,
+confused producer at the other.
+
+The app got one face first. Three typefaces had accumulated where one
+was needed, the icons were drawn at a size that went soft on a phone,
+and the menu was a ring of unlabelled circles you simply had to learn
+([#198](https://github.com/sethschrage/growdy/pull/198)). One typeface
+now, icons redrawn on a 24px grid with square caps so they stay sharp,
+and a type scale that stopped the chat box's lines from colliding. The
+burger menu comes apart downward and either half can say what it does --
+tap the arrow and the circles expand into labelled ovals
+([#199](https://github.com/sethschrage/growdy/pull/199)). The point of
+that one is not the animation. It is that a control which cannot tell
+you what it does has to be memorised, and a tool you have to memorise is
+a tool you use less.
+
+Then the wait became legible. Replies arrive as they are written, and
+above them a line says what the chat is actually doing in the producer's
+own terms -- "Reading your vineyard data", "Searching what it
+remembers", and what it searched for -- rather than the tool's name
+([#200](https://github.com/sethschrage/growdy/pull/200)). It carries the
+running token count too, because a question that quietly costs six times
+what it looks like should say so. The first version of that broke in
+production in a way only production could show: reassembled thinking
+blocks were echoed back to the API without their signatures and every
+multi-turn answer failed
+([#201](https://github.com/sethschrage/growdy/pull/201)). The fix went
+out before its PR, which is a deviation from the rule that migrations
+and deploys wait for a merge -- so the rule grew the exception it was
+missing, written down with its conditions rather than left as a
+precedent ([#203](https://github.com/sethschrage/growdy/pull/203)).
+
+Streaming made the cost visible, and the cost turned out to be a
+sentence repeated. Every pass of the tool loop re-sends the whole prompt:
+the instructions, the seven tool definitions, the description of the
+schema -- 15,240 tokens, measured on the live function, identical from
+one turn to the next. Those are now two cached blocks, split by how fast
+each half changes, so a five-tool answer reads the expensive half back at
+a tenth of the input rate instead of paying for it six times
+([`0033`](docs/decisions/0033-what-goes-in-the-cached-prompt.md),
+[#202](https://github.com/sethschrage/growdy/pull/202)). The interesting
+part is not the saving. It is what caching forbids: the cache matches an
+exact prefix, byte for byte, so a single volatile token anywhere in it --
+today's date, a row count -- turns every request into a miss *and*
+charges the write premium. Prompt assembly stopped being a matter of
+tidiness and became load-bearing, which is why both generated halves now
+order their rows explicitly.
+
+The second silence was older and worse. An audit of what the model was
+actually handed found that the description of the database generated
+from the catalog -- chosen in
+[`0016`](docs/decisions/0016-chat-queries-directly.md) precisely so it
+could not drift -- was nearly empty of meaning: **zero of the fourteen
+foreign keys** reached it, so `plots.parcel_id` was a name the model
+inferred a join from; check constraints had been retyped by hand into
+table comments where they could disagree with the database; 115 of 187
+columns had no comment at all, rendering as a well-formed line with a
+name, a type, and nothing else. The description now carries what the
+catalog knows, and the relation list is inverted: every public table is
+described by default, and the eight deliberately left out each carry a
+written reason, so a new table reaches the model the moment its migration
+applies rather than whenever somebody remembers to add it
+([`0034`](docs/decisions/0034-a-schema-change-has-to-explain-itself.md),
+[#204](https://github.com/sethschrage/growdy/pull/204)).
+
+Underneath all of that was one cause: nothing ever required a schema
+change to explain itself. A migration that creates a table or adds a
+column now answers six questions in its header -- purpose, what each
+column means, what it relates to, who can see it, whether the chat is
+told, what happens to existing rows -- and those are the answers that
+exist only in the head of whoever asked for the change, which is why the
+questions belong before the migration rather than after it. CI fails a
+missing or placeholder answer, a second check fails an undocumented
+relation against the real schema, and the existing backlog sits behind a
+ratchet that may fall and never rise. The parcel/plot/row spine is
+documented in the same batch: 17 columns on the tables the GIS work will
+hang geometry off.
+
+The same argument then ran one level up. The rule that base docs are
+updated in the same PR as the change is a habit executed at the end of a
+PR, with auto-merge on and no reviewer -- and the docs had drifted. A
+survey of every claim in the base documents and the 34 ADRs produced 44
+candidate checks; ten survived a pass that tried to break each one
+against this repo's real history, and the rule that separated them is
+that a claim is checkable only when something else in the repo can
+contradict it without anyone exercising judgement
+([`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md),
+[#205](https://github.com/sethschrage/growdy/pull/205)). Five of the ten
+were failing when they were written: three ADR links rendering as 404s
+on GitHub, an anchor into a section that had moved, a link to a file at
+its pre-[`0032`](docs/decisions/0032-client-organised-by-feature.md)
+path, `app_status` missing from a diagram whose own first sentence
+claims to show every table, and a dashboard card querying a column
+[`0028`](docs/decisions/0028-what-uat-removed.md) had dropped. The
+thirty-four rejections are recorded too, because "require a doc to
+change when code changes" is the obvious idea and it is a gate rather
+than a check -- satisfied by touching the file.
+
+Which left one honest gap, and it was the right question to ask: what
+forces an agent to put those six questions to anyone? Nothing did.
+`AGENTS.md` said to, which is a prompt; CI checked that answers existed,
+which is satisfied by inventing them, ten minutes late and one context
+away from the person who knows what the column means. A `PreToolUse`
+hook now refuses the write itself, calling the same rule CI calls, so an
+unanswered migration cannot be created quietly
+([#206](https://github.com/sethschrage/growdy/pull/206)). It still
+cannot make anyone ask -- a rule enforced on files can only see files --
+and that limit is written into the guard rather than papered over. What
+it changes is that the refusal happens in front of the person who can
+answer.
+
+Both halves of this release are the same idea pointed in two directions.
+A system that says what it is doing -- to the producer waiting on it, and
+to whoever reads it next -- is one you can catch being wrong. A system
+that goes quiet is one you find out about later.
+
 ## [0.14.0] - 2026-09-19
 
 The app learned to look at a photograph, and the record grew exactly one
