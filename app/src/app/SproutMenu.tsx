@@ -64,18 +64,20 @@ export function SproutMenu({
         {open && (
           <button
             type="button"
-            className={`menu-expand${expanded ? ' menu-expand--open' : ''}`}
+            className={`menu-expand menu-expand--inward-right${expanded ? ' menu-expand--open' : ''}`}
             aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
           >
-            <ChevronIcon size={16} />
+            <span className="menu-expand-glyph">
+              <ChevronIcon size={16} />
+            </span>
           </button>
         )}
       </div>
       {open && (
         <div
-          className={`sprout-menu-bar${expanded ? ' sprout-menu-bar--expanded' : ''}`}
+          className="sprout-menu-bar"
           role="menu"
           aria-label="Features"
         >

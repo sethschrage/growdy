@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MenuButton } from '@/app/MenuButton'
 import { ChevronIcon, ComposeIcon, ExitIcon, HistoryIcon, NetworkIcon } from '@/ui/icons'
-import { PixelBunRow, PixelBurger, PixelToppingRow } from '@/ui/pixelArt'
+import { PixelBunBottom, PixelBunTop, PixelBurger, PixelToppingRow } from '@/ui/pixelArt'
 
 // The burger comes apart downwards.
 //
@@ -55,33 +55,39 @@ export function AccountMenu({
   return (
     <div className="app-menu" ref={ref}>
       <div className="app-menu-head">
+        {/* The chevron sits inboard of the toggle, not outboard, because
+            this menu hangs off the right edge: anything to the toggle's
+            right pushes the bun off the stack it is meant to cap. It was
+            38px off. */}
+        {open && (
+          <button
+            type="button"
+            className={`menu-expand menu-expand--inward-left${expanded ? ' menu-expand--open' : ''}`}
+            aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <span className="menu-expand-glyph">
+              <ChevronIcon size={16} />
+            </span>
+          </button>
+        )}
         {/* Open, the toggle is the burger's own top bun rather than a
             separate close button: the thing you tapped is still there,
             holding the stack up. */}
         <button
           type="button"
-          className="app-menu-toggle"
+          className={`app-menu-toggle${open ? ' app-menu-toggle--open' : ''}`}
           aria-label={open ? 'Close menu' : 'Menu'}
           aria-expanded={open}
           onClick={() => (open ? close() : setOpen(true))}
         >
-          {open ? <PixelBunRow width={34} className="menu-bun-row" /> : <PixelBurger size={30} />}
+          {open ? <PixelBunTop width={44} className="menu-bun-row" /> : <PixelBurger size={30} />}
         </button>
-        {open && (
-          <button
-            type="button"
-            className={`menu-expand${expanded ? ' menu-expand--open' : ''}`}
-            aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <ChevronIcon size={16} />
-          </button>
-        )}
       </div>
       {open && (
         <div
-          className={`app-menu-bar${expanded ? ' app-menu-bar--expanded' : ''}`}
+          className="app-menu-bar"
           role="menu"
           aria-label={`Account menu for ${email}`}
         >
@@ -135,7 +141,7 @@ export function AccountMenu({
             aria-label="Close menu"
             onClick={close}
           >
-            <PixelBunRow width={44} className="menu-bun-row" />
+            <PixelBunBottom width={44} className="menu-bun-row" />
           </button>
         </div>
       )}

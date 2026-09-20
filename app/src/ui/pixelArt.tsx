@@ -108,7 +108,19 @@ export function PixelBurger({ size = 20 }: { size?: number }) {
 // and the lettuce-and-cheese pair becomes the divider under the toggle.
 // An earlier version turned each row into a column for a menu that
 // spread sideways; the menu drops now, so the rows stay rows.
-export function PixelBunRow({ width = 44, className }: { width?: number; className?: string }) {
+//
+// These are two different halves and were one component until now, which
+// drew rows 5-6 -- the heel -- and used it at both ends. The open menu
+// had two bottoms and no top, under a comment claiming otherwise.
+function BunRow({
+  rows,
+  width,
+  className,
+}: {
+  rows: readonly [number, number]
+  width: number
+  className?: string
+}) {
   return (
     <svg
       className={className}
@@ -118,10 +130,22 @@ export function PixelBunRow({ width = 44, className }: { width?: number; classNa
       shapeRendering="crispEdges"
       aria-hidden="true"
     >
-      <rect x={0} y={0} width={10} height={1} fill={BURGER_ROWS[5].fill} />
-      <rect x={1} y={1} width={8} height={1} fill={BURGER_ROWS[6].fill} />
+      {rows.map((row, index) => {
+        const { x, w, fill } = BURGER_ROWS[row]
+        return <rect key={row} x={x} y={index} width={w} height={1} fill={fill} />
+      })}
     </svg>
   )
+}
+
+/** The crown: narrow row over a full-width one, the way a bun curves. */
+export function PixelBunTop({ width = 44, className }: { width?: number; className?: string }) {
+  return <BunRow rows={[0, 1]} width={width} className={className} />
+}
+
+/** The heel: full width over a narrow row. The mirror of the crown. */
+export function PixelBunBottom({ width = 44, className }: { width?: number; className?: string }) {
+  return <BunRow rows={[5, 6]} width={width} className={className} />
 }
 
 export function PixelToppingRow({ width = 36, className }: { width?: number; className?: string }) {
@@ -136,18 +160,6 @@ export function PixelToppingRow({ width = 36, className }: { width?: number; cla
     >
       <rect x={0} y={0} width={10} height={1} fill={BURGER_ROWS[2].fill} />
       <rect x={0} y={1} width={10} height={1} fill={BURGER_ROWS[3].fill} />
-    </svg>
-  )
-}
-
-const TOPPING_ROWS = BURGER_ROWS.filter((row) => row.y === 2 || row.y === 3)
-
-export function PixelToppingSlice({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 2 10" shapeRendering="crispEdges" aria-hidden="true">
-      {TOPPING_ROWS.map(({ y, x, w, fill }) => (
-        <rect key={y} x={y - 2} y={x} width={1} height={w} fill={fill} />
-      ))}
     </svg>
   )
 }

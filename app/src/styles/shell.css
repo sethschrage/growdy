@@ -56,6 +56,19 @@
   line-height: 1;
   padding: 4px 8px;
   box-shadow: none;
+  /* Constant whether open or closed. The header's measured height feeds
+     --header-height, which the chat's top padding reads, so a toggle
+     that changes height nudges the whole conversation. */
+  min-height: 32px;
+}
+
+/* Open, the toggle is a 9px-tall bun. Padding gives it a tap target
+   without moving it: the bun stays at the bottom of the box, where it
+   caps the stack, and the padding grows upward. Flush right, because
+   anything between it and the edge pushes it off the stack. */
+.app-menu-toggle--open {
+  padding: 0;
+  align-items: flex-end;
 }
 
 .app-menu-toggle:active {
@@ -86,11 +99,35 @@
   border: var(--line) solid var(--wood-dark);
   color: var(--cream);
   box-shadow: 0 var(--press) 0 var(--wood-dark);
+}
+
+/* The glyph turns, not the button. Rotating the button turned its press
+   shadow with it, so the shadow sat on top of the circle when open. */
+.menu-expand-glyph {
+  display: flex;
   transition: transform var(--menu-speed) var(--menu-ease);
 }
 
-.menu-expand--open {
-  transform: rotate(180deg);
+/* The arrow points where the ovals are about to go, and then back the
+   way they will return. Each menu hangs off its own edge and they grow
+   in opposite directions, so one shared rotation cannot be right for
+   both -- it was 180deg for both, on the wrong axis entirely: the ovals
+   grow sideways and the chevron was turning up and down.
+   ChevronIcon points down, so +90deg is left and -90deg is right. */
+.menu-expand--inward-left .menu-expand-glyph {
+  transform: rotate(90deg);
+}
+
+.menu-expand--inward-left.menu-expand--open .menu-expand-glyph {
+  transform: rotate(-90deg);
+}
+
+.menu-expand--inward-right .menu-expand-glyph {
+  transform: rotate(-90deg);
+}
+
+.menu-expand--inward-right.menu-expand--open .menu-expand-glyph {
+  transform: rotate(90deg);
 }
 
 /* The burger comes apart downwards: the toggle keeps the top bun, the
@@ -247,7 +284,7 @@
 
   .menu-icon-button,
   .menu-label,
-  .menu-expand {
+  .menu-expand-glyph {
     transition: none;
   }
 }
@@ -281,7 +318,7 @@
   transition: transform 0.2s ease;
 }
 
-.sprout-menu-toggle:active {
+.sprout-menu-toggle:active:not(.sprout-menu-toggle--open) {
   box-shadow: none;
   transform: none;
 }
@@ -296,7 +333,7 @@
   left: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   /* Same problem .chat-input already solved: opening downward extends
      past the header into .chat-messages's own stacking area, which has
@@ -305,7 +342,6 @@
      .chat-messages was capturing the clicks over that shared region. */
   z-index: 2;
   transform-origin: top left;
-  align-items: flex-start;
   animation: menu-drop var(--menu-speed) var(--menu-ease);
 }
 
