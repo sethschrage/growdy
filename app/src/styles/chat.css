@@ -10,12 +10,24 @@
 }
 
 .chat-messages {
+  /* Read back by Chat.tsx, which clamps its auto-scroll out of this
+     band. Declared here rather than there because it is the same number
+     the rule below adds to the content's height, and two copies of a
+     number that must agree is how the last version of this went wrong. */
+  --scroll-slack: 28px;
   position: relative;
   z-index: 1;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* Not `contain`, which is what it was. WebKit treats `contain` as
+     suppressing the element's own overscroll affordance, not merely the
+     chaining to whatever is behind it -- so the rubber band never
+     appeared however much slack the content had, and the producer
+     reported "no elasticity" twice. There is nothing behind this to
+     chain to in any case: the shell is a fixed 100dvh column with
+     overflow hidden. */
+  overscroll-behavior: auto;
   padding: 16px;
   padding-top: calc(var(--header-height, 64px) + 8px);
   /* Reserves the floating compose bar's real height, measured and set as
@@ -77,7 +89,14 @@
  * nothing back for it -- there is no rubber band to buy. */
 @media (hover: none) and (pointer: coarse) {
   .chat-messages-inner {
-    min-height: calc(100% + 2px);
+    /* Enough to feel under a thumb rather than the least that registers
+       as overflow. Two pixels was chosen from a measurement of whether
+       WebKit fires scroll events, which is a different question from
+       whether a person can feel the give, and the person could not.
+       The number is no longer load-bearing either way: Chat.tsx reads it
+       back out of --scroll-slack and refuses to scroll into it, so
+       making it generous costs nothing. */
+    min-height: calc(100% + var(--scroll-slack));
     /* Required by the line above, not decoration. A percentage min-height
        replaces the `auto` that normally stops a flex item shrinking below
        its own content, so without this a conversation taller than the
