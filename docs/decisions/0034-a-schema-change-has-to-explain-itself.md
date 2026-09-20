@@ -74,6 +74,15 @@ across the relations the model sees. Demanding all 47 before the next
 PR would get the check deleted; a baseline that may fall and never rise
 gets them written by whoever next touches each table.
 
+The ratchet fails in both directions, which is the part that is easy to
+get wrong. A count above the baseline is an undocumented column that
+shipped. A count *below* it is a PR that documented something and left
+the old ceiling in place -- no defect today, and by next month the
+backlog has grown back into the slack and nobody remembers it was ever
+lower. So that case fails too, with the corrected baseline file printed
+ready to paste, because the person who just wrote those comments is the
+only one who will ever be positioned to lower the ceiling.
+
 ## Alternatives
 
 **Keep the curated include-list and add a CI check for unlisted

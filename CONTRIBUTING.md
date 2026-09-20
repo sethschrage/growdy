@@ -310,11 +310,16 @@ database, so it runs first.
 
 `scripts/check-schema-docs.mjs` reads the freshly built database and
 fails on a relation the chat describes with no `COMMENT ON`, on a
-`NOT_DESCRIBED` entry naming a relation that no longer exists, and on a
-count of uncommented columns higher than
-`scripts/schema-docs-baseline.json` records. The baseline is a ratchet:
-the backlog may shrink, never grow. `node scripts/check-schema-docs.mjs
---update-baseline` rewrites it after a PR documents something.
+`NOT_DESCRIBED` entry naming a relation that no longer exists, and on
+the count of uncommented columns per table disagreeing with
+`scripts/schema-docs-baseline.json` in *either* direction. Higher than
+the baseline is a column that shipped undocumented. Lower is a PR that
+documented something and left the ceiling where it was, which is slack
+the backlog can quietly grow back into -- so the check fails with the
+corrected file printed, ready to paste. `node
+scripts/check-schema-docs.mjs --update-baseline` writes it directly if
+you have a local stack running. That is what makes it a ratchet rather
+than a cap: the number falls and then stays down.
 
 The stack-dependent steps are skipped internally for a PR that touches
 no migration, but the workflow itself still runs -- a required check has

@@ -29,7 +29,7 @@ jobs:
       # stopped working. This runs on every PR, gated on nothing, so a
       # change to a checker cannot land unverified.
       - name: Test the schema checks themselves
-        run: node --test scripts/check-migration-answers.test.mjs
+        run: node --test scripts/*.test.mjs
 
       - name: Check for migration changes
         id: changes
