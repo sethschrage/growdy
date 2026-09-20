@@ -22,6 +22,14 @@ import { MessageContent } from '@/features/chat/MessageContent'
 import { useConversationLog } from '@/features/chat/useConversationLog'
 import type { ChatMessage } from '@/features/chat/types'
 
+/**
+ * How far the conversation has to be pulled down before the keyboard is
+ * put away. Far enough to be a decision: an upward flick often starts
+ * with a few pixels the other way, and dismissing on that would take the
+ * keyboard from somebody mid-sentence.
+ */
+const DISMISS_PULL = 40
+
 export function Chat({
   session,
   initialMessages,
@@ -151,18 +159,59 @@ export function Chat({
       clearTimeout(release)
       release = setTimeout(() => (touchingRef.current = false), 600)
     }
+    // Pulling the conversation down puts the keyboard away.
+    //
+    // The keyboard takes half the screen, and the way to get rid of it
+    // was to send something or find somewhere neutral to tap. Reaching
+    // for the conversation is the natural move -- it is what a thumb
+    // does in every other messaging app -- and it did nothing here.
+    //
+    // A deliberate pull, not any movement: 40px, so that the small
+    // downward drift at the start of an upward flick does not dismiss
+    // the keyboard somebody is still typing into. Downward only, for the
+    // same reason -- scrolling up to re-read is not a request to close
+    // anything.
+    //
+    // blur() rather than the Keyboard plugin's hide(), so this works on
+    // the deployed web app as well as in the shell. Nothing here is
+    // native.
+    let pullFrom: number | null = null
+    const onTouchStart = (event: TouchEvent) => {
+      pullFrom = event.touches[0]?.clientY ?? null
+    }
+    const onTouchMove = (event: TouchEvent) => {
+      if (pullFrom === null) return
+      const y = event.touches[0]?.clientY
+      if (y === undefined) return
+      if (y - pullFrom < DISMISS_PULL) return
+      pullFrom = null
+      const field = inputRef.current
+      if (field && document.activeElement === field) field.blur()
+    }
+    const forgetPull = () => {
+      pullFrom = null
+    }
+
     node.addEventListener('scroll', onScroll, { passive: true })
     node.addEventListener('touchstart', onStart, { passive: true })
+    node.addEventListener('touchstart', onTouchStart, { passive: true })
+    node.addEventListener('touchmove', onTouchMove, { passive: true })
     node.addEventListener('wheel', onStart, { passive: true })
     node.addEventListener('touchend', onEnd, { passive: true })
+    node.addEventListener('touchend', forgetPull, { passive: true })
     node.addEventListener('touchcancel', onEnd, { passive: true })
+    node.addEventListener('touchcancel', forgetPull, { passive: true })
     return () => {
       clearTimeout(release)
       node.removeEventListener('scroll', onScroll)
       node.removeEventListener('touchstart', onStart)
+      node.removeEventListener('touchstart', onTouchStart)
+      node.removeEventListener('touchmove', onTouchMove)
       node.removeEventListener('wheel', onStart)
       node.removeEventListener('touchend', onEnd)
+      node.removeEventListener('touchend', forgetPull)
       node.removeEventListener('touchcancel', onEnd)
+      node.removeEventListener('touchcancel', forgetPull)
     }
   }, [])
 
@@ -604,12 +653,17 @@ export function Chat({
         >
           <CameraIcon size={18} />
         </button>
+        {/* Prose about a vineyard, so capitalisation and autocorrect stay
+            on -- unlike the identifier fields elsewhere in the app. Only
+            the Return key is labelled: it already submits the form, and
+            "send" says so. */}
         <input
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={pendingPhoto ? 'Add a question, or just send' : 'Ask a question'}
           aria-label="Ask a question about your vineyard"
+          enterKeyHint="send"
         />
         <button
           type="submit"
