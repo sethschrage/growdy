@@ -88,6 +88,7 @@ export function Chat({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
   const composeRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // The compose bar floats over the messages, so the scroll area has to
   // reserve exactly as much room as the bar actually occupies. That used
@@ -567,7 +568,27 @@ export function Chat({
           </button>
         </div>
       )}
-      <form className="chat-input" onSubmit={send}>
+      {/* Tapping the box anywhere puts the cursor in it.
+          The field fills the row's content box, but the row is a pill
+          with padding and a border, and the two buttons are separated
+          from it by a gap -- so several millimetres of what plainly
+          looks like the chat box did nothing at all when tapped. A miss
+          like that does not read as "I missed", it reads as the app
+          ignoring you, which is what "the tap zone seems small and
+          unresponsive" is describing.
+          pointerdown rather than click, for the reason the menu's
+          dismiss learned: a tap on something that is not natively
+          interactive does not reliably produce a click on iOS. And it is
+          a real user gesture, which is what iOS requires before it will
+          bring the keyboard up for a programmatic focus. */}
+      <form
+        className="chat-input"
+        onSubmit={send}
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest('button, input')) return
+          inputRef.current?.focus()
+        }}
+      >
         {/* One button, not two. Camera and library are the same intent --
             attach a photo -- and the compose row has to leave room for
             the buttons that come after this one. On web there is nothing
@@ -584,6 +605,7 @@ export function Chat({
           <CameraIcon size={18} />
         </button>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={pendingPhoto ? 'Add a question, or just send' : 'Ask a question'}
