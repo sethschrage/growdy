@@ -124,6 +124,25 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   description of the database the client has, and it is generated, so a
   stale copy does not fail loudly -- it type-checks against a schema
   that no longer exists.
+- **A migration that creates a table or view, or adds a column, answers
+  the six questions in
+  [`docs/schema-change-questions.md`](docs/schema-change-questions.md)
+  in a comment block at the top of the file** -- purpose, what each
+  column means, what it relates to, who can see it, whether the chat is
+  told about it, and what happens to existing rows. The answers come
+  from whoever asked for the change, so the questions get asked *before*
+  the migration is written, not filled in afterwards by whoever is
+  holding the keyboard. `scripts/check-migration-answers.mjs` fails the
+  PR on a missing or placeholder answer; it cannot tell a good answer
+  from a bad one, only that somebody was asked.
+- **The chat is told about every public relation by default.** Its
+  system prompt is generated from the live catalog at request time, so a
+  new table reaches the model the moment its migration applies -- no
+  code change, no redeploy. Keeping one *out* is the decision that takes
+  an edit: a reason in `NOT_DESCRIBED` in
+  `supabase/functions/chat/index.ts`, in the same PR
+  ([`0033`](decisions/0033-what-goes-in-the-cached-prompt.md),
+  [`0034`](decisions/0034-a-schema-change-has-to-explain-itself.md)).
 - A migration that adds a table or column includes a `COMMENT ON`
   explaining it, in the same migration -- context captured once, when the
   thing is created, not researched and retrofitted later by whoever needs
@@ -273,13 +292,41 @@ runs the test suite for `app/`. None of those three ran in CI before it
 existed, so a PR touching only the client was auto-merged on the
 strength of a schema check that never looked at it.
 
-`.github/workflows/db-lint.yml` starts a local Supabase stack (applying
-every migration from scratch) and runs `supabase db lint`, the same
-check the Supabase security/performance advisors use. A migration that
-fails to apply cleanly, or introduces a lint-level issue (e.g. a table
-without RLS), fails the PR. The lint steps are skipped internally for a
-PR that touches no migration, but the workflow itself still runs -- a
-required check has to report on every PR or it blocks them forever.
+`.github/workflows/db-lint.yml` starts a local Supabase stack, applying
+every migration from scratch, and runs three checks against the database
+that produces. A migration that fails to apply cleanly fails the PR on
+its own.
+
+`supabase db lint` is plpgsql_check and nothing else: it type-checks
+PL/pgSQL function bodies. It does not look at RLS, at comments, or at
+anything the Supabase security and performance advisors report -- those
+are a separate thing, checked by hand after a migration applies and
+again at release (see "Migrations"). Believing otherwise is how a table
+without RLS would sail through a green check.
+
+`scripts/check-migration-answers.mjs` fails a migration that creates a
+table or adds a column without answering the six questions. It needs no
+database, so it runs first.
+
+`scripts/check-schema-docs.mjs` reads the freshly built database and
+fails on a relation the chat describes with no `COMMENT ON`, on a
+`NOT_DESCRIBED` entry naming a relation that no longer exists, and on
+the count of uncommented columns per table disagreeing with
+`scripts/schema-docs-baseline.json` in *either* direction. Higher than
+the baseline is a column that shipped undocumented. Lower is a PR that
+documented something and left the ceiling where it was, which is slack
+the backlog can quietly grow back into -- so the check fails with the
+corrected file printed, ready to paste. `node
+scripts/check-schema-docs.mjs --update-baseline` writes it directly if
+you have a local stack running. That is what makes it a ratchet rather
+than a cap: the number falls and then stays down.
+
+The stack-dependent steps are skipped internally for a PR that touches
+no migration, but the workflow itself still runs -- a required check has
+to report on every PR or it blocks them forever. The checkers' own tests
+(`node --test scripts/check-migration-answers.test.mjs`) run
+unconditionally, because a regex that has quietly stopped matching looks
+exactly like a PR with nothing wrong in it.
 
 ## Architecture Decision Records (ADRs)
 

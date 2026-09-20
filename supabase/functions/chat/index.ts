@@ -28,43 +28,109 @@ import { embedTexts, toVectorLiteral } from "../_shared/voyage.ts";
 const MODEL = "claude-sonnet-5";
 const MAX_TOOL_ITERATIONS = 15;
 
-// The tables/views worth describing to the model up front. Keep this list
-// in sync with what buildSystemPrompt actually tells the model to use --
-// it's the input to fetchSchemaDescription below, not a security boundary
-// (execute_readonly_query can already reach anything RLS allows).
-const SCHEMA_RELATIONS = [
-  "planting_readable",
-  "position_status",
-  "plant_types",
-  "parcels",
-  "plots",
-  "plot_rows",
-  "producers",
-  "observations",
-  "weather_observations",
-  "data_sources",
-  "data_providers",
-  "producer_memory",
-];
+// Every other relation in the public schema, with the reason it is not
+// described to the model.
+//
+// This exists because the alternative -- a list of what IS described,
+// and silence about everything else -- makes a new table invisible by
+// default, and invisible in a way nobody notices: the model simply
+// never mentions it. Requiring every relation to appear in one list or
+// the other turns adding a table into a decision somebody has to make
+// and write down, and CI refuses a relation that is in neither (see
+// scripts/check-schema-docs.mjs).
+//
+// The reasons are load-bearing, not decoration. "Not useful to a
+// producer's question" is a judgement that can be wrong and can change,
+// and the next person to read it should be able to disagree with it
+// without having to reconstruct what the table was for.
+const NOT_DESCRIBED: Record<string, string> = {
+  planting:
+    "The raw table behind planting_readable, with variety/scion/rootstock as ids rather than names. " +
+    "Describing both invites the model to query this one and lose the resolved names (0018).",
+  profiles:
+    "Tenancy plumbing: it maps an auth user to a producer and holds no vineyard data. Every query is " +
+    "already scoped by it through RLS, so the model never needs to name it.",
+  conversations:
+    "Past chat transcripts, reachable through search_memory, which is a meaning-based search rather " +
+    "than a table scan (0023). Describing the table would invite SQL over a jsonb blob instead.",
+  conversation_embeddings:
+    "The derived vector index behind search_memory. An implementation detail of that tool.",
+  audit_log:
+    "The before/after record 0022 keeps for rollback. Reaching it through SQL is not how a correction " +
+    "is made -- revert_audit_entry is. Worth revisiting if 'what changed last week' becomes a real question.",
+  pending_writes:
+    "Write proposals awaiting a producer's click. Their whole lifecycle is inside one chat turn, and " +
+    "the model already holds the proposal it just made.",
+  artifacts:
+    "Saved graphics and their share links (0027). The model writes these; it has no reason to query them.",
+  app_status:
+    "One row holding a maintenance flag, polled by the client. Not vineyard data.",
+};
 
 const SCHEMA_DESCRIPTION_QUERY = `
+  with cols as (
+    select
+      c.oid,
+      json_agg(
+        json_build_object(
+          'name', a.attname,
+          'type', format_type(a.atttypid, a.atttypmod),
+          'comment', col_description(c.oid, a.attnum),
+          'notNull', a.attnotnull,
+          'hasDefault', a.atthasdef
+        )
+        order by a.attnum
+      ) as columns
+    from pg_class c
+    join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+    group by c.oid
+  ),
+  -- Foreign keys, rendered from the catalog rather than inferred from a
+  -- column's name. A view carries none, which is itself worth the model
+  -- knowing.
+  fks as (
+    select
+      con.conrelid as oid,
+      json_agg(
+        json_build_object(
+          'column', att.attname,
+          'references', ref.relname,
+          'referencesColumn', refatt.attname
+        )
+        order by att.attname
+      ) as foreign_keys
+    from pg_constraint con
+    join pg_class ref on ref.oid = con.confrelid
+    join lateral unnest(con.conkey, con.confkey) as k(attnum, refattnum) on true
+    join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k.attnum
+    join pg_attribute refatt on refatt.attrelid = con.confrelid and refatt.attnum = k.refattnum
+    where con.contype = 'f'
+    group by con.conrelid
+  ),
+  -- Check constraints, as Postgres itself spells them. This is the copy
+  -- that cannot drift from what the database will actually accept.
+  checks as (
+    select
+      con.conrelid as oid,
+      json_agg(pg_get_constraintdef(con.oid) order by con.conname) as checks
+    from pg_constraint con
+    where con.contype = 'c'
+    group by con.conrelid
+  )
   select
     c.relname as name,
+    case c.relkind when 'v' then 'view' when 'm' then 'materialized view' else 'table' end as kind,
     obj_description(c.oid) as description,
-    json_agg(
-      json_build_object(
-        'name', a.attname,
-        'type', format_type(a.atttypid, a.atttypmod),
-        'comment', col_description(c.oid, a.attnum)
-      )
-      order by a.attnum
-    ) as columns
+    cols.columns,
+    coalesce(fks.foreign_keys, '[]'::json) as foreign_keys,
+    coalesce(checks.checks, '[]'::json) as checks
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace
-  join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+  join cols on cols.oid = c.oid
+  left join fks on fks.oid = c.oid
+  left join checks on checks.oid = c.oid
   where n.nspname = 'public'
     and c.relkind in ('r', 'v', 'm')
-  group by c.oid, c.relname
   -- Ordered because this text is cached. A grouped query without an
   -- ORDER BY may return the same rows in a different order on the next
   -- request, and the cache matches on exact text, not on meaning -- so
@@ -72,8 +138,22 @@ const SCHEMA_DESCRIPTION_QUERY = `
   order by c.relname
 `;
 
-type SchemaColumn = { name: string; type: string; comment: string | null };
-type SchemaRelation = { name: string; description: string | null; columns: SchemaColumn[] };
+type SchemaColumn = {
+  name: string;
+  type: string;
+  comment: string | null;
+  notNull: boolean;
+  hasDefault: boolean;
+};
+type SchemaForeignKey = { column: string; references: string; referencesColumn: string };
+type SchemaRelation = {
+  name: string;
+  kind: string;
+  description: string | null;
+  columns: SchemaColumn[];
+  foreign_keys: SchemaForeignKey[];
+  checks: string[];
+};
 
 // docs/decisions/0016 already committed to this: "the schema description
 // the model sees is generated at request time from information_schema
@@ -92,31 +172,48 @@ async function fetchSchemaDescription(supabase: SupabaseClient): Promise<string>
     return "";
   }
   const all = (data ?? []) as SchemaRelation[];
-  const described = new Set(SCHEMA_RELATIONS);
 
-  // The curated list is what the model is told about, not what it can
-  // reach -- execute_readonly_query already gets to anything RLS allows.
-  // Curation is deliberate: audit_log and conversation_embeddings would
-  // cost tokens on every request and tell it nothing worth knowing.
-  //
-  // The failure mode of a hand-kept list is a new table nobody adds, so
-  // the omission is named here every request rather than waiting to be
-  // noticed. It reads as one line in the function logs: if a table
-  // belongs in the prompt, add it to SCHEMA_RELATIONS; if it doesn't,
-  // the line is just confirming that.
-  const missing = all.map((rel) => rel.name).filter((name) => !described.has(name));
-  if (missing.length > 0) {
-    console.log(`chat schema: not described to the model -- ${missing.join(", ")}`);
+  // An entry in NOT_DESCRIBED that names nothing is worse than no entry:
+  // it looks like a decision and excludes nothing. CI fails the build on
+  // it; this line covers the case where a rename reached production
+  // first.
+  const present = new Set(all.map((rel) => rel.name));
+  const stale = Object.keys(NOT_DESCRIBED).filter((name) => !present.has(name));
+  if (stale.length > 0) {
+    console.error(
+      `chat schema: NOT_DESCRIBED names relations that no longer exist -- ${stale.join(", ")}`,
+    );
   }
 
   return all
-    .filter((rel) => described.has(rel.name))
+    .filter((rel) => !(rel.name in NOT_DESCRIBED))
     .map((rel) => {
-      const header = rel.description ? `${rel.name} -- ${rel.description}` : rel.name;
+      const header = rel.description
+        ? `${rel.name} (${rel.kind}) -- ${rel.description}`
+        : `${rel.name} (${rel.kind})`;
+
       const columns = rel.columns
-        .map((col) => (col.comment ? `  - ${col.name} (${col.type}): ${col.comment}` : `  - ${col.name} (${col.type})`))
+        .map((col) => {
+          // "required" rather than "not null": the model is writing
+          // queries and explaining results to a producer, and a column
+          // with a default is not something they have to supply.
+          const flags = col.notNull && !col.hasDefault ? " [required]" : "";
+          const meaning = col.comment ? `: ${col.comment}` : "";
+          return `  - ${col.name} (${col.type})${flags}${meaning}`;
+        })
         .join("\n");
-      return `${header}\n${columns}`;
+
+      const links = rel.foreign_keys.length > 0
+        ? `\n  joins: ${rel.foreign_keys
+            .map((fk) => `${fk.column} -> ${fk.references}.${fk.referencesColumn}`)
+            .join(", ")}`
+        : "";
+
+      const rules = rel.checks.length > 0
+        ? `\n  constraints: ${rel.checks.join("; ")}`
+        : "";
+
+      return `${header}\n${columns}${links}${rules}`;
     })
     .join("\n\n");
 }
