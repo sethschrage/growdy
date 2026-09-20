@@ -13,6 +13,7 @@ import { streamChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
 import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
 import { PixelCloud } from '@/ui/pixelArt'
+import { describeSendFailure, onBackOnline } from '@/lib/connectivity'
 import { AnswerMeta } from '@/features/chat/AnswerMeta'
 import { ThinkingStatus } from '@/features/chat/ThinkingStatus'
 import { IDLE_THINKING, reduceThinking, type ThinkingState } from '@/features/chat/thinking'
@@ -37,6 +38,14 @@ export function Chat({
   // guess about how long something usually takes.
   const [streamingText, setStreamingText] = useState('')
   const [thinking, setThinking] = useState<ThinkingState>(IDLE_THINKING)
+  // A send that did not arrive. Held whole -- the transcript it belongs
+  // to and the photo that travelled with it -- so trying again is the
+  // same request rather than a reconstruction of it.
+  const [unsent, setUnsent] = useState<{
+    messages: ChatMessage[]
+    photoPath: string | null
+    photoTakenOn: string | null
+  } | null>(null)
   const [sendingSince, setSendingSince] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [pendingPhoto, setPendingPhoto] = useState<{
@@ -254,6 +263,25 @@ export function Chat({
     await deletePhoto(path)
   }
 
+  // A producer who has put the phone back in their pocket should not
+  // have to take it out again. The browser tells us when it thinks the
+  // connection is back; that belief is occasionally optimistic, which
+  // costs one failed request and leaves the retry button where it was.
+  // Held in a ref because `deliver` is rebuilt every render and the
+  // listener should not be: subscribing on each keystroke would work and
+  // would be silly.
+  const deliverRef = useRef(deliver)
+  useEffect(() => {
+    deliverRef.current = deliver
+  })
+
+  useEffect(() => {
+    if (!unsent || sending) return
+    return onBackOnline(() => {
+      void deliverRef.current(unsent.messages, unsent.photoPath, unsent.photoTakenOn)
+    })
+  }, [unsent, sending])
+
   async function send(event: FormEvent) {
     event.preventDefault()
     if ((!input.trim() && !pendingPhoto) || sending) return
@@ -268,13 +296,11 @@ export function Chat({
     const text = input.trim() || (pendingPhoto ? 'I took a photo.' : '')
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
-    log(nextMessages)
+    // Not awaited, and allowed to fail: with no signal this cannot
+    // write, and the next turn logs the whole transcript again anyway,
+    // so a missed write heals itself rather than needing its own retry.
+    log(nextMessages).catch(() => {})
     setInput('')
-    setSending(true)
-    setStreamingText('')
-    setThinking(IDLE_THINKING)
-    setSendingSince(Date.now())
-    setError(null)
 
     // Only role and content ever go to the function. ChatMessage also
     // carries `feedback` once someone gives a reply a thumbs up or down,
@@ -309,6 +335,26 @@ export function Chat({
         photoMetaRef.current.set(photoPath, { location: here, takenOn: existing?.takenOn ?? null })
       }
     }
+    await deliver(nextMessages, photoPath, photoTakenOn)
+  }
+
+  /**
+   * One attempt at getting an answer. Separate from `send` because the
+   * second attempt has to be the same request: the same transcript, the
+   * same photo, no retyping. A producer in a block with no signal should
+   * put the phone away and have the question go when the signal does.
+   */
+  async function deliver(
+    nextMessages: ChatMessage[],
+    photoPath: string | null,
+    photoTakenOn: string | null,
+  ) {
+    setSending(true)
+    setStreamingText('')
+    setThinking(IDLE_THINKING)
+    setSendingSince(Date.now())
+    setError(null)
+
     let answer: string
     // Folded here as well as into state, because what the answer looked
     // at and what it cost outlive the status line: that unmounts the
@@ -323,9 +369,11 @@ export function Chat({
     } catch (e) {
       setSending(false)
       setStreamingText('')
-      setError(e instanceof Error ? e.message : 'Could not reach growdy.')
+      setError(describeSendFailure(e))
+      setUnsent({ messages: nextMessages, photoPath, photoTakenOn })
       return
     }
+    setUnsent(null)
     setSending(false)
     setStreamingText('')
 
@@ -340,7 +388,7 @@ export function Chat({
       },
     ]
     setMessages(withAssistant)
-    log(withAssistant)
+    log(withAssistant).catch(() => {})
   }
 
   function setFeedback(index: number, feedback: 'up' | 'down') {
@@ -423,7 +471,23 @@ export function Chat({
               <ThinkingStatus key={sendingSince} state={thinking} since={sendingSince} />
             </div>
           )}
-          {error && <p className="error">{error}</p>}
+          {error && (
+            <div className="send-failed">
+              <p className="error">{error}</p>
+              {/* The question is still in the transcript above; this
+                  sends that same one again rather than asking the
+                  producer to type it a second time. */}
+              {unsent && !sending && (
+                <button
+                  type="button"
+                  className="send-failed-retry"
+                  onClick={() => void deliver(unsent.messages, unsent.photoPath, unsent.photoTakenOn)}
+                >
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>

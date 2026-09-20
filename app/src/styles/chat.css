@@ -565,3 +565,28 @@
   opacity: 0.7;
   line-height: 1.4;
 }
+
+/* A send that did not arrive, and the way back from it. */
+.send-failed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.send-failed-retry {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--wood);
+  border: var(--line) solid var(--wood-dark);
+  box-shadow: 0 var(--press) 0 var(--wood-dark);
+  color: var(--cream);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.send-failed-retry:active {
+  box-shadow: 0 0 0 var(--wood-dark);
+  transform: translateY(var(--press));
+}

@@ -37,8 +37,12 @@ export function useConversationLog(session: Session, existing?: { id: string }) 
     if (!producerId || transcript.length === 0) return
 
     if (!started.current) {
-      started.current = true
+      // Marked started only once the row exists. Setting it first meant
+      // that a failed create -- no signal, most likely -- left every
+      // later write updating a conversation that was never there, so one
+      // missed turn took the whole transcript with it.
       await startConversation(conversationId, producerId, transcript)
+      started.current = true
       return
     }
 
