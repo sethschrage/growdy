@@ -36,6 +36,12 @@ export type ObservationCandidate = {
 }
 
 export type NewObservationCandidate = {
+  /**
+   * The id the capturing device minted, before anything reached the
+   * server. Sending it makes a delivery safe to repeat: the RPC returns
+   * the row it already filed rather than filing a second one (0037).
+   */
+  clientId?: string | null
   summary: string
   note?: string | null
   observedDate?: string | null
@@ -115,6 +121,7 @@ export async function createObservationCandidate(
         p_photo_latitude: candidate.photoLatitude ?? null,
         p_photo_longitude: candidate.photoLongitude ?? null,
         p_photo_accuracy_m: candidate.photoAccuracyM ?? null,
+        p_client_id: candidate.clientId ?? null,
       }),
     ),
   )

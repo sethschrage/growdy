@@ -104,3 +104,34 @@
   color: var(--pdv-ink);
   border-radius: 6px;
 }
+
+/* Captured here, not yet delivered. Deliberately plain and present
+   rather than a discreet badge: the producer wrote something down and
+   is owed a straight answer about where it is. */
+.queued-notice {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border: var(--line) dashed var(--wood-dark);
+  border-radius: var(--radius-md, 12px);
+  font-size: var(--text-sm);
+}
+
+.queued-list {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-3);
+}
+
+.queued-stuck {
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.queued-retry {
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--wood);
+  border: var(--line) solid var(--wood-dark);
+  color: var(--cream);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}

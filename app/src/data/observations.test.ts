@@ -107,6 +107,9 @@ describe('createObservationCandidate', () => {
       p_photo_latitude: null,
       p_photo_longitude: null,
       p_photo_accuracy_m: null,
+      // Null from anywhere that files directly. The queue mints one, and
+      // it is what makes a redelivery file once (0037).
+      p_client_id: null,
     })
   })
 

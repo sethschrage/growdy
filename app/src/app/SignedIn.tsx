@@ -88,7 +88,7 @@ export function SignedIn({ session }: { session: Session }) {
       {observationFormOpen && (
         <ObservationForm session={session} onClose={() => setObservationFormOpen(false)} />
       )}
-      {observationLogOpen && <ObservationLogView onClose={() => setObservationLogOpen(false)} />}
+      {observationLogOpen && <ObservationLogView session={session} onClose={() => setObservationLogOpen(false)} />}
       {producerDataOpen && <ProducerDataView onClose={() => setProducerDataOpen(false)} />}
       {observationCandidatesOpen && (
         <ObservationCandidatesView

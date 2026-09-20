@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { fetchProducerId } from '@/data/profile'
+import { useObservationQueue } from '@/features/observations/useObservationQueue'
+import { isStuck } from '@/lib/observationQueue'
 import { deleteObservation, listObservations, type Observation } from '@/data/observations'
 import { ObservationPhoto } from '@/features/observations/ObservationPhoto'
 
@@ -22,7 +26,9 @@ function formatDate(iso: string) {
 //
 // Reuses ProducerDataView's dense .pdv-* visual language rather than the
 // pixel-art chat chrome, same as ArtifactsView.
-export function ObservationLogView({ onClose }: { onClose: () => void }) {
+export function ObservationLogView({ session, onClose }: { session: Session; onClose: () => void }) {
+  const [producerId, setProducerId] = useState<string | null>(null)
+  const { waiting, flush } = useObservationQueue(producerId)
   const [observations, setObservations] = useState<Observation[] | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -37,6 +43,14 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     refresh()
   }, [])
+
+  // The queue needs it to upload a photo, since the storage path is the
+  // tenancy check and has to start with the producer.
+  useEffect(() => {
+    fetchProducerId(session.user.id)
+      .then(setProducerId)
+      .catch(() => setProducerId(null))
+  }, [session.user.id])
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -66,6 +80,31 @@ export function ObservationLogView({ onClose }: { onClose: () => void }) {
       </div>
       <div className="pdv-body">
         {error && <p className="pdv-error">{error}</p>}
+        {/* Captured, not yet delivered. Shown because a queue nobody can
+            see is indistinguishable from data lost: the producer wrote
+            something down and is entitled to know where it is. */}
+        {waiting.length > 0 && (
+          <div className="queued-notice">
+            <p>
+              {waiting.length === 1 ? '1 observation' : `${waiting.length} observations`} captured
+              on this phone, waiting for signal.
+              {waiting.some(isStuck) && ' One or more could not be sent.'}
+            </p>
+            <ul className="queued-list">
+              {waiting.map((item) => (
+                <li key={item.clientId}>
+                  <span className="queued-summary">{item.summary}</span>
+                  {isStuck(item) && (
+                    <span className="queued-stuck"> -- not sent: {item.lastError}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="queued-retry" onClick={() => void flush()}>
+              Try sending now
+            </button>
+          </div>
+        )}
         {observations === null && <p className="pdv-empty">Loading...</p>}
         {observations !== null && observations.length === 0 && (
           <p className="pdv-empty">Nothing logged yet -- tell the chat what you saw, or use the observation form.</p>
