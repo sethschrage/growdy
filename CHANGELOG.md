@@ -134,10 +134,53 @@ and that limit is written into the guard rather than papered over. What
 it changes is that the refusal happens in front of the person who can
 answer.
 
+And then a third silence turned up, on the night this entry was drafted,
+in the one place none of the above was watching. A message sent from the
+iPhone came back as `Load failed`. Server-side that request was healthy
+in every way this project knows how to measure: `POST | 200`, the model
+ran, `chat usage: in=79 out=182 cacheRead=0 cacheWrite=16938` logged like
+any other turn. Reproduced from outside with `curl`, the same request
+streamed perfectly. The answer existed and the producer never saw it.
+Twenty minutes later the same shell streamed two more requests without
+trouble, so the fault was intermittent transport rather than a client
+that cannot stream -- which is exactly the case worth a fallback. A
+streamed request that fails with nothing yet received now asks again
+buffered, the way this worked before streaming existed, at the cost of a
+second model turn ([#207](https://github.com/sethschrage/growdy/pull/207)).
+Three guards stop it asking twice when asking twice is wrong: a refusal
+the server issued is final, a cancelled request stays cancelled, and once
+part of an answer has arrived a failure is reported rather than replaced.
+
+The process half of that is the more useful half. `0.15.0` was a day from
+being tagged with "replies now arrive as they're written" as its headline
+bullet, on the client where that night they had not arrived at all. The
+release checklist checked documents and advisors and never once said to
+use the app. It does now: every bullet a Release will carry is exercised
+on the client a producer actually uses, from a build of the commit being
+tagged, and written into the release PR as what was observed rather than
+as "tested". `docs/monitoring.md` gains the failure mode it had no entry
+for -- the one that logs nothing at all, where every server-side signal
+reads healthy. A complete `chat usage` line means the model answered, not
+that anybody received it.
+
+One more claim went the same way. `CONTRIBUTING.md` had said that a PR
+merges itself once CI passes, and three PRs sat green and open that
+evening while it said so: the repo setting permits auto-merge, it does
+not request it. Now the request is a step somebody takes when the PR is
+opened, and the release PR is the deliberate exception -- merged by hand,
+after the app has been used
+([#208](https://github.com/sethschrage/growdy/pull/208)). No check in
+this repo could have caught that one, which is worth noticing right after
+a batch that added several: the claim was about GitHub's behaviour, not
+about a file, and the checks only ever see files.
+
 Both halves of this release are the same idea pointed in two directions.
 A system that says what it is doing -- to the producer waiting on it, and
 to whoever reads it next -- is one you can catch being wrong. A system
-that goes quiet is one you find out about later.
+that goes quiet is one you find out about later. The third silence is the
+reminder that the same is true of the instruments: a green check and a
+clean log are a claim like any other, and the only way to know an answer
+arrived is that somebody received one.
 
 ## [0.14.0] - 2026-09-19
 
