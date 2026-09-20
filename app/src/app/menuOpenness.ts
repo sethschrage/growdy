@@ -13,12 +13,26 @@
 // labelDrag's does: this is the part with decisions in it.
 
 /**
- * Past this, letting go opens it the rest of the way; under it, letting
- * go shuts it. Half, because there is nothing to prefer -- the menu is
- * as easy to reopen as to close, so neither direction has earned the
- * benefit of the doubt.
+ * How far you have to move it before letting go commits to it: a
+ * quarter of the way.
+ *
+ * It was "past halfway is open, short of it is shut", which sounds
+ * neutral and is not. It made the producer carry the menu more than
+ * half its own height before the app would believe they meant to close
+ * it, and a gesture that has to be completed is barely a gesture -- you
+ * may as well have pressed the button. A quarter is enough to have said
+ * something.
+ *
+ * Read against where the gesture *started*, not against the middle, so
+ * it means the same thing in both directions: a quarter of a pull opens
+ * it, a quarter of a push shuts it.
  */
-export const SETTLE_AT = 0.5
+export const COMMIT_AT = 0.25
+
+/** Which side of the fence a position is on, for a gesture that said nothing. */
+export function wasOpen(openness: number): boolean {
+  return openness >= 0.5
+}
 
 /**
  * Where a drag has pushed it. The menu shuts upward -- it is hanging
@@ -42,13 +56,21 @@ export function opennessFromDrag(startOpenness: number, deltaY: number, travel: 
 /**
  * Where it lands when the finger comes off.
  *
+ * Which way it was going decides, not where it happens to be. Move it a
+ * quarter or more and it keeps going that way; move it less than that
+ * and it goes back where it came from -- so a small, undecided movement
+ * is undone rather than being read as a decision the producer did not
+ * make.
+ *
  * The stagger down the stack is the stylesheet's, not this file's: it
  * falls out of a calc on --openness per item, so it keeps cascading
  * under a finger instead of only when an animation runs it. shell.css,
  * on .app-menu-bar > *, has the formula.
  */
-export function settleOpenness(openness: number): 0 | 1 {
-  return openness >= SETTLE_AT ? 1 : 0
+export function settleFromDrag(startOpenness: number, endOpenness: number): 0 | 1 {
+  const moved = endOpenness - startOpenness
+  if (Math.abs(moved) >= COMMIT_AT) return moved > 0 ? 1 : 0
+  return wasOpen(startOpenness) ? 1 : 0
 }
 
 function clamp(value: number): number {

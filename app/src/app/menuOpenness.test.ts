@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SETTLE_AT, opennessFromDrag, settleOpenness } from '@/app/menuOpenness'
+import { COMMIT_AT, opennessFromDrag, settleFromDrag, wasOpen } from '@/app/menuOpenness'
 
 describe('dragging the menu open and shut', () => {
   it('shuts it as the finger carries it up', () => {
@@ -39,17 +39,47 @@ describe('dragging the menu open and shut', () => {
 })
 
 describe('where it lands when the finger comes off', () => {
-  it('opens the rest of the way from past halfway', () => {
-    expect(settleOpenness(0.51)).toBe(1)
-    expect(settleOpenness(1)).toBe(1)
+  it('keeps going and shuts from a quarter of a push', () => {
+    // The producer's own number: push it a quarter of the way shut and
+    // letting go should finish the job rather than snapping it open.
+    expect(settleFromDrag(1, 0.75)).toBe(0)
   })
 
-  it('shuts from under halfway', () => {
-    expect(settleOpenness(0.49)).toBe(0)
-    expect(settleOpenness(0)).toBe(0)
+  it('keeps going and opens from a quarter of a pull', () => {
+    expect(settleFromDrag(0, 0.25)).toBe(1)
   })
 
-  it('opens from exactly halfway', () => {
-    expect(settleOpenness(SETTLE_AT)).toBe(1)
+  it('goes back where it came from on a smaller push', () => {
+    expect(settleFromDrag(1, 0.8)).toBe(1)
+  })
+
+  it('goes back where it came from on a smaller pull', () => {
+    expect(settleFromDrag(0, 0.2)).toBe(0)
+  })
+
+  it('commits from part-way in whichever direction the finger went', () => {
+    // Started half open -- which happens when a drag is grabbed again
+    // before its transition has finished.
+    expect(settleFromDrag(0.5, 0.2)).toBe(0)
+    expect(settleFromDrag(0.5, 0.8)).toBe(1)
+  })
+
+  it('reads a movement of exactly a quarter as a decision', () => {
+    expect(settleFromDrag(1, 1 - COMMIT_AT)).toBe(0)
+    expect(settleFromDrag(0, COMMIT_AT)).toBe(1)
+  })
+
+  it('does not let a long push the wrong way open it', () => {
+    // Pushing further shut than shut is still shut.
+    expect(settleFromDrag(0.3, 0)).toBe(0)
+  })
+})
+
+describe('which side a position is on', () => {
+  it('counts halfway as open', () => {
+    expect(wasOpen(0.5)).toBe(true)
+    expect(wasOpen(0.49)).toBe(false)
+    expect(wasOpen(1)).toBe(true)
+    expect(wasOpen(0)).toBe(false)
   })
 })
