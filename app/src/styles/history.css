@@ -1,27 +1,66 @@
-/* The conversation history drawer. */
+/* The conversation history screen.
+   A full screen, like the observation log and the vineyard data and
+   everything else the menu opens. It was a 420px drawer over a dark
+   overlay, which on a phone is 90vw -- so it covered the app anyway and
+   left a strip of it showing down one side, which reads as the screen
+   having zoomed rather than as a panel over it. Being the odd one out
+   also meant it was the only screen without the cross in the corner. */
 
 .history-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  justify-content: flex-end;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  background: var(--parchment);
 }
 
 .history-drawer {
-  width: min(420px, 90vw);
-  height: 100%;
-  background: var(--parchment);
-  border-left: 4px solid var(--wood-dark);
-  padding: calc(20px + env(safe-area-inset-top)) 16px 20px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Title on the left, way out on the right -- the arrangement every
+   other screen uses, so the cross is where a hand already goes. */
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--wood-dark);
+}
+
+.history-close {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--wood-dark);
+  font-size: 26px;
+  line-height: 1;
+  /* Padded out to a real target rather than the size of the glyph. */
+  padding: 4px 10px;
+}
+
+.history-close:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.history-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
 }
 
 .history-title {
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--wood-dark);
 }
 
@@ -86,13 +125,14 @@
 }
 
 .history-back {
-  align-self: flex-start;
   background: none;
   border: none;
   box-shadow: none;
   color: var(--wood-dark);
   font-weight: 700;
-  padding: 4px 0 12px;
+  /* In the header row now, where the title sits in the other view, so
+     it no longer needs the padding that held it off the content. */
+  padding: 4px 0;
 }
 
 .history-back:active {
