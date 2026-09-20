@@ -642,6 +642,76 @@
   box-shadow: none;
 }
 
+/* The status line and, under it, the steps behind it.
+   A wrapper so the one-line summary keeps its layout exactly -- it is a
+   row with margin-left:auto doing the spacing on the right, and putting
+   a list inside it would have made the phrase and the meta share a
+   column. */
+.thinking-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* Quiet: this is for the producer who wonders, not the one waiting for
+   the answer. It sits under the summary rather than beside it because
+   the summary already fills the width on a phone. */
+.thinking-steps-toggle {
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.7;
+  background: none;
+  border: none;
+  box-shadow: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.thinking-steps-toggle:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.thinking-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* The rule down the left is what makes a list of phrases read as a
+     sequence of steps rather than as bullet points. */
+  border-left: var(--line-strong) solid rgba(74, 47, 28, 0.18);
+}
+
+.thinking-step {
+  font-size: var(--text-xs);
+  color: var(--ink);
+  opacity: 0.7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* The one still going. Everything above it is done, which is the
+   distinction the whole list exists to draw: four finished steps and a
+   fifth running is an answer working, and the same wait with nothing
+   running is one that is stuck. */
+.thinking-step--running {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.thinking-step-detail {
+  /* The relations, the query, the page -- what it actually went and
+     looked at, as opposed to the category the phrase gives. */
+  opacity: 0.75;
+  word-break: break-word;
+}
+
 /* What an answer looked at and what it cost, under the answer. Quiet on
    purpose: it is there for the producer who wonders, not for the one
    reading the reply. */

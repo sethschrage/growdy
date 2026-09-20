@@ -96,12 +96,55 @@ describe('reduceThinking', () => {
     expect(state.cachedTokens).toBe(6600)
   })
 
-  it('keeps a record of the tools that finished', () => {
+  it('keeps every step, in the order the answer took them', () => {
     const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'plantings' },
       { type: 'tool', name: 'execute_readonly_query', state: 'done' },
-      { type: 'tool', name: 'search_memory', state: 'done' },
+      { type: 'tool', name: 'search_memory', state: 'start', detail: 'frost' },
     ])
-    expect(state.done).toEqual(['Reading your vineyard data', 'Searching what it remembers'])
+    expect(state.steps).toEqual([
+      { phrase: 'Reading your vineyard data', detail: 'plantings', running: false },
+      { phrase: 'Searching what it remembers', detail: 'frost', running: true },
+    ])
+  })
+
+  it('keeps the detail, which is the half worth having', () => {
+    // "Reading your vineyard data" is a category; the relations are what
+    // it actually went and looked at.
+    const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'weather_observations' },
+    ])
+    expect(state.steps[0].detail).toBe('weather_observations')
+  })
+
+  it('ends the step that started most recently, not the first one', () => {
+    // A turn can call the same tool twice. The end that just arrived
+    // belongs to the one that started last.
+    const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'plantings' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'parcels' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'done' },
+    ])
+    expect(state.steps.map((s) => s.running)).toEqual([true, false])
+  })
+
+  it('finishes both when the same tool is called twice and both return', () => {
+    // Closing "the most recent with this phrase" without checking that it
+    // is still running closes the same step twice and leaves the first
+    // one spinning forever -- a trace that says the answer is still
+    // reading the vineyard when it finished doing that ten seconds ago.
+    const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'plantings' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'parcels' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'done' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'done' },
+    ])
+    expect(state.steps.map((s) => s.running)).toEqual([false, false])
+  })
+
+  it('ignores an end for a step that was never announced', () => {
+    const state = fold([{ type: 'tool', name: 'search_memory', state: 'done' }])
+    expect(state.steps).toEqual([])
   })
 
   it('counts cache writes, which are the expensive ones', () => {

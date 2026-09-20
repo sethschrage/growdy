@@ -30,6 +30,10 @@ function useElapsedSeconds(since: number) {
 }
 
 export function ThinkingStatus({ state, since }: { state: ThinkingState; since: number }) {
+  // Shut by default and remembered only for this request: the component
+  // is keyed on the send, so opening the steps on one answer does not
+  // open them on the next.
+  const [open, setOpen] = useState(false)
   const elapsed = useElapsedSeconds(since)
   const tokens = state.inputTokens + state.outputTokens
   // The token count answers "how big was that"; this answers "was that a
@@ -39,6 +43,7 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
   const cost = estimateThinkingCostUsd(state)
 
   return (
+    <div className="thinking-block">
     <div className="thinking" aria-live="polite">
       <span className="thinking-pulse" aria-hidden="true" />
       <span className="thinking-phrase">
@@ -65,6 +70,41 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
           <span className="thinking-cost"> · about {formatCostUsd(cost)}</span>
         ) : null}
       </span>
+    </div>
+      {/* The steps behind the summary.
+          The line above says what is happening now, which answers "is it
+          stuck". This answers the question after it -- what has it
+          actually done -- and it is the difference between a twenty
+          second wait you trust and one you don't. Shut by default,
+          because most answers do not need explaining and a list that
+          opens itself would push the conversation around every time. */}
+      {state.steps.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="thinking-steps-toggle"
+            onClick={() => setOpen((was) => !was)}
+            aria-expanded={open}
+          >
+            {open ? 'Hide steps' : `${state.steps.length} ${state.steps.length === 1 ? 'step' : 'steps'}`}
+          </button>
+          {open && (
+            <ol className="thinking-steps">
+              {state.steps.map((step, i) => (
+                <li
+                  key={`${step.phrase}-${i}`}
+                  className={`thinking-step${step.running ? ' thinking-step--running' : ''}`}
+                >
+                  <span className="thinking-step-phrase">{step.phrase}</span>
+                  {step.detail ? (
+                    <span className="thinking-step-detail">{step.detail}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
     </div>
   )
 }
