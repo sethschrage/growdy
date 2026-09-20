@@ -179,7 +179,7 @@ rather than a habit.
 
 **The prompt cache, which fails by getting quietly expensive.** The
 chat's system prompt -- instructions, tool definitions, schema
-description -- is on the order of fifteen thousand tokens and is cached
+description -- is 16,938 tokens as of 0.15.0 and is cached
 ([0033](decisions/0033-what-goes-in-the-cached-prompt.md)). The exact
 figure moves whenever the schema does, since the description is
 generated from the catalog

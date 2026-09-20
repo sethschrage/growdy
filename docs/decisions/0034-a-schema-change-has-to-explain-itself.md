@@ -125,9 +125,12 @@ nothing verifies a ticked one.
   constraints, costs more than describing twelve tersely. It sits in the
   first cache block, so a warm request reads it back at a tenth of the
   input rate; the cost lands on the first request after any schema
-  change. The block measured 15,240 tokens before this
-  ([`0033`](0033-what-goes-in-the-cached-prompt.md)); the new figure
-  goes in here once a live request has reported it, not before.
+  change. Measured on the live function: **16,938 tokens**, up from the
+  15,240 recorded in [`0033`](0033-what-goes-in-the-cached-prompt.md) --
+  1,698 tokens for fourteen foreign keys, the check constraints, the
+  required markers and a thirteenth relation. Observed twice, as a
+  `cacheWrite` on the first request after the deploy and a `cacheRead`
+  on the next.
 - **A new table is noisy until somebody excludes it.** That is the
   trade, taken on purpose: noise gets fixed, silence does not.
 - **`NOT_DESCRIBED` is now load-bearing.** A rename that does not update
