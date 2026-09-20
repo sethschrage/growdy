@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { estimateThinkingCostUsd, formatCostUsd } from '@/features/chat/cost'
 import type { ThinkingState } from '@/features/chat/thinking'
 
 // What the app shows while it is working.
@@ -31,6 +32,11 @@ function useElapsedSeconds(since: number) {
 export function ThinkingStatus({ state, since }: { state: ThinkingState; since: number }) {
   const elapsed = useElapsedSeconds(since)
   const tokens = state.inputTokens + state.outputTokens
+  // The token count answers "how big was that"; this answers "was that a
+  // lot", which is the question the producer has actually been asking.
+  // Both, because the count is what one answer gets compared against the
+  // last one with and money on its own loses that.
+  const cost = estimateThinkingCostUsd(state)
 
   return (
     <div className="thinking" aria-live="polite">
@@ -47,7 +53,17 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
         {/* Only worth showing when it happened: a first question of the
             day legitimately has nothing cached, and a zero here would
             read as a fault rather than as a cold start. */}
-        {state.cachedTokens > 0 ? ` (${state.cachedTokens.toLocaleString()} cached)` : null}
+        {state.cachedTokens > 0 ? (
+          <span className="thinking-cached"> ({state.cachedTokens.toLocaleString()} cached)</span>
+        ) : null}
+        {/* The money. Gated on the same tokens > 0 as the count it sits
+            beside, because a confident "0¢" during the opening pause
+            would be the same lie as a confident 0 tokens. "about"
+            rather than a "≈", which a screen reader on this aria-live
+            region either skips or reads as punctuation. */}
+        {tokens > 0 ? (
+          <span className="thinking-cost"> · about {formatCostUsd(cost)}</span>
+        ) : null}
       </span>
     </div>
   )
