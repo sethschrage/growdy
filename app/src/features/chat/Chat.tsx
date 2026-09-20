@@ -165,6 +165,31 @@ export function Chat({
     }
   }, [])
 
+  /**
+   * The bottom of the list carries a band of empty space that exists
+   * only so the view has something to rubber-band against on a phone --
+   * without it a conversation that fits is dead under a thumb. It is
+   * space to bounce into, not space to scroll to.
+   *
+   * The auto-scroll above cannot tell the difference: on a conversation
+   * that already fits there is nothing to bring into view, so
+   * scrollIntoView runs as far as it can, which is straight to the end
+   * of the slack. That put the producer's own question under the header
+   * and opened a void above the compose bar on a chat that needed no
+   * scrolling at all -- "scroll is still broken and weird even though
+   * the message technically fits".
+   *
+   * So the band is measured back out of the stylesheet that declares it,
+   * rather than duplicated here, and the view is pulled out of it.
+   */
+  function keepOutOfTheSlack() {
+    const node = messagesRef.current
+    if (!node) return
+    const slack = Number.parseFloat(getComputedStyle(node).getPropertyValue('--scroll-slack')) || 0
+    const furthestUseful = Math.max(0, node.scrollHeight - node.clientHeight - slack)
+    if (node.scrollTop > furthestUseful) node.scrollTop = furthestUseful
+  }
+
   useEffect(() => {
     // A reply that's longer than the screen used to land with its own
     // *end* in view (scrollIntoView always targeted the bottom sentinel),
@@ -185,6 +210,7 @@ export function Chat({
       } else {
         messagesEndRef.current?.scrollIntoView({ behavior })
       }
+      keepOutOfTheSlack()
     }
     scroll('smooth')
     // Two independent things can shift layout shortly after this first

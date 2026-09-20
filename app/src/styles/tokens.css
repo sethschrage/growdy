@@ -53,7 +53,18 @@
   /* Menu choreography. Slow enough to read as a movement rather than a
      jump; short enough that a producer opening a menu to do something
      isn't waiting on it. */
-  --menu-speed: 240ms;
+  /* 240ms read as a snap rather than as a thing coming apart. The menu
+     is the app's one piece of character and it is worth watching, so it
+     takes its time -- still short enough that a producer opening it to
+     tap one button is not waiting on it. */
+  /* Every part of the burger is this wide: the buns, the lettuce-and-
+     cheese divider, and the buttons that fall out between them. It is a
+     token because it was three hardcoded numbers -- buns at 44, the
+     divider at 40, and buttons that drop to 40 on a narrow phone -- so
+     the stack lined up at one screen width and stepped in and out at
+     every other. */
+  --menu-button: 44px;
+  --menu-speed: 340ms;
   --menu-ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --wood: #8b5a2b;
   --wood-dark: #5c3a1a;
