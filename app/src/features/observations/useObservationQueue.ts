@@ -6,7 +6,9 @@ import {
   flushQueue,
   inCaptureOrder,
   indexedDbStore,
+  isStuck,
   memoryStore,
+  type FlushResult,
   type QueuedObservation,
 } from '@/lib/observationQueue'
 import { uploadPhoto, type PhotoLocation } from '@/lib/photo'
@@ -41,9 +43,29 @@ export function useObservationQueue(producerId: string | null) {
     setWaiting(inCaptureOrder(await store.all()))
   }, [store])
 
-  const flush = useCallback(async () => {
-    if (!producerId) return
-    await flushQueue(store, {
+  /**
+   * Delivers what is waiting and says what it managed to deliver.
+   *
+   * The result is returned rather than swallowed because the screen has
+   * no other way to find out. A flush that succeeds empties the queue,
+   * the "waiting for signal" notice disappears with it, and what it sent
+   * does not turn up in the observation log either -- a flushed capture
+   * is a candidate awaiting review (0030), and only an approval puts it
+   * in the log. So the producer watched an observation leave one screen
+   * and arrive on none, which reads exactly like losing it. With the
+   * count in hand the screen can say where it went.
+   */
+  const flush = useCallback(async (): Promise<FlushResult> => {
+    // Nothing can be delivered without the producer id the upload below
+    // needs. It answers with the queue as it actually stands rather than
+    // an empty result: a caller reads `sent` as "this many got through",
+    // so the numbers beside it have to be true as well.
+    if (!producerId) {
+      const left = await store.all()
+      return { sent: 0, stuck: left.filter(isStuck).length, remaining: left.length }
+    }
+
+    const result = await flushQueue(store, {
       // The path carries the tenancy check, so the upload needs the
       // producer -- which is also why it cannot be done at capture time
       // with no signal: a path handed out offline is unverifiable.
@@ -64,6 +86,7 @@ export function useObservationQueue(producerId: string | null) {
         }),
     })
     await refresh()
+    return result
   }, [store, producerId, refresh])
 
   // Delivers whatever a previous session left behind. oxlint warns

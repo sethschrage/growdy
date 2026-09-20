@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { fetchProducerId } from '@/data/profile'
 import { useObservationQueue } from '@/features/observations/useObservationQueue'
@@ -15,6 +15,13 @@ function formatDate(iso: string) {
 // as data the moment they're logged, and correcting the record means
 // removing an entry rather than approving one (see the amendment on 0009
 // and migration 20260918020000).
+//
+// 0030 put a gate back in front of that, which this file has to say out
+// loud rather than leave the paragraph above reading as the whole story:
+// nothing reaches this log without being approved in Review observations
+// first, so a capture that has just been delivered appears here not at
+// all. Deleting is still the correction after approval -- the queue
+// decides what enters the record, the log decides what stays.
 //
 // Deleting is safe to offer this plainly because 0022's audit trigger
 // writes the entire old row into audit_log on delete -- the row leaves
@@ -33,6 +40,9 @@ export function ObservationLogView({ session, onClose }: { session: Session; onC
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [flushing, setFlushing] = useState(false)
+  const [sentForReview, setSentForReview] = useState(0)
+  const flushInFlight = useRef(false)
 
   function refresh() {
     listObservations()
@@ -51,6 +61,35 @@ export function ObservationLogView({ session, onClose }: { session: Session; onC
       .then(setProducerId)
       .catch(() => setProducerId(null))
   }, [session.user.id])
+
+  // "Try sending now" with nothing behind it was reported from a phone
+  // in a block: pressed, and then nothing at all. In airplane mode the
+  // fetch underneath does not fail quickly, it hangs -- tens of seconds
+  // on iOS -- and the button sat there looking exactly like a button
+  // that had not registered the press, so it got pressed again.
+  //
+  // The ref is the half of the guard that actually holds. `disabled`
+  // makes it visible, but it only takes effect once React has committed
+  // the re-render, and two taps in quick succession on a phone can both
+  // dispatch before that. A second flush over the same queue re-uploads
+  // a photo the first one is still uploading -- another copy of a
+  // megabyte in the bucket that nothing references, which is the exact
+  // cost flushQueue already goes out of its way to avoid.
+  async function handleFlush() {
+    if (flushInFlight.current) return
+    flushInFlight.current = true
+    setFlushing(true)
+    // This attempt has not sent anything yet, so an older count must not
+    // sit on screen claiming otherwise while it runs.
+    setSentForReview(0)
+    try {
+      const result = await flush()
+      if (result.sent > 0) setSentForReview(result.sent)
+    } finally {
+      flushInFlight.current = false
+      setFlushing(false)
+    }
+  }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -100,10 +139,28 @@ export function ObservationLogView({ session, onClose }: { session: Session; onC
                 </li>
               ))}
             </ul>
-            <button type="button" className="queued-retry" onClick={() => void flush()}>
-              Try sending now
+            <button
+              type="button"
+              className="queued-retry"
+              onClick={() => void handleFlush()}
+              disabled={flushing}
+            >
+              {flushing ? 'Sending...' : 'Try sending now'}
             </button>
           </div>
+        )}
+        {/* Where the notice was, once it has gone. A flush that gets
+            through takes the notice with it and puts nothing in the log
+            -- what it sent is a candidate waiting on review (0030) --
+            so without this the observation vanishes from the screen the
+            producer was watching and appears on no other. Same sentence
+            the form uses when it files one, because it is the same
+            promise: it went, and here is where to go and accept it. */}
+        {sentForReview > 0 && (
+          <p className="queued-sent">
+            Sent for review{sentForReview > 1 ? ` (${sentForReview})` : ''} -- approve it in Review
+            observations and it joins your log.
+          </p>
         )}
         {observations === null && <p className="pdv-empty">Loading...</p>}
         {observations !== null && observations.length === 0 && (
