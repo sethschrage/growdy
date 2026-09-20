@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { categoryLabel, hasSourceList } from '@/lib/knowledge'
 import type { Session } from '@supabase/supabase-js'
 import {
   addDataSource,
@@ -265,7 +266,19 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
   const provider = providers?.find((p) => p.id === providerId) ?? null
   const providerSources = sources?.filter((s) => s.provider_id === providerId) ?? []
 
-  const title = provider ? provider.name : category ? category : 'Knowledge Categories'
+  // "Knowledge", not "Knowledge Categories": the taxonomy is real and
+  // stays (0019), but the producer does not need the word "category" in
+  // a heading to know that a list of categories is what they are looking
+  // at. Below it, each screen is named after the thing it is showing --
+  // the category, then the provider -- and a provider that really does
+  // hold a list of sources says so.
+  const title = provider
+    ? hasSourceList(provider.name)
+      ? `${provider.name} sources`
+      : provider.name
+    : category
+      ? categoryLabel(category)
+      : 'Knowledge'
 
   return (
     <div className="data-sources-overlay">
@@ -278,11 +291,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
       <div className="data-sources-body">
         {providerId ? (
           <button type="button" className="data-sources-back" onClick={() => setProviderId(null)}>
-            &larr; {category}
+            &larr; {categoryLabel(category ?? '')}
           </button>
         ) : category ? (
           <button type="button" className="data-sources-back" onClick={() => setCategory(null)}>
-            &larr; Categories
+            &larr; Knowledge
           </button>
         ) : null}
 
@@ -290,11 +303,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
 
         {providers && !category && (
           <ul className="data-source-list">
-            {categories.length === 0 && <p className="history-empty">No categories yet.</p>}
+            {categories.length === 0 && <p className="history-empty">Nothing here yet.</p>}
             {categories.map((c) => (
               <li key={c}>
                 <button type="button" className="data-source-nav-item" onClick={() => setCategory(c)}>
-                  {c}
+                  {categoryLabel(c)}
                 </button>
               </li>
             ))}
@@ -332,7 +345,11 @@ export function DataSourcesView({ onClose }: { session: Session; onClose: () => 
           </div>
         )}
 
-        {provider && provider.name !== 'Device' && provider.name !== 'USA National Phenology Network' && provider.name !== 'Anthropic Web Search' && (
+        {/* The generic branch: a provider that really does hold a list of
+            sources. It asks the same question the title above asked, in
+            the same words, so the two cannot drift apart and leave a
+            screen headed "Device sources" with no sources under it. */}
+        {provider && hasSourceList(provider.name) && (
           <>
             {sources === null && <p className="history-empty">Loading...</p>}
             {sources !== null && providerSources.length === 0 && <p className="history-empty">No sources added yet.</p>}

@@ -500,7 +500,7 @@ export function AccountMenu({
             <PictureIcon size={20} />
           </MenuButton>
           <MenuButton
-            label="Knowledge Categories"
+            label="Knowledge"
             expanded={expanded}
             onClick={() => {
               onOpenDataSources()
