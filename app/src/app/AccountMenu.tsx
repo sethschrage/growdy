@@ -12,7 +12,6 @@ import { opennessFromDrag, settleFromDrag, wasOpen } from '@/app/menuOpenness'
 import { MenuButton } from '@/app/MenuButton'
 import {
   ChevronIcon,
-  ComposeIcon,
   ExitIcon,
   GridIcon,
   HistoryIcon,
@@ -84,7 +83,6 @@ function menuSpeedMs(): number {
 export function AccountMenu({
   email,
   covered,
-  onNewChat,
   onOpenHistory,
   onOpenDataSources,
   onSignOut,
@@ -97,7 +95,6 @@ export function AccountMenu({
   email: string
   /** True while one of the screens these buttons open is on top of it. */
   covered: boolean
-  onNewChat: () => void
   onOpenHistory: () => void
   onOpenDataSources: () => void
   onSignOut: () => void
@@ -111,7 +108,7 @@ export function AccountMenu({
   // Opens saying what it does, the first time. Collapsed-by-default was
   // a guess that the producer is usually here to read a conversation
   // rather than a menu, and it cost them a memory test every time it
-  // turned out to be wrong. Nine unlabelled circles is a worse default
+  // turned out to be wrong. Eight unlabelled circles is a worse default
   // than a wider menu.
   //
   // After that it opens where they left it. Collapsing the labels is a
@@ -436,25 +433,18 @@ export function AccountMenu({
           role="menu"
           aria-label={`Account menu for ${email}`}
         >
-          {/* Two of these ten shut the menu and eight do not, and the
+          {/* One of these nine shuts the menu and eight do not, and the
               line between them is whether the menu would be in the way.
               The eight open a screen over the top of it, so it stays
               open underneath and shutting that screen returns the
               producer to the menu they were using -- going from the
               observation log to the vineyard data used to mean opening
-              the burger again in between. These two change what is
+              the burger again in between. Sign out changes what is
               behind the menu rather than covering it, so leaving it open
-              would leave it sitting on the thing it just asked for. */}
-          <MenuButton
-            label="New chat"
-            expanded={expanded}
-            onClick={() => {
-              onNewChat()
-              close()
-            }}
-          >
-            <ComposeIcon size={20} />
-          </MenuButton>
+              would leave it sitting on the thing it just asked for.
+              New chat used to be the other one. It is a button in the
+              header now: it was the thing a producer reaches for most
+              and it was costing them a menu. */}
           <MenuButton
             label="History"
             expanded={expanded}
