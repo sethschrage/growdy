@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   isTap,
+  TAP_SLOP,
   recallLabelWidth,
   rememberLabelWidth,
   widthAfterTap,
   widthFromDrag,
 } from '@/app/labelDrag'
+import { SETTLE_AT, opennessFromDrag, settleOpenness } from '@/app/menuOpenness'
 import { MenuButton } from '@/app/MenuButton'
 import {
   ChevronIcon,
@@ -84,22 +86,129 @@ export function AccountMenu({
   // producer can choose and the menu has to be able to hold.
   const [labelWidth, setLabelWidth] = useState(recallLabelWidth)
   const [dragging, setDragging] = useState(false)
-  // Shutting takes as long as opening did. Closing used to be instant --
-  // the menu simply stopped existing -- which after the drop was built
-  // to be watched read as the whole thing being yanked away.
-  const [closing, setClosing] = useState(false)
+  // How far open it is, 0 to 1, rather than whether it is open.
+  //
+  // Shutting takes as long as opening did -- closing used to be instant,
+  // the menu simply stopped existing, which after the drop was built to
+  // be watched read as the whole thing being yanked away. But a fixed
+  // length is still the app deciding how fast this happens: push the
+  // menu shut slowly and it should close slowly, because a control you
+  // are holding should be where your hand is. So the position is a
+  // number, the stylesheet draws whatever it says, and the 340ms
+  // transition is only what happens when nobody is holding it.
+  const [openness, setOpenness] = useState(0)
+  // A finger is on it: no transition, or the menu trails the finger by
+  // the length of the animation. Kept twice because both readers are
+  // real -- the class name needs a render, and the effect below needs
+  // the answer during one.
+  const [held, setHeld] = useState(false)
+  const heldRef = useRef(false)
+
+  function hold(value: boolean) {
+    heldRef.current = value
+    setHeld(value)
+  }
   const ref = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const shutting = useRef(false)
+  const closeTimer = useRef(0)
+  // Whether the gesture below already decided this. A pointer sequence
+  // always fires click afterwards, and without this the burger would
+  // open under the finger and shut again on the click that followed.
+  // Keyboard activation produces a click and no pointer events, so it
+  // still goes the ordinary way.
+  const pointerDrove = useRef(false)
   const expanded = labelWidth > 0
 
+  // Open from nothing: it mounts shut and is told to open on the next
+  // frame, because a transition needs two values and an element that
+  // mounts already open has only ever had one.
+  useEffect(() => {
+    // Unless a finger is already steering it. Pulling the burger down
+    // mounts the stack too, and without this the menu would fly open on
+    // the next frame and leave the hand behind.
+    if (!open || heldRef.current) return
+    const frame = requestAnimationFrame(() => setOpenness(1))
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+
   function close() {
-    // A second close during the animation (an outside tap while it is
-    // already going) must not stack another timer on the first.
-    if (closing) return
-    setClosing(true)
-    window.setTimeout(() => {
+    // A second close while the first is still running (an outside tap
+    // during the transition) must not stack another timer on it.
+    if (shutting.current) return
+    shutting.current = true
+    hold(false)
+    setOpenness(0)
+    closeTimer.current = window.setTimeout(() => {
       setOpen(false)
-      setClosing(false)
+      shutting.current = false
     }, menuSpeedMs())
+  }
+
+  /**
+   * Push the menu shut with a finger, at whatever speed the finger is
+   * going.
+   *
+   * It travels its own height rather than a chosen distance, so the
+   * gesture stays "carry it back up into the burger" however many
+   * buttons the stack grows. Let go past halfway and it opens the rest
+   * of the way; let go short of that and it shuts the rest of the way.
+   * Either way the last part is the transition's, because a finger that
+   * has left the screen is not steering anything.
+   */
+  function startOpennessDrag(event: ReactPointerEvent<HTMLElement>) {
+    pointerDrove.current = true
+    // Grabbing it mid-close takes it back off the timer that was about
+    // to unmount it. Without this the stack would vanish part-way
+    // through the pull that was reopening it.
+    window.clearTimeout(closeTimer.current)
+    shutting.current = false
+    const startY = event.clientY
+    const startOpenness = open ? openness : 0
+    if (!open) {
+      setOpenness(0)
+      setOpen(true)
+    }
+    let furthest = 0
+    hold(true)
+    // Pulled from the closed burger, the stack does not exist yet, so
+    // there is nothing to measure until React has mounted it. Read on
+    // the first move that can answer, and then kept: a transform does
+    // not change layout, so the height does not move under the gesture.
+    let travel = barRef.current?.offsetHeight ?? 0
+
+    // Where the last move left it, kept here rather than read back out
+    // of state: `end` needs the position the finger let go at, and the
+    // state it can see is the one from the render it closed over.
+    let latest = startOpenness
+    const move = (moveEvent: PointerEvent) => {
+      if (travel <= 0) travel = barRef.current?.offsetHeight ?? 0
+      const deltaY = moveEvent.clientY - startY
+      furthest = Math.max(furthest, Math.abs(deltaY))
+      latest = opennessFromDrag(startOpenness, deltaY, travel)
+      setOpenness(latest)
+    }
+    const end = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      hold(false)
+      // A tap is still a tap: it goes the other way from wherever it
+      // started, which is what tapping the burger and tapping the close
+      // chevron have always done. Only a real drag earns the right to
+      // leave it part-way and have where it landed decide the answer.
+      const settled =
+        furthest < TAP_SLOP
+          ? startOpenness < SETTLE_AT
+            ? 1
+            : 0
+          : settleOpenness(latest)
+      if (settled === 0) close()
+      else setOpenness(1)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
   }
 
   /**
@@ -152,10 +261,12 @@ export function AccountMenu({
     window.addEventListener('pointercancel', end)
   }
 
-  // The handler below is registered once per open and would otherwise
-  // hold the `close` from that render -- which reads `closing` to decide
-  // whether a close is already running. A stale one sees `closing:
-  // false` forever and starts a second timer on every outside tap.
+  // The handler below is registered once per open, so without this it
+  // would hold the `close` from that one render for the life of the
+  // menu. That `close` still guards correctly -- the "already shutting"
+  // flag is a ref -- but it would also be closing over a stale
+  // `openness`, and the one thing this menu must not do is animate from
+  // a position it is not in.
   const closeRef = useRef(close)
   useEffect(() => {
     closeRef.current = close
@@ -198,19 +309,51 @@ export function AccountMenu({
           className={`app-menu-toggle${open ? ' app-menu-toggle--open' : ''}`}
           aria-label={open ? 'Close menu' : 'Menu'}
           aria-expanded={open}
-          onClick={() => (open ? close() : setOpen(true))}
+          onPointerDown={startOpennessDrag}
+          onClick={() => {
+            // Only a keyboard gets here: the gesture handles a pointer
+            // and says so, and running both would open the menu on the
+            // press and shut it on the click.
+            if (pointerDrove.current) {
+              pointerDrove.current = false
+              return
+            }
+            if (open) {
+              close()
+              return
+            }
+            // Shut first, then mounted: the effect above opens it on the
+            // next frame, and it needs somewhere to open from.
+            setOpenness(0)
+            setOpen(true)
+          }}
         >
           {open ? (
             <PixelBunTop className="menu-bun-row" />
           ) : (
-            <PixelBurger size={44} />
+            <>
+              <PixelBurger size={44} />
+              {/* The bar under the closed burger, which is a promise
+                  rather than a decoration now: pull it and the stack
+                  comes down with your finger. It was removed when it was
+                  only a mark -- a guide on a closed icon with nothing
+                  behind it is furniture -- and it comes back because
+                  there is something behind it. */}
+              <span className="app-menu-grab" aria-hidden="true" />
+            </>
           )}
         </button>
       </div>
       {open && (
         <div
-          className={`app-menu-bar${dragging ? ' app-menu-bar--dragging' : ''}${closing ? ' app-menu-bar--closing' : ''}`}
-          style={{ '--label-width': `${labelWidth}px` } as React.CSSProperties}
+          ref={barRef}
+          className={`app-menu-bar${dragging ? ' app-menu-bar--dragging' : ''}${held ? ' app-menu-bar--held' : ''}`}
+          style={
+            {
+              '--label-width': `${labelWidth}px`,
+              '--openness': openness,
+            } as React.CSSProperties
+          }
           role="menu"
           aria-label={`Account menu for ${email}`}
         >
@@ -374,9 +517,15 @@ export function AccountMenu({
                 the menu goes when it shuts. Same material as the rail,
                 because it is the same kind of thing: chrome, not
                 burger. */}
+            {/* Push it, don't press it. It still closes on a tap, but a
+                drag carries the whole stack back up into the burger at
+                the speed of the hand doing it -- and stops where the
+                hand stops, so letting go halfway is a real position and
+                not a cancelled animation. */}
             <button
               type="button"
               className="menu-close-grip"
+              onPointerDown={startOpennessDrag}
               aria-label="Close menu"
               onClick={close}
             >
