@@ -40,12 +40,46 @@ export function isTap(totalMovement: number): boolean {
 }
 
 /**
- * Where a tap takes it: all the way open, or all the way shut. Anything
- * in between is reachable by dragging, but a tap should not leave the
- * menu at some width nobody chose.
+ * Where a tap takes it: all the way open, or all the way shut.
  */
 export function widthAfterTap(current: number, widest = WIDEST_LABEL): number {
   return current > 0 ? 0 : widest
+}
+
+/**
+ * How far the handle has to move before letting go commits to it.
+ *
+ * Lower than the menu's own quarter, because this gesture is shorter --
+ * the labels are 180px wide against a stack nearly three times that --
+ * and the same fraction of a shorter run is a longer-feeling pull.
+ */
+export const LABEL_COMMIT_AT = 0.15
+
+/**
+ * Where the labels land when the finger comes off: open or shut, never
+ * in between.
+ *
+ * A drag used to leave them at whatever width it ended on, which meant
+ * the menu could sit at 96px with every label cut off mid-word -- a
+ * state nobody would choose on purpose and the producer kept landing in
+ * by accident. The width is still continuous under the finger, because
+ * that is what makes it feel like a handle; it is only the resting
+ * places that are two.
+ */
+export function settleLabelWidth(
+  startWidth: number,
+  endWidth: number,
+  widest = WIDEST_LABEL,
+): number {
+  const moved = (endWidth - startWidth) / widest
+  if (Math.abs(moved) >= LABEL_COMMIT_AT) return moved > 0 ? widest : 0
+  // Went nowhere in particular: back to whichever end it came from.
+  return nearestEnd(startWidth, widest)
+}
+
+/** The closer of the two resting places. */
+export function nearestEnd(width: number, widest = WIDEST_LABEL): number {
+  return width * 2 >= widest ? widest : 0
 }
 
 /**
@@ -95,8 +129,13 @@ export function recallLabelWidth(store = browserStore(), widest = WIDEST_LABEL):
   if (raw === null) return widest
   const parsed = Number.parseFloat(raw)
   if (!Number.isFinite(parsed)) return widest
-  // Clamped on the way out as well as in: the value survives releases,
-  // and a width saved when the longest label was longer would otherwise
-  // open the menu wider than anything in it.
-  return Math.min(widest, Math.max(0, parsed))
+  // Snapped, not just clamped. Clamping keeps a saved width inside the
+  // range, which still allows a menu to open at 96px with every label
+  // cut off -- and a value like that is in storage on any phone that ran
+  // the version where a drag could end anywhere. The resting places are
+  // open and shut, including the one a menu opens into.
+  // No clamp in front of it: nearestEnd compares against the midpoint,
+  // so a saved 9000 is already on the open side and a saved -40 on the
+  // shut side. A clamp here would be a line no test could fail.
+  return nearestEnd(parsed, widest)
 }
