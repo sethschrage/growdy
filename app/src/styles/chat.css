@@ -613,13 +613,29 @@
   box-shadow: inset 0 0 0 var(--line) var(--leaf);
 }
 
+/* The two buttons in the compose bar.
+   Smaller than they were. At --space-2 of padding around an 18px icon
+   they came out 38px square in a 51px bar, which is most of the height
+   of the thing they sit in -- two green slabs with the field squeezed
+   between them. They are secondary: the bar is for typing in, and the
+   camera and the arrow are there when wanted. 30px reads as that.
+   The target does not shrink with them. ::after pads each one back out
+   past 44px, so what changed is how much green there is, not how easy
+   they are to hit. */
 .icon-button {
-  padding: var(--space-2);
+  padding: var(--space-1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: center;
+  position: relative;
   box-shadow: none;
+}
+
+.icon-button::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
 }
 
 .icon-button:active {
