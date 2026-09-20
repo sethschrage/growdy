@@ -24,6 +24,8 @@ export type ThinkingState = {
   turn: number
   inputTokens: number
   outputTokens: number
+  /** Of the input tokens, how many were served from the prompt cache. */
+  cachedTokens: number
   /** Tools finished this request, oldest first. */
   done: string[]
 }
@@ -33,6 +35,7 @@ export const IDLE_THINKING: ThinkingState = {
   turn: 0,
   inputTokens: 0,
   outputTokens: 0,
+  cachedTokens: 0,
   done: [],
 }
 
@@ -67,8 +70,14 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
     case 'usage':
       return {
         ...state,
-        inputTokens: state.inputTokens + event.inputTokens,
+        // Cache reads are input tokens too -- the API reports them
+        // separately and does not count them in input_tokens, so the
+        // total is the sum. Showing them apart is what makes a request
+        // that stopped hitting the cache visible instead of just
+        // expensive.
+        inputTokens: state.inputTokens + event.inputTokens + event.cacheReadTokens,
         outputTokens: state.outputTokens + event.outputTokens,
+        cachedTokens: state.cachedTokens + event.cacheReadTokens,
       }
     default:
       return state

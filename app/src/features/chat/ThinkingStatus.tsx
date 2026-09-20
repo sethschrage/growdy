@@ -44,6 +44,10 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
         {/* Tokens appear only once the first turn has reported them, so
             the line doesn't sit at a confident 0 while it waits. */}
         {tokens > 0 ? ` · ${tokens.toLocaleString()} tokens` : null}
+        {/* Only worth showing when it happened: a first question of the
+            day legitimately has nothing cached, and a zero here would
+            read as a fault rather than as a cold start. */}
+        {state.cachedTokens > 0 ? ` (${state.cachedTokens.toLocaleString()} cached)` : null}
       </span>
     </div>
   )

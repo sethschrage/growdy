@@ -51,7 +51,14 @@ export type ChatStreamEvent =
   | { type: 'turn'; index: number }
   | { type: 'tool'; name: string; state: 'start' | 'done' | 'error'; detail?: string }
   | { type: 'text'; text: string }
-  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | {
+      type: 'usage'
+      inputTokens: number
+      outputTokens: number
+      /** Read from the prompt cache, and written to it. */
+      cacheReadTokens: number
+      cacheWriteTokens: number
+    }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 

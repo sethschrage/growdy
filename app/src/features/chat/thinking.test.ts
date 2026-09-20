@@ -74,11 +74,24 @@ describe('reduceThinking', () => {
     // One turn's usage is not the request's cost -- a five-tool answer
     // pays for the whole transcript again each time round.
     const state = fold([
-      { type: 'usage', inputTokens: 1200, outputTokens: 90 },
-      { type: 'usage', inputTokens: 1600, outputTokens: 140 },
+      { type: 'usage', inputTokens: 1200, outputTokens: 90, cacheReadTokens: 0, cacheWriteTokens: 6600 },
+      { type: 'usage', inputTokens: 1600, outputTokens: 140, cacheReadTokens: 6600, cacheWriteTokens: 0 },
     ])
-    expect(state.inputTokens).toBe(2800)
+    // Cache reads are input the API bills separately and leaves out of
+    // input_tokens, so the honest total includes them.
+    expect(state.inputTokens).toBe(2800 + 6600)
     expect(state.outputTokens).toBe(230)
+  })
+
+  it('tracks how much of the input came from cache', () => {
+    // The number that says whether caching still works. A second turn
+    // reading 6,600 tokens back is the loop paying a tenth of the
+    // price for the prompt it just sent.
+    const state = fold([
+      { type: 'usage', inputTokens: 1200, outputTokens: 90, cacheReadTokens: 0, cacheWriteTokens: 6600 },
+      { type: 'usage', inputTokens: 40, outputTokens: 140, cacheReadTokens: 6600, cacheWriteTokens: 0 },
+    ])
+    expect(state.cachedTokens).toBe(6600)
   })
 
   it('keeps a record of the tools that finished', () => {
