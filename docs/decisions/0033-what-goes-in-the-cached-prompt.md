@@ -71,6 +71,13 @@ remembers to add, so the function now logs which public relations are
 not described, once per request. A new table shows up in the logs as a
 line to act on or ignore, rather than as a gap nobody sees.
 
+> **Superseded by [`0034`](0034-a-schema-change-has-to-explain-itself.md).**
+> A log line is not a mechanism -- nobody reads function logs looking
+> for a table that should have been added. The list was inverted:
+> every public relation is described by default, and `NOT_DESCRIBED`
+> holds the ones deliberately left out, with the reason. The rest of
+> this ADR stands; only the direction of the list changed.
+
 **Cache behaviour is reported, not assumed.** `cache_read_input_tokens`
 and `cache_creation_input_tokens` come back on every turn; they are
 logged server-side and shown in the app's own status line. A change

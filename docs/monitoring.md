@@ -144,9 +144,12 @@ table, never anything polled. Real call sites:
 
 | File:line | What it logs | Reaches `data_sources.last_error`? |
 |---|---|---|
-| [`chat/index.ts:568`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
-| [`chat/index.ts:514`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
-| [`chat/index.ts:86,122`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed | n/a |
+| [`chat/index.ts:1157`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
+| [`chat/index.ts:1137`](../supabase/functions/chat/index.ts) | `chat stream crashed: ${err}` -- the request threw *after* the stream opened, so the producer sees a half-written answer stop | n/a |
+| [`chat/index.ts:881,978`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
+| [`chat/index.ts:171,245`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed -- the model then reasons with no description of the database at all | n/a |
+| [`chat/index.ts:183`](../supabase/functions/chat/index.ts) | `NOT_DESCRIBED` names a relation that no longer exists ([0034](decisions/0034-a-schema-change-has-to-explain-itself.md)). CI fails on this too; the log covers a rename that reached production first | n/a |
+| [`chat/index.ts:934`](../supabase/functions/chat/index.ts) | One tool call threw. The model is handed the error text and usually recovers, so the producer may never see a problem | n/a |
 | [`scan-conversations-for-observations/index.ts:130`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
 | [`scan-conversations-for-observations/index.ts:98`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
@@ -154,11 +157,15 @@ table, never anything polled. Real call sites:
 
 **The prompt cache, which fails by getting quietly expensive.** The
 chat's system prompt -- instructions, tool definitions, schema
-description -- is 15,240 tokens and is cached
-([0033](decisions/0033-what-goes-in-the-cached-prompt.md)). Caching is
-content-addressed, so anything that makes that text vary per request
-turns every call into a miss *and* charges the write premium, which is
-worse than not caching. Nothing errors; the bill just goes up. Every
+description -- is on the order of fifteen thousand tokens and is cached
+([0033](decisions/0033-what-goes-in-the-cached-prompt.md)). The exact
+figure moves whenever the schema does, since the description is
+generated from the catalog
+([0034](decisions/0034-a-schema-change-has-to-explain-itself.md)), so
+the number to watch is not its value but whether `cacheRead` tracks it.
+Caching is content-addressed, so anything that makes that text vary per
+request turns every call into a miss *and* charges the write premium,
+which is worse than not caching. Nothing errors; the bill just goes up. Every
 model turn logs its own numbers:
 
 ```

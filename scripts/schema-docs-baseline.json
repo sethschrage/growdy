@@ -1,0 +1,21 @@
+{
+  "uncommentedColumns": {
+    "app_status": 3,
+    "artifacts": 5,
+    "audit_log": 11,
+    "conversation_embeddings": 6,
+    "conversations": 6,
+    "data_providers": 3,
+    "data_sources": 7,
+    "observation_candidates": 9,
+    "observations": 6,
+    "pending_writes": 6,
+    "plant_types": 3,
+    "planting": 10,
+    "planting_readable": 8,
+    "position_status": 3,
+    "producer_memory": 4,
+    "profiles": 4,
+    "weather_observations": 4
+  }
+}

@@ -20,6 +20,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Both schema checks below are regexes over SQL and TypeScript,
+      # which is the kind of code that keeps passing after it has
+      # stopped working. This runs on every PR, gated on nothing, so a
+      # change to a checker cannot land unverified.
+      - name: Test the schema checks themselves
+        run: node --test scripts/check-migration-answers.test.mjs
+
       - name: Check for migration changes
         id: changes
         run: |
@@ -28,6 +39,15 @@ jobs:
           else
             echo "migrations_changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # Before the Supabase stack, because it needs no database and a
+      # missing answer should fail in ten seconds rather than two
+      # minutes.
+      - name: Migration questions answered
+        if: steps.changes.outputs.migrations_changed == 'true'
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/check-migration-answers.mjs
 
       - uses: supabase/setup-cli@v1
         if: steps.changes.outputs.migrations_changed == 'true'
@@ -41,3 +61,16 @@ jobs:
       - name: Lint schema
         if: steps.changes.outputs.migrations_changed == 'true'
         run: supabase db lint --schema public,private --level warning --fail-on warning
+
+      # `db lint` is plpgsql_check and has never looked at a comment.
+      # This reads the same database it just built and checks that the
+      # schema still describes itself -- which is what the chat's system
+      # prompt is generated from.
+      - name: Schema documentation
+        if: steps.changes.outputs.migrations_changed == 'true'
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          node scripts/check-schema-docs.mjs

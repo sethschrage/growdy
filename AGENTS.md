@@ -47,6 +47,16 @@ there is no per-PR review. Nobody is going to catch it after you.
   dependency. Those bullets render in the app's own "What's new".
 - **Process decisions get committed, not agreed in chat.** If a rule
   isn't in git, it isn't a rule.
+- **"Add a column" is a question, not an instruction.** Before writing
+  any migration that creates a table or view or adds a column, put the
+  six questions in
+  [`docs/schema-change-questions.md`](docs/schema-change-questions.md)
+  to whoever asked, and write their answers into the migration's header.
+  Purpose, what each column means, what it relates to, who can see it,
+  whether the chat is told about it, what happens to existing rows --
+  none of it is inferable from the request, and a plausible guess is
+  worse than a question, because it ships. CI fails a migration with a
+  missing or placeholder answer, but the point is to have asked first.
 - **Migrations wait for the merge. Edge Functions sometimes can't.**
   Applying a migration before review is a schema change nobody agreed
   to. Deploying a *function* early is allowed only when the live
