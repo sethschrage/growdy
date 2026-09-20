@@ -18,6 +18,14 @@ const TOOL_PHRASES: Record<string, string> = {
   web_fetch: 'Reading a page',
 }
 
+/**
+ * Where an answer's material came from, as far as the stream can prove.
+ * A tool ran; whether the model leaned on what came back is not
+ * something any event here can attest to, which is why the line this
+ * feeds says "Looked at" rather than "Sources".
+ */
+export type SourceKind = 'weather' | 'vineyard' | 'memory' | 'phenology' | 'web' | 'photo'
+
 export type ThinkingState = {
   phrase: string
   detail?: string
@@ -28,6 +36,8 @@ export type ThinkingState = {
   cachedTokens: number
   /** Tools finished this request, oldest first. */
   done: string[]
+  /** What this answer looked at, first mention first. */
+  sources: SourceKind[]
 }
 
 export const IDLE_THINKING: ThinkingState = {
@@ -37,6 +47,32 @@ export const IDLE_THINKING: ThinkingState = {
   outputTokens: 0,
   cachedTokens: 0,
   done: [],
+  sources: [],
+}
+
+/**
+ * Which source a tool call drew on. For a SQL query the function sends
+ * the relations it named, so a weather question is distinguishable from
+ * a planting one -- without that detail every query reads as "vineyard",
+ * which is the honest fallback rather than a guess.
+ */
+function sourceFor(name: string, detail?: string): SourceKind | undefined {
+  switch (name) {
+    case 'execute_readonly_query':
+      return detail?.includes('weather_observations') ? 'weather' : 'vineyard'
+    case 'search_memory':
+      return 'memory'
+    case 'get_grape_phenology':
+      return 'phenology'
+    case 'web_search':
+    case 'web_fetch':
+      return 'web'
+    case 'view_photo':
+      return 'photo'
+    // propose_write_query is a change, not a reading.
+    default:
+      return undefined
+  }
 }
 
 /** Folds one stream event into what the status line should say. */
@@ -53,10 +89,15 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
       }
     case 'tool':
       if (event.state === 'start') {
+        const source = sourceFor(event.name, event.detail)
         return {
           ...state,
           phrase: TOOL_PHRASES[event.name] ?? event.name.replace(/_/g, ' '),
           detail: event.detail,
+          // First mention wins, so the line reads in the order the
+          // answer actually went looking.
+          sources:
+            source && !state.sources.includes(source) ? [...state.sources, source] : state.sources,
         }
       }
       return {
@@ -70,12 +111,14 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
     case 'usage':
       return {
         ...state,
-        // Cache reads are input tokens too -- the API reports them
-        // separately and does not count them in input_tokens, so the
-        // total is the sum. Showing them apart is what makes a request
-        // that stopped hitting the cache visible instead of just
-        // expensive.
-        inputTokens: state.inputTokens + event.inputTokens + event.cacheReadTokens,
+        // Cache reads and writes are both input tokens the API reports
+        // separately and leaves out of input_tokens, so the total is the
+        // sum of all three. Leaving writes out made the most expensive
+        // token type invisible: a cold first question displayed 126
+        // tokens while processing 17,014 of them, and the write is
+        // billed at 1.25x rather than a read's 0.1x.
+        inputTokens:
+          state.inputTokens + event.inputTokens + event.cacheReadTokens + event.cacheWriteTokens,
         outputTokens: state.outputTokens + event.outputTokens,
         cachedTokens: state.cachedTokens + event.cacheReadTokens,
       }
