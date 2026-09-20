@@ -654,31 +654,55 @@
   gap: 4px;
 }
 
-/* Quiet: this is for the producer who wonders, not the one waiting for
-   the answer. It sits under the summary rather than beside it because
-   the summary already fills the width on a phone. */
+/* A chevron at the end of the status line, turning to point the way the
+   list opens. It is in the line rather than under it because the line is
+   the one part of this that is reliably on screen -- see the note in
+   ThinkingStatus.tsx. A word would have cost width the line does not
+   have on a phone; the arrow costs 14px. */
 .thinking-steps-toggle {
-  padding: 2px 6px;
-  font-size: var(--text-xs);
-  font-weight: 600;
+  align-self: center;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   color: var(--ink);
-  opacity: 0.7;
+  opacity: 0.55;
   background: none;
   border: none;
   box-shadow: none;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  /* Pointing up: the list opens upward. */
+  transform: rotate(-90deg);
+  transition: transform var(--menu-speed, 200ms) ease;
+  /* Small on screen, not small to a thumb. */
+  position: relative;
+}
+
+.thinking-steps-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
+}
+
+.thinking-steps-toggle--open {
+  opacity: 0.85;
+  transform: rotate(90deg);
 }
 
 .thinking-steps-toggle:active {
   box-shadow: none;
-  transform: none;
 }
 
+/* Above the line, so it grows into the conversation rather than under
+   the compose bar. */
 .thinking-steps {
   list-style: none;
   margin: 0;
   padding: 0 0 0 10px;
+  /* Long answers run a lot of tools; this keeps the list from pushing
+     the status line itself off the top of the screen. */
+  max-height: 45vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 3px;
