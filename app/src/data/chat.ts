@@ -65,6 +65,33 @@ export type ChatStreamEvent =
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`
 
 /**
+ * An error the server itself produced: a refusal, a 500, or an `error`
+ * event mid-stream. Distinguished from a transport failure because the
+ * first must be shown to the producer as-is and the second is worth
+ * trying again differently.
+ */
+class ChatServiceError extends Error {}
+
+/** The body both shapes of this request send. */
+function requestBody(request: ChatRequest) {
+  return JSON.stringify({
+    messages: request.messages.map(({ role, content }) => ({ role, content })),
+    ...(request.photoPath ? { photoPath: request.photoPath } : {}),
+    ...(request.photoTakenOn ? { photoTakenOn: request.photoTakenOn } : {}),
+  })
+}
+
+function headers(token: string, accept: string) {
+  return {
+    'content-type': 'application/json',
+    // The function decides which shape to answer in from this header.
+    accept,
+    authorization: `Bearer ${token}`,
+    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  }
+}
+
+/**
  * The same request, watched rather than waited on.
  *
  * supabase-js's `functions.invoke` buffers the whole response before it
@@ -76,6 +103,15 @@ const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`
  *
  * Returns the finished text, the same as the buffered call, so the
  * transcript is stored identically however it arrived.
+ *
+ * Not every client can read a streamed body. The iOS shell's WebView
+ * rejected one with a bare "Load failed" while the function answered
+ * 200, finished the work and logged its usage -- the answer existed and
+ * the producer saw an error. So a transport failure with nothing
+ * received falls back to asking the same question again buffered, which
+ * is how this worked before streaming existed. It costs a second model
+ * turn, which is the right price for the difference between a slower
+ * answer and no answer.
  */
 export async function streamChatMessage(
   request: ChatRequest,
@@ -86,33 +122,68 @@ export async function streamChatMessage(
   const token = data.session?.access_token
   if (!token) throw new Error('You are signed out. Sign in and try again.')
 
+  const progress = { received: false }
+  try {
+    return await streamOnce(request, token, onEvent, signal, progress)
+  } catch (error) {
+    // Anything the server said, anything the producer cancelled, and
+    // anything that arrived before the failure: not ours to retry.
+    if (error instanceof ChatServiceError) throw error
+    if (signal?.aborted) throw error
+    if (progress.received) throw error
+    return await askBuffered(request, token, onEvent, signal)
+  }
+}
+
+/** The pre-streaming path, kept alive as the fallback. */
+async function askBuffered(
+  request: ChatRequest,
+  token: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<string> {
   const response = await fetch(FUNCTIONS_URL, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      // The function decides which shape to answer in from this header.
-      accept: 'text/event-stream',
-      authorization: `Bearer ${token}`,
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    },
-    body: JSON.stringify({
-      messages: request.messages.map(({ role, content }) => ({ role, content })),
-      ...(request.photoPath ? { photoPath: request.photoPath } : {}),
-      ...(request.photoTakenOn ? { photoTakenOn: request.photoTakenOn } : {}),
-    }),
+    headers: headers(token, 'application/json'),
+    body: requestBody(request),
+    signal,
+  })
+  if (!response.ok) throw new ChatServiceError(await failureMessage(response))
+
+  const body = (await response.json()) as ChatReply
+  if (body.type === 'error') throw new ChatServiceError(body.message ?? 'Something went wrong.')
+  const text = body.text ?? ''
+  onEvent({ type: 'text', text })
+  onEvent({ type: 'done', text })
+  return text
+}
+
+/** Whatever the server said about why it refused. */
+async function failureMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.json()
+    if (body?.error || body?.message) return body.error ?? body.message
+  } catch {
+    // Not JSON -- keep the status message.
+  }
+  return `The chat service answered ${response.status}.`
+}
+
+async function streamOnce(
+  request: ChatRequest,
+  token: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal: AbortSignal | undefined,
+  progress: { received: boolean },
+): Promise<string> {
+  const response = await fetch(FUNCTIONS_URL, {
+    method: 'POST',
+    headers: headers(token, 'text/event-stream'),
+    body: requestBody(request),
     signal,
   })
 
-  if (!response.ok) {
-    let message = `The chat service answered ${response.status}.`
-    try {
-      const body = await response.json()
-      if (body?.error || body?.message) message = body.error ?? body.message
-    } catch {
-      // Not JSON -- keep the status message.
-    }
-    throw new Error(message)
-  }
+  if (!response.ok) throw new ChatServiceError(await failureMessage(response))
 
   // A function deployed before this change answers in JSON however the
   // request was framed. The client and the function ship separately, so
@@ -121,7 +192,7 @@ export async function streamChatMessage(
   const contentType = response.headers.get('content-type') ?? ''
   if (!contentType.includes('text/event-stream') || !response.body) {
     const body = (await response.json()) as ChatReply
-    if (body.type === 'error') throw new Error(body.message ?? 'Something went wrong.')
+    if (body.type === 'error') throw new ChatServiceError(body.message ?? 'Something went wrong.')
     const text = body.text ?? ''
     onEvent({ type: 'text', text })
     onEvent({ type: 'done', text })
@@ -155,7 +226,8 @@ export async function streamChatMessage(
       }
       if (event.type === 'text') streamedText += event.text
       if (event.type === 'done') finalText = event.text
-      if (event.type === 'error') throw new Error(event.message)
+      if (event.type === 'error') throw new ChatServiceError(event.message)
+      progress.received = true
       onEvent(event)
     }
   }

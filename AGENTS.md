@@ -44,7 +44,11 @@ there is no per-PR review. Nobody is going to catch it after you.
   one right answer gets a code comment, however long it took to find.
 - **Release notes only describe what shipped and is reachable.** Nothing
   merged-but-unlaunched, nothing about an outage or an external
-  dependency. Those bullets render in the app's own "What's new".
+  dependency. Those bullets render in the app's own "What's new". And
+  *reachable* means somebody reached it: every bullet is exercised in
+  the running app, on the client the producer uses, before the tag --
+  `CONTRIBUTING.md`, Releases step 2. A green CI run and a clean server
+  log are not evidence that a producer got an answer.
 - **Process decisions get committed, not agreed in chat.** If a rule
   isn't in git, it isn't a rule.
 - **"Add a column" is a question, not an instruction.** Before writing

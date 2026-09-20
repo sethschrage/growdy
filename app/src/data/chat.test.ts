@@ -149,6 +149,86 @@ describe('streamChatMessage', () => {
     expect(body.photoTakenOn).toBe('2026-09-18')
   })
 
+  it('falls back to a buffered answer when the stream will not load', async () => {
+    // The iOS shell's WebView rejected a streamed body with a bare
+    // "Load failed" while the function answered 200, did the work and
+    // logged its usage. The answer existed; the producer saw an error.
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('Load failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ type: 'text', text: 'Quiet since the rain.' }),
+      } as unknown as Response)
+
+    const seen: ChatStreamEvent[] = []
+    const answer = await streamChatMessage({ messages }, (event) => seen.push(event))
+
+    expect(answer).toBe('Quiet since the rain.')
+    expect(seen.map((e) => e.type)).toEqual(['text', 'done'])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // The second ask must not be for a stream, or it fails the same way.
+    expect(fetchMock.mock.calls[0][1].headers.accept).toBe('text/event-stream')
+    expect(fetchMock.mock.calls[1][1].headers.accept).toBe('application/json')
+  })
+
+  it('does not ask twice when the server itself refused', async () => {
+    // A 401 is an answer. Repeating the question buys nothing and
+    // charges for a second model turn.
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ message: 'Invalid JWT' }),
+    } as unknown as Response)
+
+    await expect(streamChatMessage({ messages }, () => {})).rejects.toThrow('Invalid JWT')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not ask twice when the stream itself reported an error', async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse([frame({ type: 'error', message: 'Anthropic rate limit reached.' })]),
+    )
+    await expect(streamChatMessage({ messages }, () => {})).rejects.toThrow('rate limit')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not ask twice once part of the answer has arrived', async () => {
+    // Half an answer on screen and a second one starting underneath it
+    // is worse than an error: the producer cannot tell which is which.
+    const encoder = new TextEncoder()
+    let sent = false
+    fetchMock.mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/event-stream' }),
+      // Enqueueing and erroring in the same tick drops the queued chunk
+      // -- the error has to come on the read after the one that
+      // delivers, or this tests nothing.
+      body: new ReadableStream({
+        pull(controller) {
+          if (sent) return controller.error(new TypeError('Load failed'))
+          sent = true
+          controller.enqueue(encoder.encode(frame({ type: 'text', text: 'The north block' })))
+        },
+      }),
+    } as unknown as Response)
+
+    await expect(streamChatMessage({ messages }, () => {})).rejects.toThrow('Load failed')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not ask twice when the producer cancelled', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    fetchMock.mockRejectedValue(new DOMException('Aborted', 'AbortError'))
+
+    await expect(
+      streamChatMessage({ messages }, () => {}, controller.signal),
+    ).rejects.toThrow()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('explains a refusal in the server\'s own words', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
