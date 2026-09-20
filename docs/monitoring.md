@@ -155,6 +155,15 @@ table, never anything polled. Real call sites:
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
 
+**A producer with no signal, which nothing here can see at all.** Every
+signal in this document is server-side, and a phone in a block with no
+bars never reaches the server. Until
+[0037](decisions/0037-what-happens-with-no-signal.md) the app showed the
+browser's own words for it and dropped the question; it now names the
+situation and sends it when the connection returns. What is still
+invisible from here: how often that happens, and whether a retry ever
+landed. The only evidence is a producer saying so.
+
 **A policy nothing could satisfy, for two days, silently.** `plot_rows`'
 update policy called `private.user_can_edit_parcel`, which queries
 `public.parcel_shares` --- a table
