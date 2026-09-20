@@ -349,6 +349,17 @@
 
 .app-menu-foot .app-menu-heel {
   transform: translateY(calc((var(--p) - 1) * var(--seat) * 0.1));
+  /* A target, not just a slice: tapping it shuts the menu and pushing
+     it carries the menu shut. Same three declarations every other handle
+     in here carries, and for the same reasons -- iOS reads a vertical
+     drag as a scroll otherwise, and a press that lingers raises the
+     selection callout and cancels the gesture. */
+  display: block;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Solid the whole way, gone at the end.
@@ -504,14 +515,24 @@
     0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* 6px of glass is a thing to look at, not a thing to catch. The strip
-   widens the catch to the rail's own 34px without widening the line:
-   -15px each side of a 4px line. Nothing is drawn, so the rail still
-   reads as two thin bars. */
+/* A 4px line is a thing to look at, not a thing to catch. The strip
+   widens the catch without widening the line -- nothing is drawn, so
+   the rail still reads as two thin bars.
+   44px across, which is the width of a button, because the alternative
+   to hitting this is hitting the sky and the sky shuts the menu: a miss
+   here does not do nothing, it undoes what you were reaching for. And the
+   whole of --space-3 above and below, which closes the two gaps beside
+   the grip: they are the rail's own break, twelve pixels of dead space
+   in the middle of the control that fell straight through to the sky.
+   Half of it left a band. Where the strips now lap the grip it makes no
+   difference -- both start the same drag.
+   It stops short of taking the buttons' taps: they are later in the
+   stacking order, so where the strip laps the edge of an oval the oval
+   still wins. */
 .menu-rail-line::before {
   content: '';
   position: absolute;
-  inset: 0 -15px;
+  inset: calc(var(--space-3) * -1) -20px;
 }
 
 /* The grip wears the shape the buttons are about to take: an oval while
