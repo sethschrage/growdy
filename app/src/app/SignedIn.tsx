@@ -44,20 +44,30 @@ export function SignedIn({ session }: { session: Session }) {
     return () => observer.disconnect()
   }, [])
 
+  // Whether something is sitting on top of the menu. The menu stays open
+  // underneath a screen it opened, so that shutting the screen puts the
+  // producer back where they were rather than in front of a closed
+  // burger they have to open again to reach the next thing -- and while
+  // it is under there, a tap inside that screen must not be read as a
+  // tap outside the menu.
+  const screenOpen =
+    historyOpen ||
+    dataSourcesOpen ||
+    observationFormOpen ||
+    observationLogOpen ||
+    producerDataOpen ||
+    observationCandidatesOpen ||
+    artifactsOpen
+
   return (
     <div className="app-shell" ref={shellRef}>
       <header className="app-header" ref={headerRef}>
         <div className="app-header-left">
-          <SproutMenu
-            onNewObservation={() => setObservationFormOpen(true)}
-            onOpenObservationLog={() => setObservationLogOpen(true)}
-            onOpenProducerData={() => setProducerDataOpen(true)}
-            onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
-            onOpenArtifacts={() => setArtifactsOpen(true)}
-          />
+          <SproutMenu />
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
+          covered={screenOpen}
           onNewChat={() => {
             setResumed(null)
             setChatKey((k) => k + 1)
@@ -65,6 +75,11 @@ export function SignedIn({ session }: { session: Session }) {
           onOpenHistory={() => setHistoryOpen(true)}
           onOpenDataSources={() => setDataSourcesOpen(true)}
           onSignOut={() => supabase.auth.signOut()}
+          onNewObservation={() => setObservationFormOpen(true)}
+          onOpenObservationLog={() => setObservationLogOpen(true)}
+          onOpenProducerData={() => setProducerDataOpen(true)}
+          onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
+          onOpenArtifacts={() => setArtifactsOpen(true)}
         />
       </header>
       <Chat

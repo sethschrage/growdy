@@ -22,7 +22,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  /* 4px rather than 12 above the safe-area inset: the inset already
+     clears the notch and the clock, and the 12 on top of it was pushing
+     the burger further down the screen than it needed to be. The bottom
+     padding stays, because that is what holds the header off the first
+     message. */
+  padding: calc(4px + env(safe-area-inset-top)) 16px 12px;
   pointer-events: none;
 }
 
@@ -41,15 +46,13 @@
   align-items: center;
 }
 
-.app-menu {
-  position: relative;
-}
 
 .app-menu-toggle {
   background: none;
   border: none;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   /* Both states hang from the top of the same box, so the crown is in
      the same place whether the rest of the burger is under it or not.
      Centring meant the closed icon sat 5.5px down and the open bun
@@ -76,7 +79,15 @@
    Flush right, because anything between it and the edge pushes it off
    the stack. */
 .app-menu-toggle--open {
-  padding: 0;
+  /* The crown lands where the closed burger's crown already was, rather
+     than centred in the box: centred put it at 13.6-22.4px while the
+     closed icon's crown runs 2.6-11.4px, so opening the menu dropped the
+     lid 11px for no reason -- and the stack, hung at 13px on the
+     assumption that the bun ended there, drew its first slice straight
+     over the bun. That is the missing top bun: it was never missing, it
+     was underneath (the stack carries z-index 2). */
+  padding: var(--burger-top) 0 4px;
+  justify-content: flex-start;
 }
 
 .app-menu-toggle:active {
@@ -90,6 +101,25 @@
    because its height is measured: SignedIn.tsx feeds the header's
    offsetHeight into --header-height and the chat's top padding reads
    it, so anything that lands in here moves the whole conversation. */
+/* The burger's measurements, once, because three rules need them and
+   two of them had them wrong.
+   The closed icon is PixelBurger at 44, drawn on a 10x7 grid, so it is
+   0.7 of that tall. It sits centred in the toggle's content box, which
+   is the 36px head less the 4px of bottom padding -- that is
+   --burger-top, where the closed crown starts.
+   The slices in the stack are a slice's width, --menu-button, so they
+   line up with the buttons; two rows of their own 10x2 grid makes each
+   one a fifth of that tall. (--menu-button is 44 on a wide screen and 40
+   on a phone, so none of this can be a number.) */
+.app-menu {
+  position: relative;
+  --menu-head: 36px;
+  --burger-size: 44px;
+  --burger-height: calc(var(--burger-size) * 0.7);
+  --burger-top: calc((var(--menu-head) - 4px - var(--burger-height)) / 2);
+  --bun-height: calc(var(--menu-button) / 5);
+}
+
 .app-menu-head,
 .sprout-menu-head {
   display: flex;
@@ -99,67 +129,27 @@
 /* Grows every button in the menu into a labelled oval, in place. The
    chevron turns rather than being swapped for another glyph, so the
    state change is one continuous movement. */
-.menu-expand {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--wood);
-  border: var(--line) solid var(--wood-dark);
-  color: var(--cream);
-  box-shadow: 0 var(--press) 0 var(--wood-dark);
-}
-
-/* The glyph turns, not the button. Rotating the button turned its press
-   shadow with it, so the shadow sat on top of the circle when open. */
-.menu-expand-glyph {
-  display: flex;
-  transition: transform var(--menu-speed) var(--menu-ease);
-}
-
-/* The arrow points where the ovals are about to go, and then back the
-   way they will return. Each menu hangs off its own edge and they grow
-   in opposite directions, so one shared rotation cannot be right for
-   both -- it was 180deg for both, on the wrong axis entirely: the ovals
-   grow sideways and the chevron was turning up and down.
-   ChevronIcon points down, so +90deg is left and -90deg is right. */
-.menu-expand--inward-left .menu-expand-glyph {
-  transform: rotate(90deg);
-}
-
-.menu-expand--inward-left.menu-expand--open .menu-expand-glyph {
-  transform: rotate(-90deg);
-}
-
-.menu-expand--inward-right .menu-expand-glyph {
-  transform: rotate(-90deg);
-}
-
-.menu-expand--inward-right.menu-expand--open .menu-expand-glyph {
-  transform: rotate(90deg);
-}
-
 /* The burger comes apart downwards: the toggle keeps the top bun, the
    fillings fall out beneath it, and the bottom bun lands at the end of
    the stack. Anchored to the right edge so it cannot run off a narrow
    phone, which the sideways version could. */
 .app-menu-bar {
   position: absolute;
-  /* Hung from the bun, not from the head. The head stays 36px tall in
-     both states so the header does not change height and nudge the
-     conversation -- but open, only its top 9px are the bun, and hanging
-     the stack off 100% left the lid floating an inch above the fillings
-     it is supposed to be sitting on. 9px is PixelBunTop's own height at
-     44 wide: two rows of a ten-unit grid. */
-  top: calc(9px + var(--space-1));
+  /* Hung off the bottom edge of the crown, worked out rather than
+     guessed. The head is 36px tall in both states so the header does not
+     change height and nudge the conversation, and the crown sits
+     --burger-top down from the top of it and is --bun-height tall. The
+     old 9px was PixelBunTop's height mistaken for its position, which
+     put the first slice on top of the bun instead of under it. */
+  top: calc(var(--burger-top) + var(--bun-height) + var(--space-2));
   right: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--space-1);
+  /* The same gap the sprout menu has always had. These were 4px and 8px
+     respectively, which does not read as two spacings -- it reads as two
+     button sizes, and the buttons are identical. */
+  gap: var(--space-2);
   /* Same stacking problem .sprout-menu-bar documents below. */
   z-index: 2;
   transform-origin: top right;
@@ -217,32 +207,25 @@
  * left-anchored and holds the chevron alone, because SproutMenu has
  * never had a bun or a topping row -- the mirroring is of the anchor
  * edge and the growth direction, not of the burger's anatomy. */
+/* The foot: the burger's heel, and under it the glass chevron that
+   shuts the menu. A column, because the heel ends the burger and the
+   control is a separate thing sitting below it rather than beside. */
 .app-menu-foot,
 .sprout-menu-foot {
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
 }
 
-.app-menu-close-bun {
-  background: none;
-  border: none;
-  box-shadow: none;
-  /* No top padding any more. It existed to hold the heel off the last
-     oval; the foot row is 26px tall because the chevron is, and
-     centring the 8.8px heel in it already leaves that clearance. */
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-}
-
-.app-menu-close-bun:active {
-  transform: translateY(var(--press));
-}
-
+/* The burger's own slices, drawn to the width of the stack rather than
+   to a number of their own. They carry a viewBox, so setting the width
+   scales them and `height: auto` keeps their proportion. */
 .menu-bun-row,
 .menu-topping-row {
   display: block;
+  width: var(--menu-button);
+  height: auto;
 }
 
 @keyframes menu-drop {
@@ -261,8 +244,8 @@
    instead -- 0 collapsed, wide enough for the longest label expanded --
    and the button's width follows its content. */
 .menu-icon-button {
-  height: 44px;
-  min-width: 44px;
+  height: var(--menu-button);
+  min-width: var(--menu-button);
   padding: 0;
   border-radius: 22px;
   display: flex;
@@ -280,7 +263,9 @@
 }
 
 .menu-icon-button-glyph {
-  width: 40px;
+  /* The well the icon sits in, less the button's two borders, so the
+     glyph stays centred whatever --menu-button is. */
+  width: calc(var(--menu-button) - var(--line-strong) * 2);
   flex: none;
   display: flex;
   align-items: center;
@@ -304,8 +289,256 @@
 }
 
 .menu-icon-button--expanded .menu-label {
-  max-width: 180px;
+  /* Set by AccountMenu from the handle's position, so a half-dragged
+     menu is a real state rather than something between two classes. */
+  max-width: var(--label-width, 180px);
   opacity: 1;
+}
+
+/* The rail: the control itself, with the grip set into it.
+ *
+ * The whole rail is the target -- top to bottom of the stack -- and the
+ * grip is only the part you can see. The button that used to do this job
+ * was 44px wide, brown like the menu items, and moved as the column
+ * resized, which between them made it read as an unresponsive tenth
+ * button.
+ *
+ * Glass rather than paint: a pane that blurs and brightens the sky
+ * behind it, with a lit top edge. It has to be the one thing in this
+ * header that is not made of wood, because it is the one thing that is
+ * not part of the burger. */
+.menu-rail {
+  position: absolute;
+  width: 34px;
+  /* The container catches nothing; only the grip does. Everything
+     around it falls through to the sky, where a tap closes the menu. */
+  pointer-events: none;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* A wide break around the grip, so the grip sits in the rail rather
+     than looking welded to two pieces of it. */
+  gap: var(--space-3);
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+/* Two of them, above and below the grip. A fixed length rather than
+   the whole stack: the rail marks the control, it is not a scale. */
+.menu-rail-line {
+  /* The length of the menu, not a token length: the rail marks the run
+     of buttons the grip governs, so it should be as long as they are. */
+  flex: 1;
+  /* Draggable, which they looked like all along and were not. The rail
+     around them takes no pointer events -- deliberately, so a tap in the
+     space beside the menu reaches the sky and shuts it -- and only the
+     grip had been handed events back. So the two things that most look
+     like handles were the two things a finger could not catch, which is
+     exactly what "dragging doesn't work" was: the drag was fine, the
+     bars were scenery. */
+  position: relative;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* 6px of glass is a thing to look at, not a thing to catch. The strip
+   widens the catch to the rail's own 34px without widening the line:
+   -15px each side of a 4px line. Nothing is drawn, so the rail still
+   reads as two thin bars. */
+.menu-rail-line::before {
+  content: '';
+  position: absolute;
+  inset: 0 -15px;
+}
+
+/* The grip wears the shape the buttons are about to take: an oval while
+   they are circles, round while they are ovals. A control that shows its
+   destination needs no word to explain it. */
+.menu-grip {
+  flex: none;
+  /* The one part of the rail that takes a touch, with room around the
+     glass so the target is a comfortable size without the target being
+     a wall. */
+  pointer-events: auto;
+  /* On the grip, not only on the rail: touch-action does not inherit,
+     and the grip is what a finger actually lands on. Without it iOS
+     reads the vertical part of a drag as a scroll, takes the gesture,
+     and the drag never happens -- which is exactly what a phone did
+     while a trackpad was fine.
+     The other two are the same story from a different direction: a
+     press that lingers on a phone raises the selection callout, and
+     raising it cancels the pointer sequence mid-drag. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  width: 34px;
+  height: 26px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cream);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+  transition:
+    width var(--menu-speed) var(--menu-ease),
+    height var(--menu-speed) var(--menu-ease),
+    border-radius var(--menu-speed) var(--menu-ease),
+    background var(--menu-speed) var(--menu-ease);
+}
+
+.menu-grip--open {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+/* Pressed, the glass brightens rather than moving: it is a surface being
+   held, not a button being pushed. */
+.menu-rail:active .menu-grip,
+.app-menu-bar--dragging .menu-grip {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+/* Points where the ovals are about to go, and then back the way they
+   will return. ChevronIcon points down, so +90deg is left. */
+.app-menu-bar .menu-grip svg {
+  transform: rotate(90deg);
+  transition: transform var(--menu-speed) var(--menu-ease);
+}
+
+.app-menu-bar .menu-grip--open svg {
+  transform: rotate(-90deg);
+}
+
+.sprout-menu-bar .menu-grip svg {
+  transform: rotate(-90deg);
+}
+
+.sprout-menu-bar .menu-grip--open svg {
+  transform: rotate(90deg);
+}
+
+.app-menu-bar .menu-rail {
+  right: calc(100% + var(--space-1));
+  /* It stops inside the run of buttons, at both ends.
+     top/bottom of 0 measured the whole bar, and the bar is the nine
+     buttons plus a foot -- so the rail overshot the last button by the
+     whole foot and read as a scale for the menu rather than a handle on
+     the buttons.
+     The first button is the bar's first child, so the top is only
+     --rail-shy. Below the last button sits the bar's gap, then the foot:
+     the toppings, the heel, the close grip's own margin, and the 36px
+     grip. --rail-shy then pulls it in a little further at each end, so
+     it reads as shorter than the run it governs rather than exactly as
+     long. */
+  --rail-shy: 8px;
+  top: var(--rail-shy);
+  bottom: calc(
+    var(--space-2) + var(--bun-height) * 2 + var(--space-2) + 36px + var(--rail-shy)
+  );
+}
+
+.sprout-menu-bar .menu-rail {
+  left: calc(100% + var(--space-1));
+}
+
+/* Closing, in the same glass as the rail: an upward chevron under the
+   heel, pointing the way the menu goes when it shuts. */
+.menu-close-grip {
+  /* Round, and centred under the stack rather than hard against the
+     edge the heel hangs from: it closes the whole menu, so it belongs
+     to the middle of it and not to one corner. */
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin-top: var(--space-2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cream);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.menu-close-grip svg {
+  transform: rotate(180deg);
+}
+
+.menu-close-grip:active {
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* A small piece of the same glass under the closed burger: the menu
+   comes down from here, and nothing else on the screen says so. */
+
+/* The heel, with no button around it. */
+.app-menu-heel {
+  display: block;
+  align-self: flex-end;
+}
+
+.sprout-menu-foot .menu-close-grip {
+  align-self: center;
+}
+
+/* Nothing animates while a finger is setting the width: a transition
+   during a drag is the control lagging behind the hand. */
+.app-menu-bar--dragging .menu-label,
+.app-menu-bar--dragging .menu-icon-button {
+  transition: none;
+}
+
+/* Shutting takes as long as opening. The menu used to simply stop
+   existing, which after building a drop worth watching read as the
+   thing being yanked off the screen. */
+.app-menu-bar--closing {
+  animation: menu-lift var(--menu-speed) var(--menu-ease) forwards;
+}
+
+.app-menu-bar--closing > * {
+  animation: none;
+}
+
+@keyframes menu-lift {
+  from {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.7);
+  }
 }
 
 /* A short stagger down the stack, so the menu unfolds rather than
@@ -317,28 +550,72 @@
 
 .app-menu-bar > *:nth-child(2),
 .sprout-menu-bar > *:nth-child(2) {
-  animation-delay: 30ms;
+  animation-delay: 26ms;
 }
 
 .app-menu-bar > *:nth-child(3),
 .sprout-menu-bar > *:nth-child(3) {
-  animation-delay: 60ms;
+  animation-delay: 52ms;
 }
 
 .app-menu-bar > *:nth-child(4),
 .sprout-menu-bar > *:nth-child(4) {
-  animation-delay: 90ms;
+  animation-delay: 78ms;
 }
 
 .app-menu-bar > *:nth-child(5),
 .sprout-menu-bar > *:nth-child(5) {
-  animation-delay: 120ms;
+  animation-delay: 104ms;
 }
 
 .app-menu-bar > *:nth-child(6),
 .sprout-menu-bar > *:nth-child(6) {
-  animation-delay: 150ms;
+  animation-delay: 130ms;
 }
+
+.app-menu-bar > *:nth-child(7),
+.sprout-menu-bar > *:nth-child(7) {
+  animation-delay: 156ms;
+}
+
+.app-menu-bar > *:nth-child(8),
+.sprout-menu-bar > *:nth-child(8) {
+  animation-delay: 182ms;
+}
+
+.app-menu-bar > *:nth-child(9),
+.sprout-menu-bar > *:nth-child(9) {
+  animation-delay: 208ms;
+}
+
+.app-menu-bar > *:nth-child(10),
+.sprout-menu-bar > *:nth-child(10) {
+  animation-delay: 234ms;
+}
+
+.app-menu-bar > *:nth-child(11),
+.sprout-menu-bar > *:nth-child(11) {
+  animation-delay: 260ms;
+}
+
+.app-menu-bar > *:nth-child(12),
+.sprout-menu-bar > *:nth-child(12) {
+  animation-delay: 286ms;
+}
+
+.app-menu-bar > *:nth-child(13),
+.sprout-menu-bar > *:nth-child(13) {
+  animation-delay: 312ms;
+}
+
+/* The stagger stopped at six, and the stack grew to twelve when every
+   feature moved into this one menu -- so everything from the seventh
+   button down arrived together while the six above it cascaded, which
+   made the unfold look like it stalled. Written out to thirteen rather
+   than generated, because there is no way to compute an index in CSS
+   and a stagger that silently stops is exactly what this is fixing.
+   26ms a step: the last item starts 312ms in, about when the first one
+   finishes. */
 
 @keyframes menu-item-in {
   from {
@@ -363,7 +640,8 @@
 
   .menu-icon-button,
   .menu-label,
-  .menu-expand-glyph {
+  .menu-grip,
+  .menu-grip svg {
     transition: none;
   }
 }
@@ -372,13 +650,8 @@
    dropping one doesn't compete for width, so the only thing worth
    tightening is how far it reaches down the screen. */
 @media (max-width: 400px) {
-  .menu-icon-button {
-    height: 40px;
-    min-width: 40px;
-  }
-
-  .menu-icon-button-glyph {
-    width: 36px;
+  :root {
+    --menu-button: 40px;
   }
 }
 
@@ -413,7 +686,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
   /* Same problem .chat-input already solved: opening downward extends
      past the header into .chat-messages's own stacking area, which has
      z-index: 1 too and paints later in DOM order -- at z-index: 1 the
