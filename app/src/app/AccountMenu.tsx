@@ -602,7 +602,20 @@ export function AccountMenu({
                 the heel they read as having slid down the whole stack,
                 and the stack itself is the meat. */}
             <PixelToppingRow className="menu-topping-row" />
-            <span className="app-menu-heel" aria-hidden="true">
+            {/* The heel closes it too. It is the bottom of the burger and
+                it is the biggest thing down here, so it is what a thumb
+                goes for -- and it was scenery, which meant the thumb
+                landed on nothing. Same handler as the chevron below it,
+                so it takes a push as well as a tap: the two of them are
+                one control that happens to be drawn as two things.
+                Still aria-hidden: the chevron beside it already says
+                "Close menu", and a screen reader does not need to be
+                told twice. */}
+            <span
+              className="app-menu-heel"
+              onPointerDown={startOpennessDrag}
+              aria-hidden="true"
+            >
               <PixelBunBottom className="menu-bun-row" />
             </span>
             {/* Closing is its own small piece of glass, pointing the way
