@@ -47,6 +47,12 @@ there is no per-PR review. Nobody is going to catch it after you.
   dependency. Those bullets render in the app's own "What's new".
 - **Process decisions get committed, not agreed in chat.** If a rule
   isn't in git, it isn't a rule.
+- **Migrations wait for the merge. Edge Functions sometimes can't.**
+  Applying a migration before review is a schema change nobody agreed
+  to. Deploying a *function* early is allowed only when the live
+  function is the only place the change can be verified -- caching,
+  streaming, or a production failure -- and then the PR goes up the
+  same session saying so. `CONTRIBUTING.md` step 7 has the conditions.
 - **Tests are not optional work.** A bug fix ships a test that fails
   without it; a new function in `app/src/data/` or `app/src/lib/` ships
   unit tests; touching an untested file brings it under test in the
