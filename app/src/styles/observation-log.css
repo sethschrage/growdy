@@ -109,11 +109,34 @@
    rather than a discreet badge: the producer wrote something down and
    is owed a straight answer about where it is. */
 .queued-notice {
+  /* Reported from an iPhone: the "Try sending now" button ended up
+     behind the chat composer and could not be pressed. Most of that was
+     the button having no pending state at all (fixed in
+     ObservationLogView), but this notice carries the only control on
+     the no-signal path, and .chat-compose is `position: fixed;
+     z-index: 2` floating at the bottom of the same screen. An
+     unpositioned block has no say in what paints over it. This one
+     takes a place in the stacking order of its own, so it stays above
+     anything at z-index 2 that reaches it -- .pdv-overlay's z-index: 10
+     does that from the outside today, and this is the half that does
+     not depend on the overlay staying that way. */
+  position: relative;
+  z-index: 3;
   margin: 0 0 var(--space-3);
   padding: var(--space-3);
   border: var(--line) dashed var(--wood-dark);
   border-radius: var(--radius-md, 12px);
   font-size: var(--text-sm);
+}
+
+/* What replaces the notice once a flush gets through. Sits where the
+   notice was rather than somewhere quieter, because it is answering the
+   question the notice raised. */
+.queued-sent {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--leaf-dark);
 }
 
 .queued-list {
@@ -134,4 +157,11 @@
   color: var(--cream);
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+/* Pressed and working. The label says "Sending..." on its own, but a
+   button that still looks pressable is what got pressed twice in the
+   field, so it stops looking pressable too. */
+.queued-retry:disabled {
+  opacity: 0.65;
 }

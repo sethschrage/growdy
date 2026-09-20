@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listProviders, listSources } from '@/data/dataSources'
+import { formatCostUsd } from '@/features/chat/cost'
 import type { SourceKind } from '@/features/chat/thinking'
 
 // What an answer looked at, and what it cost, kept under the answer
@@ -60,7 +61,7 @@ export function AnswerMeta({
   tokens,
 }: {
   sources?: SourceKind[]
-  tokens?: { total: number; cached: number }
+  tokens?: { total: number; cached: number; cost?: number }
 }) {
   const [weatherLabel, setWeatherLabel] = useState<string | null>(null)
 
@@ -89,6 +90,12 @@ export function AnswerMeta({
         <span>
           {tokens.total.toLocaleString()} tokens
           {tokens.cached > 0 ? ` (${tokens.cached.toLocaleString()} cached)` : null}
+          {/* Absent on any answer logged before the estimate existed,
+              and on those the count stands alone rather than being
+              back-priced at today's rates -- see ChatMessage.tokens. */}
+          {tokens.cost === undefined ? null : (
+            <span className="answer-cost"> · about {formatCostUsd(tokens.cost)}</span>
+          )}
         </span>
       ) : null}
     </p>

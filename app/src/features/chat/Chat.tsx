@@ -15,6 +15,7 @@ import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/i
 import { PixelCloud } from '@/ui/pixelArt'
 import { describeSendFailure, onBackOnline } from '@/lib/connectivity'
 import { AnswerMeta } from '@/features/chat/AnswerMeta'
+import { estimateThinkingCostUsd } from '@/features/chat/cost'
 import { ThinkingStatus } from '@/features/chat/ThinkingStatus'
 import { IDLE_THINKING, reduceThinking, type ThinkingState } from '@/features/chat/thinking'
 import { MessageContent } from '@/features/chat/MessageContent'
@@ -384,7 +385,15 @@ export function Chat({
         role: 'assistant' as const,
         content: answer,
         ...(tally.sources.length > 0 ? { sources: tally.sources } : {}),
-        ...(counted > 0 ? { tokens: { total: counted, cached: tally.cachedTokens } } : {}),
+        ...(counted > 0
+          ? {
+              tokens: {
+                total: counted,
+                cached: tally.cachedTokens,
+                cost: estimateThinkingCostUsd(tally),
+              },
+            }
+          : {}),
       },
     ]
     setMessages(withAssistant)

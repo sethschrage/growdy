@@ -442,6 +442,27 @@
   opacity: 0.7;
 }
 
+/* The money. Slightly heavier than the counts it sits beside because it
+   is the one figure here anybody acts on -- a token count says how big
+   the request was, this says whether that mattered. Never wrapped: an
+   amount broken across two lines is briefly a different amount. */
+.thinking-cost {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* .thinking-meta does not shrink, so everything it holds pushes into the
+   phrase, which is what clips. On a narrow phone the line now has to fit
+   a duration, a token count, a cached count and a price, and the phrase
+   ends up with nothing. The cached count is the one of the four the
+   price already accounts for, so on a small screen it is the one that
+   goes. */
+@media (max-width: 420px) {
+  .thinking-cached {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .thinking-pulse {
     animation: none;
@@ -564,6 +585,14 @@
   /* Same weight as the status line it continues from. */
   opacity: 0.7;
   line-height: 1.4;
+}
+
+/* Under a finished answer the line is free to wrap, so unlike the status
+   line nothing has to be dropped here -- the amount just has to stay in
+   one piece when it does wrap. */
+.answer-cost {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* A send that did not arrive, and the way back from it. */

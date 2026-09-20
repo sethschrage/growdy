@@ -34,6 +34,15 @@ export type ThinkingState = {
   outputTokens: number
   /** Of the input tokens, how many were served from the prompt cache. */
   cachedTokens: number
+  /**
+   * Of the input tokens, how many were written into the cache. Kept
+   * apart for one reason: it is the only way to price the request.
+   * inputTokens folds all three kinds of input together because that sum
+   * is the honest size of what was processed, but a write is billed at
+   * 1.25x a fresh token and a read at a tenth, so the sum says nothing
+   * about the bill. See cost.ts.
+   */
+  cacheWriteTokens: number
   /** Tools finished this request, oldest first. */
   done: string[]
   /** What this answer looked at, first mention first. */
@@ -46,6 +55,7 @@ export const IDLE_THINKING: ThinkingState = {
   inputTokens: 0,
   outputTokens: 0,
   cachedTokens: 0,
+  cacheWriteTokens: 0,
   done: [],
   sources: [],
 }
@@ -121,6 +131,7 @@ export function reduceThinking(state: ThinkingState, event: ChatStreamEvent): Th
           state.inputTokens + event.inputTokens + event.cacheReadTokens + event.cacheWriteTokens,
         outputTokens: state.outputTokens + event.outputTokens,
         cachedTokens: state.cachedTokens + event.cacheReadTokens,
+        cacheWriteTokens: state.cacheWriteTokens + event.cacheWriteTokens,
       }
     default:
       return state
