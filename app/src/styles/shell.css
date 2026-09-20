@@ -76,6 +76,27 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  /* The grab bar below hangs off this. */
+  position: relative;
+}
+
+/* What a thumb actually gets to aim at. The burger is a 44x31 picture
+   with a 4px bar under it, and the pull has to start somewhere on that
+   -- which is a small target for a gesture, and "the drag down when the
+   burger is closed doesn't work very well" is what a small target feels
+   like.
+   It fills the header's own corner and stops there. 12px below is
+   exactly .app-header's bottom padding: further down is .chat-messages,
+   and this element carries touch-action: none, so a pad that overhung
+   the header turned an ordinary scroll started in the top right corner
+   into a menu pull that scrolled nothing. Sideways it can be generous,
+   because there is nothing out there but the edge of the screen.
+   Only while it is shut: open, this area is where the first button of
+   the stack is, and an invisible pad sitting over it would eat the tap. */
+.app-menu-toggle:not(.app-menu-toggle--open)::after {
+  content: '';
+  position: absolute;
+  inset: -12px -16px -12px -16px;
 }
 
 /* Open, the toggle is the burger's own crown and nothing else. It needs
@@ -112,18 +133,49 @@
 /* The pull-down bar under the closed burger. The same glass as the
    rail and the close chevron, because it is the same kind of thing: a
    place to put a finger. Small, because the burger is the icon and this
-   is a note underneath it. */
+   is a note underneath it.
+   Positioned rather than laid out, for two reasons. It sits lower than
+   flow would put it -- clear of the heel, so it reads as a handle under
+   the burger rather than another slice of it -- and being out of flow it
+   cannot change the toggle's height. That height is measured into
+   --header-height and the chat's top padding reads it, so a grab bar in
+   flow moves the whole conversation down by its own size. */
 .app-menu-grab {
-  display: block;
-  width: 20px;
+  position: absolute;
+  left: 50%;
+  top: calc(var(--burger-top) + var(--burger-height) + 7px);
+  transform: translateX(-50%);
+  width: 22px;
   height: 4px;
-  margin: 4px auto 0;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px) saturate(180%);
   -webkit-backdrop-filter: blur(10px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* --openness is a real number, and the browser is told so.
+ *
+ * Unregistered, a custom property is a token: it steps from 0 to 1 in
+ * one go, and everything computed from it steps with it. The
+ * transitions on opacity and transform still ran -- they interpolate
+ * between the old computed value and the new -- but every child got the
+ * same jump at the same instant, so all eleven moved in lockstep and
+ * the per-item cascade below existed only while a finger was supplying
+ * the in-between values by hand. Measured: 90ms into a tap-open, every
+ * child sat at the same translateY.
+ *
+ * Registered, the number itself interpolates. Every frame has a real
+ * --openness, each child recomputes its own --p from it, and the
+ * stagger is as true of a tap as it always was of a drag. It also gives
+ * the component a position to read mid-flight, which is what lets a
+ * gesture pick the menu up where it is rather than where it was headed.
+ */
+@property --openness {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
 }
 
 /* The burger's measurements, once, because three rules need them and
@@ -143,6 +195,9 @@
   --burger-height: calc(var(--burger-size) * 0.7);
   --burger-top: calc((var(--menu-head) - 4px - var(--burger-height)) / 2);
   --bun-height: calc(var(--menu-button) / 5);
+  /* Where the stack hangs from, which is also how far the first item
+     has to travel to be back inside the burger. */
+  --bar-top: calc(var(--burger-top) + var(--bun-height) + var(--space-2));
 }
 
 .app-menu-head,
@@ -166,7 +221,7 @@
      --burger-top down from the top of it and is --bun-height tall. The
      old 9px was PixelBunTop's height mistaken for its position, which
      put the first slice on top of the bun instead of under it. */
-  top: calc(var(--burger-top) + var(--bun-height) + var(--space-2));
+  top: var(--bar-top);
   right: 0;
   display: flex;
   flex-direction: column;
@@ -178,23 +233,20 @@
   /* Same stacking problem .sprout-menu-bar documents below. */
   z-index: 2;
   transform-origin: top right;
-  /* How far open it is, 0 to 1, written by AccountMenu. The 1 is the
+  /* How far open it is, 0 to 1, written by AccountMenu -- from a gesture
+     while a finger is on it, from a state change otherwise. The 1 is a
      fallback, not the normal case: if the inline style ever fails to
      arrive, the menu should be a visible menu rather than an invisible
-     one. */
+     one.
+     Nothing is drawn from it here. The bar used to fade and squash as a
+     whole, which is what made a drag read as a dissolve rather than as
+     the menu going anywhere: fading a stack in place is not the stack
+     moving. The buttons carry the movement now, one seat each, and the
+     bar is just where they live. What it does do is carry the
+     interpolation: this is the one transition, and every child's
+     movement falls out of it. */
   --openness: 1;
-  /* How far open it is, 0 to 1, written by AccountMenu -- from a
-     gesture while a finger is on it, from a state change otherwise. The
-     transition is what happens when nobody is holding it; with a finger
-     down, --openness changes every pointermove and .app-menu-bar--held
-     turns the transition off so the menu is where the finger is rather
-     than 340ms behind it. */
-  opacity: var(--openness);
-  transform: translateY(calc((1 - var(--openness)) * -6px))
-    scaleY(calc(0.7 + var(--openness) * 0.3));
-  transition:
-    opacity var(--menu-speed) var(--menu-ease),
-    transform var(--menu-speed) var(--menu-ease);
+  transition: --openness var(--menu-speed) var(--menu-ease);
 }
 
 /* The expand chevron rides at the foot of the stack, not in the head.
@@ -257,6 +309,71 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0;
+}
+
+/* The fillings and the heel go home.
+   Everything else in the stack moves one seat, which is right for a
+   button -- it slides into the place above it. It is wrong for the
+   toppings and the bottom bun, which are not buttons but pieces of the
+   burger, and a piece of a burger that fades out eight pixels from where
+   it was has not gone back into anything. It looked like a flash because
+   that is all it was: an opacity, with a token movement under it.
+   Nine seats is the height of the run of buttons, which is the distance
+   from the foot to the crown -- so shutting the menu carries the heel
+   and the fillings up the whole stack and puts them back under the lid,
+   and opening drops them out of it. */
+.app-menu-bar > .app-menu-foot {
+  /* Nine buttons above it, so nine seats plus the stack's own offset --
+     the rail sits between them in the markup but is taken out of flow,
+     so its index is not a row. */
+  --travel: calc(var(--bar-top) + var(--seat) * 9);
+  /* The foot keeps its own opacity out of it, so that the slices can be
+     solid for the whole of that journey. Faded by the shared rule they
+     arrived home invisible, which is the flash again in slow motion:
+     you want to watch them go back into the burger, and something you
+     can no longer see has not gone anywhere. Its three children each say
+     when they go, below. */
+  opacity: 1;
+}
+
+/* And they arrive a beat apart rather than as one slab. The two slices
+   ride slightly ahead of the heel on the way up, so the burger comes
+   apart and back together in the order its own layers are stacked in,
+   and you can see three things moving instead of one.
+   These compose with the foot's own transform: --p is the foot's, and
+   custom properties inherit, so each of these is an extra nudge on top
+   of the journey the foot is already making. */
+.app-menu-foot .menu-topping-row {
+  transform: translateY(calc((var(--p) - 1) * var(--seat) * 0.25));
+}
+
+.app-menu-foot .app-menu-heel {
+  transform: translateY(calc((var(--p) - 1) * var(--seat) * 0.1));
+}
+
+/* Solid the whole way, gone at the end.
+   Against --openness rather than the foot's own --p, because --p is a
+   staggered slice of the gesture and this journey is the length of the
+   whole thing: on --p these went out at the halfway mark, still two
+   hundred pixels from the burger, which is the flash again with a
+   longer run-up. Now they are opaque until they are nearly home and
+   disappear into the crown rather than on the way to it. */
+.app-menu-foot .menu-topping-row,
+.app-menu-foot .app-menu-heel {
+  opacity: clamp(0, calc(var(--openness) / 0.12), 1);
+}
+
+/* The close chevron is not made of burger and does not go home with the
+   rest of it: it is chrome, and chrome that flies the length of the
+   screen is a distraction from the thing that is supposed to be
+   reassembling. It stays put relative to the foot and simply goes, well
+   before the slices have finished travelling. */
+.menu-close-grip {
+  /* Exactly undoes the foot's journey -- --travel is the foot's own,
+     inherited, so this cannot drift out of step with it the way a second
+     copy of the number would. */
+  transform: translateY(calc((1 - var(--p)) * var(--travel)));
+  opacity: clamp(0, calc((var(--p) - 0.55) / 0.45), 1);
 }
 
 /* The burger's own slices, drawn to the width of the stack rather than
@@ -473,6 +590,11 @@
 
 .app-menu-bar .menu-rail {
   right: calc(100% + var(--space-1));
+  /* Chrome, not burger: it does not go home with the rest of it, it
+     just gets out of the way. Its own index would have sent it ten
+     seats up, which for something that spans the whole stack is a leap
+     across the screen. */
+  --travel: var(--seat);
   /* It stops inside the run of buttons, at both ends.
      top/bottom of 0 measured the whole bar, and the bar is the nine
      buttons plus a foot -- so the rail overshot the last button by the
@@ -563,17 +685,68 @@
    only when the producer let go. As a calc it is always true: item n
    starts at n * --stagger and covers what is left, so the bottom one
    arrives exactly as the menu reaches open. */
+.app-menu-bar > *:not(.menu-rail),
+.sprout-menu-bar > *:not(.menu-rail) {
+  position: relative;
+}
+
 .app-menu-bar > *,
 .sprout-menu-bar > * {
   --i: 0;
-  --stagger: 0.055;
+  /* Each item's own slice of the drag: it starts --stagger later than
+     the one above it and takes --window to arrive. Thirteen possible
+     children, so the last one starts at 12 * 0.05 = 0.6 and finishes
+     exactly as the menu reaches open.
+     A window rather than "the rest of the range", which is what it was:
+     that gave the first button the entire gesture to appear in and the
+     last one a fifth of it, so the top of the stack crawled while the
+     bottom snapped. Every item gets the same length of move now. */
+  --stagger: 0.05;
+  --window: 0.4;
   --start: calc(var(--i) * var(--stagger));
-  --p: clamp(0, calc((var(--openness) - var(--start)) / (1 - var(--start))), 1);
+  --p: clamp(0, calc((var(--openness) - var(--start)) / var(--window)), 1);
+  /* One seat: the distance from a button to the one above it. Collapsed,
+     every item sits in the seat above its own, so opening deals them out
+     of each other and closing stacks them back up.
+     This was 8px, and 8px of travel under a fade is a fade. The point of
+     a drag is that the thing moves, and a button that moves a third of
+     its own height has not moved. */
+  --seat: calc(var(--menu-button) + var(--space-2));
+  /* How far this particular child has to go to be back in the burger:
+     its own distance from it. The stack does not slide, it contracts --
+     every item heads for the same point, the one the burger is at, and
+     arrives there together.
+     That is what keeps the bottom bun under the meat. When the buttons
+     moved one seat and the burger's own slices moved nine, the slices
+     overtook the buttons on the way up and the heel spent the middle of
+     the animation sitting on top of the menu. Distances proportional to
+     where things already are cannot reorder them: every position is its
+     open position times --openness, and scaling a row of numbers by one
+     number keeps them in order. */
+  --travel: calc(var(--bar-top) + var(--i) * var(--seat));
   opacity: var(--p);
-  transform: translateY(calc((1 - var(--p)) * -8px));
-  transition:
-    opacity var(--menu-speed) var(--menu-ease),
-    transform var(--menu-speed) var(--menu-ease);
+  /* --openness, not --p. The stagger belongs to the fading; it must not
+     touch the positions, because a per-item progress is exactly a
+     different scale factor per item, which is how things end up out of
+     order. */
+  transform: translateY(calc((var(--openness) - 1) * var(--travel)));
+  /* Contracting means overlapping on the way, and the stack collapses
+     upward, so the item nearest the burger belongs in front. DOM order
+     paints the last one on top, which is the wrong way round.
+     Not the rail: it is already absolute, this rule has the same
+     specificity and comes later in the file, and `position: relative`
+     here put it back into the flow -- a 34px column wedged between the
+     buttons and the foot, pushing the foot 62px down the screen. */
+  z-index: calc(20 - var(--i));
+  /* Nothing here transitions opacity or transform: --openness is
+     interpolating upstream, so both are recomputed every frame and
+     already move. A transition on them as well would be a second
+     animation chasing the first, and the menu would take twice as long
+     to arrive as the token says it does.
+     padding is .menu-icon-button's own, and it has to be named here or
+     this rule replaces it -- same specificity, later in the file. That
+     is how the circle-to-oval transition got quietly dropped once. */
+  transition: padding var(--menu-speed) var(--menu-ease);
 }
 
 /* A finger is on it: it goes where the finger is, now, not 340ms from
@@ -581,6 +754,23 @@
 .app-menu-bar--held,
 .app-menu-bar--held > * {
   transition: none;
+}
+
+/* Anything but fully open catches nothing.
+   An invisible button is still a button: opacity 0 does not stop hit
+   testing, and the stack stays mounted for the length of the close so
+   that the close can be watched. Now that an item travels a whole seat
+   rather than 8px, at --openness 0 the first one is sitting directly on
+   top of the burger -- so for 340ms after shutting the menu, a tap on
+   the burger was a tap on "New chat", which starts a new conversation
+   and throws away the one on screen. The same 340ms sat under an
+   abandoned pull, where nothing had visibly happened at all.
+   Every partial state, not just zero: half-open buttons are moving, and
+   a control that is moving is not one you meant to press. A gesture
+   already in flight is unaffected -- it is driven by listeners on the
+   window, which do not care what is under the finger. */
+.app-menu-bar--passing {
+  pointer-events: none;
 }
 
 .app-menu-bar > *:nth-child(2),
@@ -663,6 +853,8 @@
   .sprout-menu-bar > * {
     transition: none;
     --stagger: 0;
+    --window: 1;
+    --travel: 0px;
   }
 
   .menu-icon-button,

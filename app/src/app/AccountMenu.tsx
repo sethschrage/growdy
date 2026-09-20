@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   isTap,
+  settleLabelWidth,
   TAP_SLOP,
   recallLabelWidth,
   rememberLabelWidth,
   widthAfterTap,
   widthFromDrag,
 } from '@/app/labelDrag'
-import { SETTLE_AT, opennessFromDrag, settleOpenness } from '@/app/menuOpenness'
+import { opennessFromDrag, settleFromDrag, wasOpen } from '@/app/menuOpenness'
 import { MenuButton } from '@/app/MenuButton'
 import {
   ChevronIcon,
@@ -37,6 +38,42 @@ import { PixelBunBottom, PixelBunTop, PixelBurger, PixelToppingRow } from '@/ui/
  * "340" in here is a second thing to remember when somebody retimes the
  * menu -- which has already happened twice.
  */
+/**
+ * Whether a click came from a key rather than a finger.
+ *
+ * `detail` is the click count. A pointer always has one; a click the
+ * browser makes up because somebody pressed Enter or Space on a focused
+ * button has none. Both of this menu's handles are driven by pointer
+ * events, so the click that follows a press is a duplicate -- but the
+ * click a keyboard makes is the only signal there is, and has to work.
+ */
+function fromKeyboard(event: { detail: number }): boolean {
+  return event.detail === 0
+}
+
+/**
+ * Where the menu actually is, rather than where it was told to go.
+ *
+ * React's `openness` is the transition's destination: `close()` writes 0
+ * and the stylesheet spends 340ms getting there. A gesture that starts
+ * during those 340ms and seeds itself from state therefore begins by
+ * asserting the endpoint -- and because taking hold also switches the
+ * transition off, the half-collapsed stack the producer can see blinks
+ * to fully shut in one frame before it starts following their finger.
+ *
+ * --openness is a registered property, so the value on the element
+ * during a transition is the interpolated one: the position on screen.
+ */
+function positionOnScreen(bar: HTMLElement | null, fallback: number): number {
+  if (!bar) return fallback
+  const declared = getComputedStyle(bar).getPropertyValue('--openness')
+  const parsed = Number.parseFloat(declared)
+  // Anything but a number means the browser did not register the
+  // property, in which case there is no interpolated value to read and
+  // the state is the best answer available.
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : fallback
+}
+
 function menuSpeedMs(): number {
   const declared = getComputedStyle(document.documentElement).getPropertyValue('--menu-speed')
   const parsed = Number.parseFloat(declared)
@@ -112,12 +149,13 @@ export function AccountMenu({
   const barRef = useRef<HTMLDivElement>(null)
   const shutting = useRef(false)
   const closeTimer = useRef(0)
-  // Whether the gesture below already decided this. A pointer sequence
-  // always fires click afterwards, and without this the burger would
-  // open under the finger and shut again on the click that followed.
-  // Keyboard activation produces a click and no pointer events, so it
-  // still goes the ordinary way.
-  const pointerDrove = useRef(false)
+  // Tears down whichever gesture is in flight. Both drags listen on the
+  // window and unhook themselves when the finger lifts, which never
+  // happens if this component goes away mid-gesture -- a session that
+  // expires under a held finger would leave the listeners, and a timer,
+  // attached to a dead closure.
+  const releaseGesture = useRef<(() => void) | null>(null)
+  useEffect(() => () => releaseGesture.current?.(), [])
   const expanded = labelWidth > 0
 
   // Open from nothing: it mounts shut and is told to open on the next
@@ -157,17 +195,31 @@ export function AccountMenu({
    * has left the screen is not steering anything.
    */
   function startOpennessDrag(event: ReactPointerEvent<HTMLElement>) {
-    pointerDrove.current = true
+    // One gesture, one finger. Both of these listen on the window, which
+    // hands them every pointer on the screen: a second contact -- the
+    // heel of a hand, a thumb that brushes the glass -- was being read as
+    // the same drag, and since its coordinates are somewhere else
+    // entirely it threw the menu to one end and then ended the gesture
+    // on its own pointerup, leaving the real finger connected to
+    // nothing.
+    if (releaseGesture.current) return
+    const pointerId = event.pointerId
     // Grabbing it mid-close takes it back off the timer that was about
     // to unmount it. Without this the stack would vanish part-way
     // through the pull that was reopening it.
     window.clearTimeout(closeTimer.current)
     shutting.current = false
     const startY = event.clientY
-    const startOpenness = open ? openness : 0
+    // Read off the element, not out of state, so that grabbing the menu
+    // mid-flight continues the movement instead of restarting it.
+    const startOpenness = open ? positionOnScreen(barRef.current, openness) : 0
     if (!open) {
       setOpenness(0)
       setOpen(true)
+    } else {
+      // Pin it where it is before the transition is switched off,
+      // otherwise the first frame under the finger is the destination.
+      setOpenness(startOpenness)
     }
     let furthest = 0
     hold(true)
@@ -182,33 +234,36 @@ export function AccountMenu({
     // state it can see is the one from the render it closed over.
     let latest = startOpenness
     const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return
       if (travel <= 0) travel = barRef.current?.offsetHeight ?? 0
       const deltaY = moveEvent.clientY - startY
       furthest = Math.max(furthest, Math.abs(deltaY))
       latest = opennessFromDrag(startOpenness, deltaY, travel)
       setOpenness(latest)
     }
-    const end = () => {
+    const unhook = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
+      releaseGesture.current = null
+    }
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== pointerId) return
+      unhook()
       hold(false)
       // A tap is still a tap: it goes the other way from wherever it
       // started, which is what tapping the burger and tapping the close
       // chevron have always done. Only a real drag earns the right to
       // leave it part-way and have where it landed decide the answer.
       const settled =
-        furthest < TAP_SLOP
-          ? startOpenness < SETTLE_AT
-            ? 1
-            : 0
-          : settleOpenness(latest)
+        furthest < TAP_SLOP ? (wasOpen(startOpenness) ? 0 : 1) : settleFromDrag(startOpenness, latest)
       if (settled === 0) close()
       else setOpenness(1)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', end)
     window.addEventListener('pointercancel', end)
+    releaseGesture.current = unhook
   }
 
   /**
@@ -220,6 +275,15 @@ export function AccountMenu({
    * and without capture the gesture dies the moment it does.
    */
   function startDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    // One gesture, one finger. Both of these listen on the window, which
+    // hands them every pointer on the screen: a second contact -- the
+    // heel of a hand, a thumb that brushes the glass -- was being read as
+    // the same drag, and since its coordinates are somewhere else
+    // entirely it threw the menu to one end and then ended the gesture
+    // on its own pointerup, leaving the real finger connected to
+    // nothing.
+    if (releaseGesture.current) return
+    const pointerId = event.pointerId
     const startX = event.clientX
     const startWidth = labelWidth
     let furthest = 0
@@ -237,20 +301,31 @@ export function AccountMenu({
     // touches the world outside it.
     let settled = startWidth
     const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return
       const deltaX = moveEvent.clientX - startX
       furthest = Math.max(furthest, Math.abs(deltaX))
       settled = widthFromDrag(startWidth, deltaX, 'left')
       setLabelWidth(settled)
     }
-    const end = () => {
+    const unhook = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
+      releaseGesture.current = null
+    }
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== pointerId) return
+      unhook()
       setDragging(false)
-      // A tap that wandered a few pixels is still a tap, and it goes all
-      // the way rather than leaving the menu at whatever width the
-      // wobble happened to land on.
-      if (isTap(furthest)) settled = widthAfterTap(startWidth)
+      // Open or shut, never in between. A tap goes to the other end; a
+      // drag goes the way it was heading if it got anywhere, and back
+      // where it started if it did not. Under the finger the width is
+      // still whatever the finger says -- it is only where it comes to
+      // rest that is limited to two places, because the ones in between
+      // cut the labels off mid-word.
+      settled = isTap(furthest)
+        ? widthAfterTap(startWidth)
+        : settleLabelWidth(startWidth, settled)
       setLabelWidth(settled)
       // Remembered at the end of the gesture, not during it: a write per
       // pointermove is a hundred writes for one decision.
@@ -259,6 +334,7 @@ export function AccountMenu({
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', end)
     window.addEventListener('pointercancel', end)
+    releaseGesture.current = unhook
   }
 
   // The handler below is registered once per open, so without this it
@@ -310,14 +386,17 @@ export function AccountMenu({
           aria-label={open ? 'Close menu' : 'Menu'}
           aria-expanded={open}
           onPointerDown={startOpennessDrag}
-          onClick={() => {
-            // Only a keyboard gets here: the gesture handles a pointer
-            // and says so, and running both would open the menu on the
-            // press and shut it on the click.
-            if (pointerDrove.current) {
-              pointerDrove.current = false
-              return
-            }
+          onClick={(event) => {
+            // Keyboard only. Every pointer press already went through
+            // the gesture, and letting the click run as well would open
+            // the menu under the finger and shut it again a moment
+            // later. detail is the click count: a pointer click always
+            // carries one, and a click the browser synthesises from
+            // Enter or Space carries none. It reads the event rather
+            // than remembering the last one, which a flag did -- and a
+            // flag set on pointerdown is still set if no click ever
+            // follows, waiting to swallow somebody's keystroke.
+            if (!fromKeyboard(event)) return
             if (open) {
               close()
               return
@@ -347,7 +426,7 @@ export function AccountMenu({
       {open && (
         <div
           ref={barRef}
-          className={`app-menu-bar${dragging ? ' app-menu-bar--dragging' : ''}${held ? ' app-menu-bar--held' : ''}`}
+          className={`app-menu-bar${dragging ? ' app-menu-bar--dragging' : ''}${held ? ' app-menu-bar--held' : ''}${openness === 1 ? '' : ' app-menu-bar--passing'}`}
           style={
             {
               '--label-width': `${labelWidth}px`,
@@ -485,6 +564,19 @@ export function AccountMenu({
             aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
             aria-expanded={expanded}
             onPointerDown={startDrag}
+            // The keyboard's way in. This control went from a button
+            // with an onClick to a drag handle, and a drag handle has
+            // nothing to offer somebody pressing Enter -- which left a
+            // keyboard or VoiceOver producer stuck at whatever width was
+            // remembered, with an aria-expanded that never changed. A
+            // key does what a tap does: all the way one way or the
+            // other.
+            onClick={(event) => {
+              if (!fromKeyboard(event)) return
+              const next = widthAfterTap(labelWidth)
+              setLabelWidth(next)
+              rememberLabelWidth(next)
+            }}
           >
             {/* The line breaks where the grip is, the way a handle sits
                 in a rail rather than on top of one. The whole rail is
@@ -527,7 +619,11 @@ export function AccountMenu({
               className="menu-close-grip"
               onPointerDown={startOpennessDrag}
               aria-label="Close menu"
-              onClick={close}
+              // Keyboard only, for the reason the toggle gives above.
+              // Unguarded, this undid the gesture's own answer: a press
+              // that wobbled a few pixels and was deliberately sprung
+              // back open was then shut by the click that followed.
+              onClick={(event) => fromKeyboard(event) && close()}
             >
               <ChevronIcon size={18} />
             </button>

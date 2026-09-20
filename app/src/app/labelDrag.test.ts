@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  LABEL_COMMIT_AT,
   LABEL_WIDTH_KEY,
+  nearestEnd,
+  settleLabelWidth,
   TAP_SLOP,
   WIDEST_LABEL,
   isTap,
@@ -92,8 +95,16 @@ describe('remembering the width', () => {
 
   it('reads back what it wrote', () => {
     const store = fakeStore()
-    rememberLabelWidth(64, store)
-    expect(recallLabelWidth(store)).toBe(64)
+    rememberLabelWidth(WIDEST_LABEL, store)
+    expect(recallLabelWidth(store)).toBe(WIDEST_LABEL)
+  })
+
+  it('opens at a resting place, not at a width saved mid-drag', () => {
+    // Every phone that ran the version where a drag could end anywhere
+    // has one of these in storage, and opening into it means opening
+    // with every label cut off mid-word.
+    expect(recallLabelWidth(fakeStore({ [LABEL_WIDTH_KEY]: '96' }))).toBe(WIDEST_LABEL)
+    expect(recallLabelWidth(fakeStore({ [LABEL_WIDTH_KEY]: '40' }))).toBe(0)
   })
 
   it('remembers a collapsed menu as collapsed, not as unset', () => {
@@ -144,5 +155,44 @@ describe('remembering the width', () => {
       },
     }
     expect(() => rememberLabelWidth(80, store)).not.toThrow()
+  })
+})
+
+describe('where the labels come to rest', () => {
+  it('opens from a pull of more than a seventh of the way', () => {
+    // The producer's number: about 15%.
+    expect(settleLabelWidth(0, WIDEST_LABEL * 0.2)).toBe(WIDEST_LABEL)
+  })
+
+  it('shuts from a push of the same', () => {
+    expect(settleLabelWidth(WIDEST_LABEL, WIDEST_LABEL * 0.8)).toBe(0)
+  })
+
+  it('reads exactly the threshold as a decision', () => {
+    expect(settleLabelWidth(0, WIDEST_LABEL * LABEL_COMMIT_AT)).toBe(WIDEST_LABEL)
+  })
+
+  it('goes back where it came from on a smaller movement', () => {
+    expect(settleLabelWidth(0, WIDEST_LABEL * 0.1)).toBe(0)
+    expect(settleLabelWidth(WIDEST_LABEL, WIDEST_LABEL * 0.95)).toBe(WIDEST_LABEL)
+  })
+
+  it('never comes to rest between the two, whatever it is handed', () => {
+    for (const start of [0, 45, 90, 135, WIDEST_LABEL]) {
+      for (const end of [0, 20, 60, 96, 140, WIDEST_LABEL]) {
+        expect([0, WIDEST_LABEL]).toContain(settleLabelWidth(start, end))
+      }
+    }
+  })
+
+  it('answers shut for a menu with no labels to show', () => {
+    expect(settleLabelWidth(0, 50, 0)).toBe(0)
+  })
+})
+
+describe('the nearer resting place', () => {
+  it('rounds the halfway width outward to open', () => {
+    expect(nearestEnd(WIDEST_LABEL / 2)).toBe(WIDEST_LABEL)
+    expect(nearestEnd(WIDEST_LABEL / 2 - 1)).toBe(0)
   })
 })
