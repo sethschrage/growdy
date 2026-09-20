@@ -105,7 +105,10 @@ script can decide to do.
   CI" would be the dangerous reading. Nothing here can tell whether a
   paragraph is still *true*. What it catches is the mechanical half:
   pointers, counts, names and numbers.
-- **`docs/vision.md` is referenced eight times and has never existed in
-  this repo's history.** Found during the survey; deliberately not
-  automated away, because whether it should be committed, rewritten or
-  de-referenced is a question about intent rather than about files.
+- **A phantom document turned up and was removed by hand.**
+  `docs/vision.md` was cited seven times across four ADRs and the
+  CHANGELOG and has never existed in this repo's history. No check found
+  it -- the survey did, and a check for it was rejected above as
+  unworkable. The citations are gone; what each sentence was actually
+  saying stayed, since a direction being named early is true whether or
+  not the document naming it survived.

@@ -4,10 +4,10 @@
 
 ## Context
 
-`docs/vision.md`'s "Weather and phenology" and "Beyond the chat" sections named
-this direction without designing it: real questions about a vineyard often
-need more than what's already tracked (a cold snap, a station's rainfall
-history), and Growdy has no way to bring outside data in. This ADR is that
+Weather and phenology had been named as a direction and never designed:
+real questions about a vineyard often need more than what's already
+tracked (a cold snap, a station's rainfall history), and Growdy has no way
+to bring outside data in. This ADR is that
 design, built around one real first case -- Tempest weather station
 telemetry -- rather than a general integration platform designed ahead of any
 real source.
@@ -92,9 +92,9 @@ project's own tooling already enforces on untrusted query results, made
 explicit for the model too.
 
 **Admin visibility into broken sources stays pull, not push, for now.**
-`docs/vision.md` already names alerts (unprompted, pushed notification) as a
-distinct future direction, gated on a real missed incident, not something to
-build a piece of speculatively here. A producer sees `last_error`/
+Alerts -- unprompted, pushed notification -- are a distinct future
+direction, gated on a real missed incident, not something to build a piece
+of speculatively here. A producer sees `last_error`/
 `last_warning` directly on their own source in the app; a maintainer checks a
 small admin-facing view via direct database access, the same precedent
 already used for `plant_types` promotion and producer onboarding. No email,

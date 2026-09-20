@@ -676,7 +676,7 @@ table list and started reading real column comments and foreign keys
 directly (#90), a small change that mattered more once the schema was
 about to grow.
 
-The main arc starts from a question `docs/vision.md` had named but never
+The main arc starts from a question that had been named but never
 designed: real vineyard questions often need more than what's already
 tracked, and Growdy had no way to bring outside data in at all.
 [`0019`](docs/decisions/0019-external-data-channels.md) (#92) is that
