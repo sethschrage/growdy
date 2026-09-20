@@ -65,8 +65,17 @@ function PlantingPicker({
 
   return (
     <div className="observation-planting-picker">
+      {/* A search box over row numbers, positions and variety names --
+          none of which survive autocorrect. "Gamay" and a row label like
+          "3B" are exactly the things iOS likes to rewrite, and a
+          rewritten query matches nothing. */}
       <input
         type="text"
+        inputMode="search"
+        enterKeyHint="search"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)

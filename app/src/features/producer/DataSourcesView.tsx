@@ -43,13 +43,34 @@ function AddSourceForm({ provider, onAdded }: { provider: DataProvider; onAdded:
         Label
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Home Station" />
       </label>
+      {/* Identifiers, not prose. iOS capitalises the first character of
+          a text field by default and runs autocorrect over it, which on
+          an API key is not a nuisance but a wrong value: the secret is
+          case-sensitive and the producer cannot see what was typed
+          through the dots. Station IDs are left as text rather than
+          forced numeric -- WeatherLink and Ambient identifiers are not
+          all digits. */}
       <label>
         Station ID
-        <input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+        <input
+          value={externalId}
+          onChange={(e) => setExternalId(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
       </label>
       <label>
         API key
-        <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} />
+        <input
+          type="password"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+        />
       </label>
       {error && <p className="error">{error}</p>}
       <button type="submit" disabled={submitting}>

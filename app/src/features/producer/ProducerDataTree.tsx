@@ -83,17 +83,40 @@ function RowMeasurements({
         handleSave()
       }}
     >
+      {/* inputMode as well as type. type="number" is what validates;
+          inputMode is what iOS reads when it decides which keyboard to
+          raise, and without it these three fields get the full QWERTY
+          with the digits two taps away. Metres want a decimal point,
+          posts are whole things. */}
       <label>
         Length (m)
-        <input type="number" step="any" value={length} onChange={(e) => setLength(e.target.value)} />
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          value={length}
+          onChange={(e) => setLength(e.target.value)}
+        />
       </label>
       <label>
         Spacing (m)
-        <input type="number" step="any" value={spacing} onChange={(e) => setSpacing(e.target.value)} />
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          value={spacing}
+          onChange={(e) => setSpacing(e.target.value)}
+        />
       </label>
       <label>
         End posts
-        <input type="number" step="1" value={endPosts} onChange={(e) => setEndPosts(e.target.value)} />
+        <input
+          type="number"
+          inputMode="numeric"
+          step="1"
+          value={endPosts}
+          onChange={(e) => setEndPosts(e.target.value)}
+        />
       </label>
       {error && <p className="error">{error}</p>}
       <div className="pdv-row-measurements-actions">
