@@ -21,9 +21,10 @@
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
-const DOC = 'docs/schema-change-questions.md'
-const TAGS = ['Purpose', 'Columns', 'Relations', 'Access', 'Chat', 'Backfill']
+export const DOC = 'docs/schema-change-questions.md'
+export const TAGS = ['Purpose', 'Columns', 'Relations', 'Access', 'Chat', 'Backfill']
 const PLACEHOLDER = /^(todo|tbd|n\/?a|none|\?+|-+|x+)\.?$/i
 
 /** Migration files this branch adds or changes, relative to the base ref. */
@@ -39,7 +40,7 @@ function changedMigrations() {
 }
 
 /** The SQL with `--` comments removed, so header prose can't look like DDL. */
-function statements(text) {
+export function statements(text) {
   return text
     .split('\n')
     .map((line) => line.replace(/--.*$/, ''))
@@ -52,7 +53,7 @@ function statements(text) {
  * friends are not columns; ALTER TABLE ... ADD <name> is, with or
  * without the optional COLUMN keyword.
  */
-function ddlKinds(sql) {
+export function ddlKinds(sql) {
   const kinds = new Set()
   if (/\bcreate\s+(or\s+replace\s+)?(materialized\s+)?view\b/.test(sql)) kinds.add('view')
   if (/\bcreate\s+table\b/.test(sql)) kinds.add('table')
@@ -64,7 +65,7 @@ function ddlKinds(sql) {
 }
 
 /** Each tag's answer, including lines it wraps onto. */
-function answers(text) {
+export function answers(text) {
   const found = {}
   const lines = text.split('\n')
   let current = null
@@ -87,19 +88,16 @@ function answers(text) {
   return found
 }
 
-const failures = []
-
-for (const file of changedMigrations()) {
-  let text
-  try {
-    text = readFileSync(file, 'utf8')
-  } catch {
-    continue // deleted between the diff and now
-  }
-
+/**
+ * What is unanswered about one migration. Exported because the same rule
+ * runs twice: here over a PR's diff, and in scripts/migration-write-guard.mjs
+ * before the file is written at all.
+ */
+export function auditMigration(file, text) {
+  const failures = []
   const sql = statements(text)
   const kinds = ddlKinds(sql)
-  if (kinds.size === 0) continue
+  if (kinds.size === 0) return failures
 
   const given = answers(text)
   const missing = TAGS.filter((tag) => !(tag in given))
@@ -133,16 +131,34 @@ for (const file of changedMigrations()) {
         `    The Columns answer belongs in the schema itself, next to the column it describes.`,
     )
   }
+
+  return failures
 }
 
-if (failures.length > 0) {
-  console.error('\nMigration questions unanswered:\n')
-  for (const failure of failures) console.error(`  - ${failure}\n`)
-  console.error(
-    `The six questions are in ${DOC}. They exist because the answers come from\n` +
-      'whoever asked for the change, and the only moment to ask is before the migration is written.\n',
-  )
-  process.exit(1)
+function main() {
+  const failures = []
+
+  for (const file of changedMigrations()) {
+    let text
+    try {
+      text = readFileSync(file, 'utf8')
+    } catch {
+      continue // deleted between the diff and now
+    }
+    failures.push(...auditMigration(file, text))
+  }
+
+  if (failures.length > 0) {
+    console.error('\nMigration questions unanswered:\n')
+    for (const failure of failures) console.error(`  - ${failure}\n`)
+    console.error(
+      `The six questions are in ${DOC}. They exist because the answers come from\n` +
+        'whoever asked for the change, and the only moment to ask is before the migration is written.\n',
+    )
+    process.exit(1)
+  }
+
+  console.log('Migration questions: answered.')
 }
 
-console.log('Migration questions: answered.')
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

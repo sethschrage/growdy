@@ -56,6 +56,17 @@ They are the questions whose answers exist only in the head of whoever
 asked for the change, which is why the moment to ask is before the
 migration is written rather than after.
 
+**A hook refuses the write before CI ever sees it.** Added shortly after
+the rest of this ADR shipped, in answer to the obvious question: what
+forces an agent to ask? Nothing did. `AGENTS.md` said to, which is a
+prompt, and CI checked that answers existed, which is satisfied by
+inventing them. `.claude/settings.json` now runs
+`scripts/migration-write-guard.mjs` as a `PreToolUse` hook, calling the
+same `auditMigration()` CI calls, and an unanswered migration cannot be
+written at all. It still cannot force the asking -- a rule enforced on
+files can only see files -- but the refusal happens in front of the
+person who can answer rather than ten minutes later in a log.
+
 **Three checks enforce it, in increasing cost.**
 `scripts/check-migration-answers.mjs` needs no database and fails a
 missing or placeholder answer, or a `CREATE TABLE` with no `COMMENT ON`

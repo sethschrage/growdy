@@ -134,7 +134,14 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   the migration is written, not filled in afterwards by whoever is
   holding the keyboard. `scripts/check-migration-answers.mjs` fails the
   PR on a missing or placeholder answer; it cannot tell a good answer
-  from a bad one, only that somebody was asked.
+  from a bad one, only that somebody was asked. A `PreToolUse` hook in
+  [`.claude/settings.json`](.claude/settings.json) applies the same rule
+  earlier still: an agent writing an unanswered migration has the write
+  itself refused, in the session, while the person who knows the answers
+  is still there. **That file is committed, which means it runs
+  `scripts/migration-write-guard.mjs` on your machine** whenever an agent
+  edits a migration here -- it reads the proposed contents, writes
+  nothing, and fails open if anything about it goes wrong.
 - **The chat is told about every public relation by default.** Its
   system prompt is generated from the live catalog at request time, so a
   new table reaches the model the moment its migration applies -- no

@@ -71,6 +71,33 @@ comment on column public.plot_rows.replanted_on is
   'Date this row was replanted, in the producer''s local date. Null means never replanted.';
 ```
 
+## Three places this is enforced, and what each one can actually do
+
+**`.claude/settings.json` blocks the write.** A `PreToolUse` hook runs
+[`scripts/migration-write-guard.mjs`](../scripts/migration-write-guard.mjs)
+before any agent writes or edits a file under `supabase/migrations/`. If
+the result would create a table or add a column without the six answers,
+the tool call is refused and the agent is told to put the questions to
+the person who asked. This is the layer that fires *while the person who
+knows the answers is still in the conversation*.
+
+**CI blocks the merge.** `scripts/check-migration-answers.mjs` runs the
+same rule -- literally the same function -- over the migrations a PR
+changes. It catches what the hook cannot: a migration written in an
+editor, by another tool, or on another machine.
+
+**`scripts/check-schema-docs.mjs` blocks the undocumented column.** The
+answers are prose in a file; the `COMMENT ON` is what the chat and the
+next reader actually see. That check makes sure the second one exists.
+
+What none of them can do is make anyone *ask*. A rule enforced on files
+can only see files, and six plausible sentences invented by whoever was
+holding the keyboard pass every one of these checks. What the three of
+them buy is that an unanswered migration cannot be created quietly: the
+failure happens in front of the person who can answer, at the moment the
+file is written, and the answers land in the diff and in the schema
+where a wrong one is visible rather than merely absent.
+
 ## Why a file and not a habit
 
 Because the failure is silent. A column with no comment renders in the

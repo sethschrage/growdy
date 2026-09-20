@@ -66,8 +66,10 @@ there is no per-PR review. Nobody is going to catch it after you.
   Purpose, what each column means, what it relates to, who can see it,
   whether the chat is told about it, what happens to existing rows --
   none of it is inferable from the request, and a plausible guess is
-  worse than a question, because it ships. CI fails a migration with a
-  missing or placeholder answer, but the point is to have asked first.
+  worse than a question, because it ships. You will not get far without
+  asking: a hook refuses the write outright, and CI fails the PR after
+  it. Neither can tell whether the answers came from the person or from
+  you, which is exactly why the asking is the point.
 - **Migrations wait for the merge. Edge Functions sometimes can't.**
   Applying a migration before review is a schema change nobody agreed
   to. Deploying a *function* early is allowed only when the live
