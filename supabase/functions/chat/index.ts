@@ -886,6 +886,29 @@ async function runAgentLoopStreaming(
   return { type: "text", text };
 }
 
+// Things that follow FROM or JOIN without being a table.
+const NOT_A_RELATION = new Set(["lateral", "unnest", "generate_series", "jsonb_array_elements", "select"]);
+
+/**
+ * The relations a query reads, in the order it names them. This is the
+ * only thing the client learns about the SQL, and it is what lets the
+ * answer say it looked at a weather station rather than "your data".
+ *
+ * Deliberately a name list and not the query: the SQL is in the function
+ * logs for anyone debugging, and a producer watching a wait does not
+ * need 400 characters of it.
+ */
+function relationsRead(sql: string): string | undefined {
+  const names = [
+    ...new Set(
+      [...sql.toLowerCase().matchAll(/\b(?:from|join)\s+(?:public\.)?"?([a-z_][a-z0-9_]*)"?/g)]
+        .map((match) => match[1])
+        .filter((name) => !NOT_A_RELATION.has(name)),
+    ),
+  ];
+  return names.length > 0 ? names.join(", ") : undefined;
+}
+
 /**
  * Something short and true about what a tool is doing, for the status
  * line. Deliberately not the whole input: a producer watching a wait
@@ -893,6 +916,7 @@ async function runAgentLoopStreaming(
  * logs for anyone debugging.
  */
 function toolDetail(toolUse: { name: string; input: Record<string, unknown> }): string | undefined {
+  if (toolUse.name === "execute_readonly_query") return relationsRead(String(toolUse.input.query ?? ""));
   if (toolUse.name === "search_memory") return String(toolUse.input.query ?? "").slice(0, 60);
   if (toolUse.name === "web_search") return String(toolUse.input.query ?? "").slice(0, 60);
   if (toolUse.name === "get_grape_phenology") {

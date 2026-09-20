@@ -77,9 +77,11 @@ describe('reduceThinking', () => {
       { type: 'usage', inputTokens: 1200, outputTokens: 90, cacheReadTokens: 0, cacheWriteTokens: 6600 },
       { type: 'usage', inputTokens: 1600, outputTokens: 140, cacheReadTokens: 6600, cacheWriteTokens: 0 },
     ])
-    // Cache reads are input the API bills separately and leaves out of
-    // input_tokens, so the honest total includes them.
-    expect(state.inputTokens).toBe(2800 + 6600)
+    // Cache reads and writes are both input the API bills separately and
+    // leaves out of input_tokens, so the honest total includes both: the
+    // 6,600 written on the first turn and the 6,600 read back on the
+    // second are each real work, priced differently.
+    expect(state.inputTokens).toBe(2800 + 6600 + 6600)
     expect(state.outputTokens).toBe(230)
   })
 
@@ -100,6 +102,58 @@ describe('reduceThinking', () => {
       { type: 'tool', name: 'search_memory', state: 'done' },
     ])
     expect(state.done).toEqual(['Reading your vineyard data', 'Searching what it remembers'])
+  })
+
+  it('counts cache writes, which are the expensive ones', () => {
+    // A first question of the day writes the whole prompt into the cache
+    // at 1.25x and reads nothing back. Leaving writes out of the total
+    // displayed 126 tokens for a request that processed 17,014 and cost
+    // more than the eight-turn one that followed it.
+    const state = fold([
+      { type: 'usage', inputTokens: 76, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 16938 },
+    ])
+    expect(state.inputTokens).toBe(76 + 16938)
+    expect(state.cachedTokens).toBe(0)
+  })
+
+  it('names the weather station as a source when a query reads it', () => {
+    // The function sends the relations a query named, which is the only
+    // thing that tells a weather question from a planting one.
+    const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'weather_observations, data_sources' },
+    ])
+    expect(state.sources).toEqual(['weather'])
+  })
+
+  it('falls back to the vineyard for any other query', () => {
+    const state = fold([
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'planting_readable, parcels' },
+    ])
+    expect(state.sources).toEqual(['vineyard'])
+  })
+
+  it('still says vineyard when the function sent no relations at all', () => {
+    // An older function deployed before this change sends no detail. The
+    // honest fallback is the general answer, not silence.
+    const state = fold([{ type: 'tool', name: 'execute_readonly_query', state: 'start' }])
+    expect(state.sources).toEqual(['vineyard'])
+  })
+
+  it('lists each source once, in the order it was first reached', () => {
+    const state = fold([
+      { type: 'tool', name: 'search_memory', state: 'start', detail: 'frost' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'weather_observations' },
+      { type: 'tool', name: 'execute_readonly_query', state: 'start', detail: 'weather_observations' },
+      { type: 'tool', name: 'web_search', state: 'start', detail: 'powdery mildew' },
+    ])
+    expect(state.sources).toEqual(['memory', 'weather', 'web'])
+  })
+
+  it('does not call a proposed write a source', () => {
+    // It is a change the producer has not confirmed yet, not something
+    // the answer read.
+    const state = fold([{ type: 'tool', name: 'propose_write_query', state: 'start' }])
+    expect(state.sources).toEqual([])
   })
 
   it('ignores events that say nothing about what is happening', () => {

@@ -13,6 +13,7 @@ import { streamChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
 import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
 import { PixelCloud } from '@/ui/pixelArt'
+import { AnswerMeta } from '@/features/chat/AnswerMeta'
 import { ThinkingStatus } from '@/features/chat/ThinkingStatus'
 import { IDLE_THINKING, reduceThinking, type ThinkingState } from '@/features/chat/thinking'
 import { MessageContent } from '@/features/chat/MessageContent'
@@ -309,9 +310,14 @@ export function Chat({
       }
     }
     let answer: string
+    // Folded here as well as into state, because what the answer looked
+    // at and what it cost outlive the status line: that unmounts the
+    // moment the answer lands, and the numbers went with it.
+    let tally = IDLE_THINKING
     try {
       answer = await streamChatMessage({ messages: nextMessages, photoPath, photoTakenOn }, (event) => {
-        setThinking((previous) => reduceThinking(previous, event))
+        tally = reduceThinking(tally, event)
+        setThinking(tally)
         if (event.type === 'text') setStreamingText((previous) => previous + event.text)
       })
     } catch (e) {
@@ -323,7 +329,16 @@ export function Chat({
     setSending(false)
     setStreamingText('')
 
-    const withAssistant = [...nextMessages, { role: 'assistant' as const, content: answer }]
+    const counted = tally.inputTokens + tally.outputTokens
+    const withAssistant = [
+      ...nextMessages,
+      {
+        role: 'assistant' as const,
+        content: answer,
+        ...(tally.sources.length > 0 ? { sources: tally.sources } : {}),
+        ...(counted > 0 ? { tokens: { total: counted, cached: tally.cachedTokens } } : {}),
+      },
+    ]
     setMessages(withAssistant)
     log(withAssistant)
   }
@@ -362,6 +377,7 @@ export function Chat({
                   lastPhotoPath={lastPhotoPath}
                 />
               </div>
+              {m.role === 'assistant' && <AnswerMeta sources={m.sources} tokens={m.tokens} />}
               {m.role === 'assistant' && (
                 <div className="feedback-row">
                   <button
