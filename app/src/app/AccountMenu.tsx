@@ -55,23 +55,6 @@ export function AccountMenu({
   return (
     <div className="app-menu" ref={ref}>
       <div className="app-menu-head">
-        {/* The chevron sits inboard of the toggle, not outboard, because
-            this menu hangs off the right edge: anything to the toggle's
-            right pushes the bun off the stack it is meant to cap. It was
-            38px off. */}
-        {open && (
-          <button
-            type="button"
-            className={`menu-expand menu-expand--inward-left${expanded ? ' menu-expand--open' : ''}`}
-            aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <span className="menu-expand-glyph">
-              <ChevronIcon size={16} />
-            </span>
-          </button>
-        )}
         {/* Open, the toggle is the burger's own top bun rather than a
             separate close button: the thing you tapped is still there,
             holding the stack up. */}
@@ -132,17 +115,41 @@ export function AccountMenu({
           >
             <ExitIcon size={18} />
           </MenuButton>
-          {/* The bottom bun closes it. It is the end of the stack, it
-              is the obvious thing to tap when you are done, and it was
-              decoration until now. */}
-          <button
-            type="button"
-            className="app-menu-close-bun"
-            aria-label="Close menu"
-            onClick={close}
-          >
-            <PixelBunBottom width={44} className="menu-bun-row" />
-          </button>
+          {/* The foot of the stack: the heel that closes the menu, and
+              the chevron that grows the labels, side by side.
+
+              The heel is flush to the right edge because that is the
+              edge this menu hangs off and a bun that is not flush is not
+              capping anything. The chevron is inboard of it -- the same
+              relation it had to the toggle when it lived in the head,
+              and the reason is the same, that anything to the bun's
+              right pushes the bun off the stack.
+
+              The chevron is down here rather than up in the head because
+              up there the expanded ovals ran through it: shell.css, on
+              .app-menu-foot, has the measurements and the three
+              alternatives that were rejected. */}
+          <div className="app-menu-foot">
+            <button
+              type="button"
+              className={`menu-expand menu-expand--inward-left${expanded ? ' menu-expand--open' : ''}`}
+              aria-label={expanded ? 'Collapse menu labels' : 'Expand menu labels'}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <span className="menu-expand-glyph">
+                <ChevronIcon size={16} />
+              </span>
+            </button>
+            <button
+              type="button"
+              className="app-menu-close-bun"
+              aria-label="Close menu"
+              onClick={close}
+            >
+              <PixelBunBottom width={44} className="menu-bun-row" />
+            </button>
+          </div>
         </div>
       )}
     </div>

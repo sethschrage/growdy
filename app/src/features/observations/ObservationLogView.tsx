@@ -35,7 +35,7 @@ function formatDate(iso: string) {
 // pixel-art chat chrome, same as ArtifactsView.
 export function ObservationLogView({ session, onClose }: { session: Session; onClose: () => void }) {
   const [producerId, setProducerId] = useState<string | null>(null)
-  const { waiting, flush } = useObservationQueue(producerId)
+  const { waiting, flush, deliveredOnItsOwn } = useObservationQueue(producerId)
   const [observations, setObservations] = useState<Observation[] | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -160,6 +160,21 @@ export function ObservationLogView({ session, onClose }: { session: Session; onC
           <p className="queued-sent">
             Sent for review{sentForReview > 1 ? ` (${sentForReview})` : ''} -- approve it in Review
             observations and it joins your log.
+          </p>
+        )}
+        {/* The same fact, for a delivery nobody asked for. "Signal
+            returned" on its own would be the app talking about itself;
+            what the producer asked to see is which of their observations
+            went, so the sentence leads with that and mentions the signal
+            as the reason it happened. Stays on screen for the life of
+            the screen rather than flashing past: they were not
+            necessarily looking when it happened. */}
+        {deliveredOnItsOwn > 0 && sentForReview === 0 && (
+          <p className="queued-sent">
+            Your signal came back, and{' '}
+            {deliveredOnItsOwn === 1 ? 'an observation was' : `${deliveredOnItsOwn} observations were`}{' '}
+            sent for review -- approve{deliveredOnItsOwn === 1 ? ' it' : ' them'} in Review
+            observations and{deliveredOnItsOwn === 1 ? ' it joins' : ' they join'} your log.
           </p>
         )}
         {observations === null && <p className="pdv-empty">Loading...</p>}
