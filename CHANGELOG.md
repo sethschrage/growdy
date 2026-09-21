@@ -15,172 +15,291 @@ GitHub Release published alongside each entry here carries its own,
 separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
-## [0.15.0] - 2026-09-19
+## [0.15.0] - 2026-09-21
 
-Two silences, and this release is about both of them. The chat went
-quiet for twenty seconds and then produced a paragraph, with nothing in
-between to say whether it was working or broken. And the database handed
-the model a list of table names and let it infer the rest -- which
-columns meant what, which record joined to which -- from the names
-alone. Neither was anybody's feature request. Both are the kind of gap
-that produces a confidently wrong answer at one end and a patient,
+Every complaint in this batch is the same one in a different register:
+something in the app knew what was happening and did not say. The chat
+went quiet for twenty seconds and then produced a paragraph, with
+nothing in between to tell a slow answer from a stuck one. The database
+handed the model a list of table names and let it infer the rest from
+the names alone. A finger landed on something that plainly looked like
+the chat box and nothing happened, which does not read as a miss, it
+reads as the app ignoring you. None was a feature request, and each
+ends the same way: a confidently wrong answer at one end and a patient,
 confused producer at the other.
 
-The app got one face first. Three typefaces had accumulated where one
-was needed, the icons were drawn at a size that went soft on a phone,
-and the menu was a ring of unlabelled circles you simply had to learn
-([#198](https://github.com/sethschrage/growdy/pull/198)). One typeface
-now, icons redrawn on a 24px grid with square caps so they stay sharp,
-and a type scale that stopped the chat box's lines from colliding. The
-burger menu comes apart downward and either half can say what it does --
-tap the arrow and the circles expand into labelled ovals
-([#199](https://github.com/sethschrage/growdy/pull/199)). The point of
-that one is not the animation. It is that a control which cannot tell
-you what it does has to be memorised, and a tool you have to memorise is
-a tool you use less.
+The app got one face first: three typefaces where one was needed, icons
+that went soft at phone size, and a menu of unlabelled circles you
+simply had to learn
+([#198](https://github.com/sethschrage/growdy/pull/198)). It is one
+typeface now, icons on a 24px grid, and a burger that comes apart
+downward into labelled ovals
+([#199](https://github.com/sethschrage/growdy/pull/199)). The point is
+not the animation: a control which cannot say what it does has to be
+memorised, and a tool you have to memorise is a tool you use less.
 
 Then the wait became legible. Replies arrive as they are written, and
-above them a line says what the chat is actually doing in the producer's
-own terms -- "Reading your vineyard data", "Searching what it
-remembers", and what it searched for -- rather than the tool's name
-([#200](https://github.com/sethschrage/growdy/pull/200)). It carries the
-running token count too, because a question that quietly costs six times
-what it looks like should say so. The first version of that broke in
-production in a way only production could show: reassembled thinking
-blocks were echoed back to the API without their signatures and every
-multi-turn answer failed
-([#201](https://github.com/sethschrage/growdy/pull/201)). The fix went
-out before its PR, which is a deviation from the rule that migrations
-and deploys wait for a merge -- so the rule grew the exception it was
-missing, written down with its conditions rather than left as a
-precedent ([#203](https://github.com/sethschrage/growdy/pull/203)).
+above them a line says what the chat is actually doing in the
+producer's own terms -- "Reading your vineyard data", and what it
+searched for -- rather than the tool's name, with elapsed seconds and
+tokens beside it, both measured
+([#200](https://github.com/sethschrage/growdy/pull/200)). The first
+version broke in a way only production could show: reassembled thinking
+blocks went back to the API without their signatures and every
+multi-turn answer failed -- rebuilding the content array means knowing
+about every delta type, not only the two that carry something a
+producer sees ([#201](https://github.com/sethschrage/growdy/pull/201)).
+That fix went out before its PR, so the rule that deploys wait for a
+merge grew the exception it was missing: functions only, since one can
+be undone by redeploying the previous version and a schema change
+cannot ([#203](https://github.com/sethschrage/growdy/pull/203)).
 
 Streaming made the cost visible, and the cost turned out to be a
-sentence repeated. Every pass of the tool loop re-sends the whole prompt:
-the instructions, the seven tool definitions, the description of the
-schema -- 15,240 tokens, measured on the live function, identical from
-one turn to the next. Those are now two cached blocks, split by how fast
-each half changes, so a five-tool answer reads the expensive half back at
-a tenth of the input rate instead of paying for it six times
+sentence repeated. Every pass of the tool loop re-sends the whole
+prompt -- instructions, seven tool definitions, the schema description:
+15,240 tokens, measured on the live function, identical from one turn
+to the next. Those are two cached blocks now, split by how fast each
+half changes, so a five-tool answer reads the expensive half back at a
+tenth of the input rate instead of paying for it six times
 ([`0033`](docs/decisions/0033-what-goes-in-the-cached-prompt.md),
-[#202](https://github.com/sethschrage/growdy/pull/202)). The interesting
-part is not the saving. It is what caching forbids: the cache matches an
-exact prefix, byte for byte, so a single volatile token anywhere in it --
+[#202](https://github.com/sethschrage/growdy/pull/202)). The
+interesting part is not the saving but what caching forbids: the cache
+matches an exact prefix, byte for byte, so one volatile token --
 today's date, a row count -- turns every request into a miss *and*
 charges the write premium. Prompt assembly stopped being a matter of
-tidiness and became load-bearing, which is why both generated halves now
-order their rows explicitly.
+tidiness and became load-bearing.
 
-The second silence was older and worse. An audit of what the model was
-actually handed found that the description of the database generated
-from the catalog -- chosen in
-[`0016`](docs/decisions/0016-chat-queries-directly.md) precisely so it
-could not drift -- was nearly empty of meaning: **zero of the fourteen
-foreign keys** reached it, so `plots.parcel_id` was a name the model
-inferred a join from; check constraints had been retyped by hand into
-table comments where they could disagree with the database; 115 of 187
-columns had no comment at all, rendering as a well-formed line with a
-name, a type, and nothing else. The description now carries what the
-catalog knows, and the relation list is inverted: every public table is
-described by default, and the eight deliberately left out each carry a
-written reason, so a new table reaches the model the moment its migration
-applies rather than whenever somebody remembers to add it
+The second silence was older and worse. An audit found the
+catalog-generated description of the database -- chosen in
+[`0016`](docs/decisions/0016-chat-queries-directly.md) so it could not
+drift -- nearly empty of meaning: **zero of the fourteen foreign keys**
+reached it, so `plots.parcel_id` was a name the model inferred a join
+from. The relation list is inverted now: every public relation is
+described by default, the eight left out each carrying a written
+reason, so a new table reaches the model when its migration applies,
+not when somebody remembers
 ([`0034`](docs/decisions/0034-a-schema-change-has-to-explain-itself.md),
-[#204](https://github.com/sethschrage/growdy/pull/204)).
+[#204](https://github.com/sethschrage/growdy/pull/204)). Underneath
+that was one cause: nothing ever required a schema change to explain
+itself. A migration now answers six questions in its header, answers
+that exist only in the head of whoever asked for the change -- which is
+why they belong before it, not after. CI fails a missing answer but is
+satisfied by an invented one, ten minutes late and one context from the
+person who knows, so a `PreToolUse` hook refuses the write itself
+([#206](https://github.com/sethschrage/growdy/pull/206)). It cannot
+make anyone ask -- a rule on files can only see files -- but the
+refusal now happens in front of the person who can answer.
 
-Underneath all of that was one cause: nothing ever required a schema
-change to explain itself. A migration that creates a table or adds a
-column now answers six questions in its header -- purpose, what each
-column means, what it relates to, who can see it, whether the chat is
-told, what happens to existing rows -- and those are the answers that
-exist only in the head of whoever asked for the change, which is why the
-questions belong before the migration rather than after it. CI fails a
-missing or placeholder answer, a second check fails an undocumented
-relation against the real schema, and the existing backlog sits behind a
-ratchet that may fall and never rise. The parcel/plot/row spine is
-documented in the same batch: 17 columns on the tables the GIS work will
-hang geometry off.
-
-The same argument then ran one level up. The rule that base docs are
-updated in the same PR as the change is a habit executed at the end of a
-PR, with auto-merge on and no reviewer -- and the docs had drifted. A
-survey of every claim in the base documents and the 34 ADRs produced 44
-candidate checks; ten survived a pass that tried to break each one
-against this repo's real history, and the rule that separated them is
-that a claim is checkable only when something else in the repo can
+The same argument ran one level up: updating the base docs inside the
+PR is a habit executed at the end of one, with auto-merge on and no
+reviewer, and a stale line renders exactly like a fresh one. A survey
+of the base documents and the 34 ADRs produced 44 candidate checks, of
+which ten survived a pass that tried to break each against this repo's
+history: a claim is checkable only when something else in the repo can
 contradict it without anyone exercising judgement
 ([`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md),
-[#205](https://github.com/sethschrage/growdy/pull/205)). Five of the ten
-were failing when they were written: three ADR links rendering as 404s
-on GitHub, an anchor into a section that had moved, a link to a file at
-its pre-[`0032`](docs/decisions/0032-client-organised-by-feature.md)
-path, `app_status` missing from a diagram whose own first sentence
-claims to show every table, and a dashboard card querying a column
-[`0028`](docs/decisions/0028-what-uat-removed.md) had dropped. The
-thirty-four rejections are recorded too, because "require a doc to
-change when code changes" is the obvious idea and it is a gate rather
-than a check -- satisfied by touching the file.
+[#205](https://github.com/sethschrage/growdy/pull/205)). The
+thirty-four rejections are recorded too: "require a doc to change when
+code changes" is the obvious idea, and it is a gate rather than a
+check, satisfied by touching the file. The release pass then found
+sixteen more stale claims and widened step 1's own list, which had
+named fewer documents than the per-PR check it backs up
+([#237](https://github.com/sethschrage/growdy/pull/237)); the scratch
+harnesses behind much of the measurement below are now refused by
+`.gitignore` rather than by convention
+([#235](https://github.com/sethschrage/growdy/pull/235)).
 
-Which left one honest gap, and it was the right question to ask: what
-forces an agent to put those six questions to anyone? Nothing did.
-`AGENTS.md` said to, which is a prompt; CI checked that answers existed,
-which is satisfied by inventing them, ten minutes late and one context
-away from the person who knows what the column means. A `PreToolUse`
-hook now refuses the write itself, calling the same rule CI calls, so an
-unanswered migration cannot be created quietly
-([#206](https://github.com/sethschrage/growdy/pull/206)). It still
-cannot make anyone ask -- a rule enforced on files can only see files --
-and that limit is written into the guard rather than papered over. What
-it changes is that the refusal happens in front of the person who can
-answer.
+A silence pointed at the model rather than the producer cost
+thirty-five seconds and eight turns: a weather query died on
+`execute_readonly_query`'s five-second timeout, and the model spent
+seven further turns working around a failure it could not see. The
+query itself runs in 77ms; what timed out was the tenancy check, which
+takes the row's own column as its argument, so it runs once per row,
+and being `SECURITY DEFINER` cannot be inlined. Over
+`weather_observations`' 143,588 rows the predicate alone measured
+1,500ms against 15ms for the same test written to resolve the caller
+once, and thirty policies were rewritten, provably to the same test
+([`0036`](docs/decisions/0036-rls-predicates-are-evaluated-once.md),
+[#211](https://github.com/sethschrage/growdy/pull/211)).
+`scripts/check-rls-shape.mjs` now fails CI on the shape, since nothing
+else could catch it: Supabase's initplan advisor never fired, the
+per-row work hiding behind a helper.
 
-And then a third silence turned up, on the night this entry was drafted,
-in the one place none of the above was watching. A message sent from the
-iPhone came back as `Load failed`. Server-side that request was healthy
-in every way this project knows how to measure: `POST | 200`, the model
-ran, `chat usage: in=79 out=182 cacheRead=0 cacheWrite=16938` logged like
-any other turn. Reproduced from outside with `curl`, the same request
-streamed perfectly. The answer existed and the producer never saw it.
-Twenty minutes later the same shell streamed two more requests without
-trouble, so the fault was intermittent transport rather than a client
-that cannot stream -- which is exactly the case worth a fallback. A
-streamed request that fails with nothing yet received now asks again
-buffered, the way this worked before streaming existed, at the cost of a
-second model turn ([#207](https://github.com/sethschrage/growdy/pull/207)).
-Three guards stop it asking twice when asking twice is wrong: a refusal
-the server issued is final, a cancelled request stays cancelled, and once
-part of an answer has arrived a failure is reported rather than replaced.
+Then the silence the app exists for. A producer asked what happens in
+front of a vine with no connection; checked rather than assumed, the
+answer was nothing deliberate
+([`0037`](docs/decisions/0037-what-happens-with-no-signal.md)). A
+question asked in a block with no bars failed twice and surfaced as
+`Load failed` -- WebKit's words for a dead socket -- with no way to
+send it again except retyping it. The app names the situation rather
+than the mechanism now, and keeps the attempt whole -- transcript and
+photo -- so the retry is the same request, not a reconstruction
+([#214](https://github.com/sethschrage/growdy/pull/214)). A capture
+made there failed outright: what somebody walked out to record was
+lost. Every capture is written to a local queue first and flushed
+immediately -- one path, not "send, and queue if that fails", because a
+fallback exercised only in a field is one nobody finds broken until
+they are standing in one
+([#216](https://github.com/sethschrage/growdy/pull/216),
+[#215](https://github.com/sethschrage/growdy/pull/215)).
 
-The process half of that is the more useful half. `0.15.0` was a day from
-being tagged with "replies now arrive as they're written" as its headline
-bullet, on the client where that night they had not arrived at all. The
-release checklist checked documents and advisors and never once said to
-use the app. It does now: every bullet a Release will carry is exercised
-on the client a producer actually uses, from a build of the commit being
-tagged, and written into the release PR as what was observed rather than
-as "tested". `docs/monitoring.md` gains the failure mode it had no entry
-for -- the one that logs nothing at all, where every server-side signal
-reads healthy. A complete `chat usage` line means the model answered, not
-that anybody received it.
+An answer then learned to account for itself: a line under it says what
+it looked at and what it cost -- "looked at" rather than "sources" on
+purpose, because the stream can prove a query ran, not that the answer
+rests on what came back
+([#212](https://github.com/sethschrage/growdy/pull/212)). The cost was
+wrong in the direction that flatters -- cache reads at full weight,
+cache writes ignored though they bill at 1.25x -- and money sits beside
+the tokens now, cached and fresh differing tenfold in price
+([#217](https://github.com/sethschrage/growdy/pull/217)). The question
+after "is it stuck" is what has it done, so `done` became `steps`, each
+naming what it touched
+([#228](https://github.com/sethschrage/growdy/pull/228)). The other
+half of a step is what the model was thinking, and forwarding it would
+have changed nothing on its own: reasoning runs by default on this
+model, but `thinking.display` defaults to omitted, so the blocks were
+arriving with an empty thinking field, and the fix is in the request
+before it is in the wire
+([#229](https://github.com/sethschrage/growdy/pull/229)). Summarised
+rather than the full trace, which is priced as output tokens, and set
+once for both request paths, so a buffered retry answers under the same
+configuration.
 
-One more claim went the same way. `CONTRIBUTING.md` had said that a PR
-merges itself once CI passes, and three PRs sat green and open that
-evening while it said so: the repo setting permits auto-merge, it does
-not request it. Now the request is a step somebody takes when the PR is
-opened, and the release PR is the deliberate exception -- merged by hand,
-after the app has been used
-([#208](https://github.com/sethschrage/growdy/pull/208)). No check in
-this repo could have caught that one, which is worth noticing right after
-a batch that added several: the claim was about GitHub's behaviour, not
-about a file, and the checks only ever see files.
+And then a third silence turned up where none of the above was
+watching. A message sent from the iPhone came back as `Load failed`
+while server-side it was healthy in every way this project measures:
+`POST | 200`, the model ran, `chat usage: in=79 out=182 cacheRead=0
+cacheWrite=16938` logged like any other turn. Reproduced with `curl` it
+streamed perfectly, twice more twenty minutes later: intermittent
+transport, not a client that cannot stream, which is the case worth a
+fallback. A stream that fails with nothing yet received asks again
+buffered, while a part-delivered answer reports its failure rather than
+replacing it ([#207](https://github.com/sethschrage/growdy/pull/207)).
+The process half is the hinge. `0.15.0` was a day from being tagged
+with "replies now arrive as they're written", on the client where they
+had not arrived at all, and the checklist never once said to use the
+app. It does now: every bullet a Release carries is exercised on the
+client a producer uses, from a build of the commit being tagged, and
+recorded in the release PR as what was observed rather than as
+"tested". A complete `chat usage` line means the model answered, not
+that anybody received it -- the failure mode `docs/monitoring.md` now
+carries. `CONTRIBUTING.md` had also said a PR merges itself once CI
+passes, while three sat green and open that evening -- a claim about
+GitHub's behaviour, which no check here could catch
+([#208](https://github.com/sethschrage/growdy/pull/208)).
 
-Both halves of this release are the same idea pointed in two directions.
-A system that says what it is doing -- to the producer waiting on it, and
-to whoever reads it next -- is one you can catch being wrong. A system
-that goes quiet is one you find out about later. The third silence is the
-reminder that the same is true of the instruments: a green check and a
-clean log are a claim like any other, and the only way to know an answer
-arrived is that somebody received one.
+The other half of that checklist paid for itself on the morning of the
+tag. The Supabase advisor pass step 1 requires flagged
+`create_observation_candidate` as callable by `anon`. The migration
+that added `p_client_id` for the offline queue used `create or replace
+function` with a changed argument list, which replaces nothing:
+Postgres overloads on the signature, so the statement created a
+*second* function, and a new function does not inherit the ACL of the
+one it appears to replace -- it gets the default, EXECUTE to PUBLIC.
+PUBLIC includes `anon`, and PostgREST exposes every public function at
+`/rest/v1/rpc/<name>`, so the eleven-argument overload had been
+callable by anyone holding the publishable key since it shipped.
+Nothing could be inserted through it -- the body raises `No producer
+for this user` when `auth.uid()` resolves to no profile -- but the
+grant is the control, not the function declining to be useful, and it
+is the third time this repo has undone that shape, after the vault
+helpers and the parcel share audit. The grant is `authenticated` only
+now, the ten-argument overload is dropped, and the migration has been
+applied to the live project
+([#236](https://github.com/sethschrage/growdy/pull/236)).
+
+So the tag waited, and that is where the rest of this release came
+from: twenty-seven of the thirty-nine pull requests here merged after
+the entry above was drafted. The subject changes to how the app behaves
+under a finger; the argument does not, because a control answers by
+moving. The emblem of the batch is the steps disclosure from #228,
+rendered under the status line, itself the last thing in a conversation
+the compose bar floats over -- so it sat under the bar, every time, for
+the whole life of a feature that exists only while an answer runs
+([#230](https://github.com/sethschrage/growdy/pull/230)). It shipped
+the previous day and was never once reachable. The instruments needed
+watching as closely: the burger's geometry was measured three times
+before it was measured correctly, the harness reporting the open bun
+landing 0px from the closed crown while the producer kept watching it
+move -- both true, because the numbers were read while the animation
+still ran, describing a transient frame rather than the resting state
+anybody sees ([#217](https://github.com/sethschrage/growdy/pull/217),
+[#210](https://github.com/sethschrage/growdy/pull/210),
+[#213](https://github.com/sethschrage/growdy/pull/213),
+[#218](https://github.com/sethschrage/growdy/pull/218),
+[#219](https://github.com/sethschrage/growdy/pull/219)).
+
+The menu stopped being something you trigger and became something you
+operate -- the same point made with a hand instead of a label. Open and
+shut was a boolean with a 340ms animation attached, so the menu moved
+at the app's speed whatever the hand on it was doing
+([#220](https://github.com/sethschrage/growdy/pull/220)); it is a
+number the gesture writes and the stylesheet reads now, with the
+stagger a calc on that number rather than an `animation-delay`, which
+exists only while an animation runs
+([#221](https://github.com/sethschrage/growdy/pull/221)). That also
+closed the worst hazard in the arc: `opacity: 0` does not stop hit
+testing, so for 340ms after shutting the menu a tap on the burger was a
+tap on "New chat", which throws away the conversation on screen.
+History became a screen like the others, a 420px drawer being 90vw on a
+phone ([#222](https://github.com/sethschrage/growdy/pull/222)); a new
+chat left the menu for a permanent header button, the thing a producer
+does most often not being a menu item, and the knowledge screen's
+headings stopped rendering as raw database values
+([#224](https://github.com/sethschrage/growdy/pull/224),
+[#225](https://github.com/sethschrage/growdy/pull/225)).
+
+The keyboard is the phone's, and until this batch the app had nothing
+to say to it: no input set `inputMode`, `autoCapitalize` or
+`autoCorrect`, so every field got the same QWERTY with autocorrect on
+([#227](https://github.com/sethschrage/growdy/pull/227),
+[#226](https://github.com/sethschrage/growdy/pull/226)). One was
+actively destructive: iOS capitalises the first character of a text
+field and autocorrects it, and a weather provider's API key is
+case-sensitive, so the app was corrupting a value the producer cannot
+read back through the dots, surfacing later as a source that will not
+connect. The keyboard's arrival was the ugliest thing in the app:
+`resize: 'native'` resized the web view with a bare `setFrame`, 0.45s
+after the keyboard starts rising and 0.01s after it starts falling, so
+the layout teleported out of phase in both directions, and on the way
+down WebKit had ten milliseconds to repaint a full-screen gradient and
+filled it with white instead
+([#231](https://github.com/sethschrage/growdy/pull/231)). Nothing is
+resized now; the bar rides up on a transform. And the gesture that
+dismisses it worked here and failed on the phone: iOS stops delivering
+`touchmove` once the native scroller takes a drag, which synthetic
+touches never provoke
+([#232](https://github.com/sethschrage/growdy/pull/232)).
+
+Which left the bar, the one surface a producer touches on every
+question, with several millimetres of what plainly looks like the chat
+box doing nothing when tapped -- "the tap zone seems small and
+unresponsive". It takes a tap anywhere in the pill via `pointerdown`
+rather than `click` now, and became a capsule in glass
+([#223](https://github.com/sethschrage/growdy/pull/223)). The
+material's first pass followed Apple's references literally, and those
+are of a dark app: darkening growdy's near-white sky gives a uniform
+grey with nothing for the eye to read as glass
+([#233](https://github.com/sethschrage/growdy/pull/233),
+[#234](https://github.com/sethschrage/growdy/pull/234)). Its rim is
+chromatic aberration tied to the press rather than the hue wheel tried
+first, which read as "too much rainbow, too much lsd" -- colour while
+nothing happened. The press answers the same way: growdy's buttons sank
+when pushed, the web's convention and the opposite of a glass control,
+which iOS grows under the thumb and lifts again when a finger that slid
+off returns -- that last part is what makes it an object rather than a
+state. `:active` cannot do it -- WebKit takes it away when the finger
+leaves -- so the state is ours in `lib/press.ts`.
+
+Not in this release, deliberately: the iOS app is still not on the App
+Store; everything above reaches producers on the web. A system that
+says what it is doing -- to the producer waiting on it, to the model
+reading its schema, and to whoever reads it next -- is one you can
+catch being wrong; a system that goes quiet is one you find out about
+later. The same is true of the instruments: a green check, a clean log,
+and a harness reporting 0px are claims like any other, and the only
+evidence that the app answered is that somebody was holding it when it
+did.
 
 ## [0.14.0] - 2026-09-19
 
