@@ -579,8 +579,12 @@
   left: 0;
   right: 0;
   bottom: calc(6px + env(safe-area-inset-bottom));
-  width: calc(100% - 24px);
-  max-width: 440px;
+  /* Fills the bottom. 8px a side rather than 12, so the bar reads as
+     belonging to the edge of the phone instead of floating in from it.
+     The cap is still here for a wide window, where a chat bar stretched
+     to 1200px is not a chat bar. */
+  width: calc(100% - 16px);
+  max-width: 560px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -621,24 +625,6 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--cream) 74%, transparent);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 6px 20px rgba(0, 0, 0, 0.18);
-}
-
-.chat-extras:active {
-  background: color-mix(in srgb, var(--cream) 88%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  transform: none;
-}
-
-.chat-extras:disabled {
-  opacity: 0.5;
 }
 
 /* Glass, and a pill.
@@ -653,21 +639,21 @@
    dark brown text on a dark green ground. 74% cream keeps the app's own
    warmth and keeps the text legible over anything that passes under. */
 .chat-input {
+  /* Takes whatever is left. The buttons beside it are flex: none, so
+     adding a second or a third one next to the camera narrows the
+     capsule rather than pushing anything off the edge -- which is the
+     arrangement asked for, and it needs no further change to get it. */
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1);
-  background: color-mix(in srgb, var(--cream) 74%, transparent);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
   /* Half of any height it ends up, which is what makes it a capsule
-     rather than a rounded rectangle. */
+     rather than a rounded rectangle. Everything else it looks like --
+     the glass, the film, the catchlight -- is in liquid.css. */
   border-radius: 999px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 6px 20px rgba(0, 0, 0, 0.18);
 }
 
 /* No box of its own. The field used to be a second, lighter rectangle
@@ -699,10 +685,7 @@
   box-shadow: none;
 }
 
-.chat-input:focus-within {
-  background: color-mix(in srgb, var(--cream) 86%, transparent);
-  border-color: rgba(255, 255, 255, 0.8);
-}
+
 
 /* The two buttons in the compose bar.
    Smaller than they were. At --space-2 of padding around an 18px icon

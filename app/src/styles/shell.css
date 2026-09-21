@@ -52,10 +52,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: var(--cream);
-  background: var(--wood);
-  border: var(--line-strong) solid var(--wood-dark);
-  box-shadow: 0 var(--press) 0 var(--wood-dark);
+  /* Everything it looks like is in liquid.css. This rule is only where
+     it is and how big. */
 }
 
 .app-header-left {

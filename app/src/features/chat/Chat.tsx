@@ -733,12 +733,16 @@ export function Chat({
         {/* Prose about a vineyard, so capitalisation and autocorrect stay
             on -- unlike the identifier fields elsewhere in the app. Only
             the Return key is labelled: it already submits the form, and
-            "send" says so. */}
+            "send" says so.
+            The placeholder is an invitation rather than an instruction,
+            and the label stays a description: "grow" reads well in an
+            empty box and tells somebody on a screen reader nothing about
+            what the field is for. */}
         <input
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={pendingPhoto ? 'Add a question, or just send' : 'Ask a question'}
+          placeholder={pendingPhoto ? 'Add a question, or just send' : 'grow'}
           aria-label="Ask a question about your vineyard"
           enterKeyHint="send"
         />
