@@ -9,3 +9,19 @@ supabase/.temp
 .claude/settings.local.json
 # Session worktrees are created inside the project.
 .claude/worktrees/
+
+# Measuring harnesses. app/public/ is served by the dev server and ships
+# with the build, which makes it the only convenient place to put a page
+# that renders real components against the real stylesheet so their
+# geometry can be read with getBoundingClientRect instead of guessed at
+# from a screenshot. The zz- prefix marks those as scratch: they are how
+# a number gets checked, not part of the app, and they must never reach a
+# build. Named rather than gitignoring the whole directory, which holds
+# the icons and the manifest.
+app/public/zz-*
+
+# Screen recordings and screenshots dropped in for reference. They are
+# how a design gets described; they are not source, and they are large.
+*.MP4
+*.mp4
+*.mov
