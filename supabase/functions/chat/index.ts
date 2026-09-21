@@ -48,6 +48,10 @@ const MAX_TOOL_ITERATIONS = 15;
 // and the next person to read it should be able to disagree with it
 // without having to reconstruct what the table was for.
 const NOT_DESCRIBED: Record<string, string> = {
+  artifacts_deprecated:
+    "A tombstone, not a table. The artifacts feature was removed entirely and this is the rename " +
+    "CONTRIBUTING requires before a drop that would destroy real data; it holds two dead rows and " +
+    "nothing reads it. Gone in its own migration.",
   planting:
     "The raw table behind planting_readable, with variety/scion/rootstock as ids rather than names. " +
     "Describing both invites the model to query this one and lose the resolved names (0018).",
