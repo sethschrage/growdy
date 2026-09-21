@@ -3,7 +3,6 @@ import { flushSync } from 'react-dom'
 import type { Session } from '@supabase/supabase-js'
 import { AccountMenu } from '@/app/AccountMenu'
 import { NewChatButton } from '@/app/NewChatButton'
-import { ArtifactsView } from '@/features/artifacts/ArtifactsView'
 import { Chat } from '@/features/chat/Chat'
 import { HistoryDrawer, type Conversation } from '@/features/chat/HistoryDrawer'
 import { ObservationCandidatesView } from '@/features/observations/ObservationCandidatesView'
@@ -22,7 +21,6 @@ export function SignedIn({ session }: { session: Session }) {
   const [observationLogOpen, setObservationLogOpen] = useState(false)
   const [producerDataOpen, setProducerDataOpen] = useState(false)
   const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
-  const [artifactsOpen, setArtifactsOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
   // Whether this chat has anything in it. Held here rather than in Chat
   // because the button that reads it lives in the header, and Chat is
@@ -63,8 +61,7 @@ export function SignedIn({ session }: { session: Session }) {
     observationFormOpen ||
     observationLogOpen ||
     producerDataOpen ||
-    observationCandidatesOpen ||
-    artifactsOpen
+    observationCandidatesOpen
 
   /**
    * Swap the conversation, with the swap actually visible.
@@ -117,7 +114,6 @@ export function SignedIn({ session }: { session: Session }) {
           onOpenObservationLog={() => setObservationLogOpen(true)}
           onOpenProducerData={() => setProducerDataOpen(true)}
           onOpenObservationCandidates={() => setObservationCandidatesOpen(true)}
-          onOpenArtifacts={() => setArtifactsOpen(true)}
         />
       </header>
       <Chat
@@ -129,7 +125,6 @@ export function SignedIn({ session }: { session: Session }) {
       />
       {historyOpen && (
         <HistoryDrawer
-          session={session}
           onClose={() => setHistoryOpen(false)}
           onContinue={(conversation) => {
             setHistoryOpen(false)
@@ -159,7 +154,6 @@ export function SignedIn({ session }: { session: Session }) {
           }}
         />
       )}
-      {artifactsOpen && <ArtifactsView onClose={() => setArtifactsOpen(false)} />}
       <ReleaseNotes session={session} />
     </div>
   )

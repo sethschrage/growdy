@@ -32,7 +32,8 @@ function formatDate(iso: string) {
 // note at all, because nobody approved it) is the one that's gone.
 //
 // Reuses ProducerDataView's dense .pdv-* visual language rather than the
-// pixel-art chat chrome, same as ArtifactsView.
+// pixel-art chat chrome: a real browsing tool reads better dense than
+// playful.
 export function ObservationLogView({ session, onClose }: { session: Session; onClose: () => void }) {
   const [producerId, setProducerId] = useState<string | null>(null)
   const { waiting, flush, deliveredOnItsOwn } = useObservationQueue(producerId)

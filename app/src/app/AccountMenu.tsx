@@ -16,7 +16,6 @@ import {
   GridIcon,
   HistoryIcon,
   NetworkIcon,
-  PictureIcon,
   PlusIcon,
   SearchIcon,
 } from '@/ui/icons'
@@ -90,7 +89,6 @@ export function AccountMenu({
   onOpenObservationLog,
   onOpenProducerData,
   onOpenObservationCandidates,
-  onOpenArtifacts,
 }: {
   email: string
   /** True while one of the screens these buttons open is on top of it. */
@@ -102,13 +100,12 @@ export function AccountMenu({
   onOpenObservationLog: () => void
   onOpenProducerData: () => void
   onOpenObservationCandidates: () => void
-  onOpenArtifacts: () => void
 }) {
   const [open, setOpen] = useState(false)
   // Opens saying what it does, the first time. Collapsed-by-default was
   // a guess that the producer is usually here to read a conversation
   // rather than a menu, and it cost them a memory test every time it
-  // turned out to be wrong. Eight unlabelled circles is a worse default
+  // turned out to be wrong. Seven unlabelled circles is a worse default
   // than a wider menu.
   //
   // After that it opens where they left it. Collapsing the labels is a
@@ -433,9 +430,9 @@ export function AccountMenu({
           role="menu"
           aria-label={`Account menu for ${email}`}
         >
-          {/* One of these nine shuts the menu and eight do not, and the
+          {/* One of these seven shuts the menu and six do not, and the
               line between them is whether the menu would be in the way.
-              The eight open a screen over the top of it, so it stays
+              The six open a screen over the top of it, so it stays
               open underneath and shutting that screen returns the
               producer to the menu they were using -- going from the
               observation log to the vineyard data used to mean opening
@@ -489,15 +486,6 @@ export function AccountMenu({
             }}
           >
             <GridIcon size={20} />
-          </MenuButton>
-          <MenuButton
-            label="Shared artifacts"
-            expanded={expanded}
-            onClick={() => {
-              onOpenArtifacts()
-            }}
-          >
-            <PictureIcon size={20} />
           </MenuButton>
           <MenuButton
             label="Knowledge"

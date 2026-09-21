@@ -21,8 +21,8 @@ import type { ChatMessage } from '@/features/chat/types'
 export function useConversationLog(session: Session, existing?: { id: string }) {
   const [producerId, setProducerId] = useState<string | null>(null)
   // A lazy useState initializer, not a ref: the id never changes after
-  // mount, but returning it (for a "Share" action on a graphic in this
-  // conversation, see docs/decisions/0027) means it has to be safe to
+  // mount, but returning it (so a card rendered inside a message can log
+  // what it does against this conversation) means it has to be safe to
   // read during render -- a ref's .current isn't.
   const [conversationId] = useState(() => existing?.id ?? crypto.randomUUID())
   const started = useRef(Boolean(existing))

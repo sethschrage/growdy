@@ -1,6 +1,6 @@
 # 0021. The chat can render actual pictures, via raw SVG in a fenced code block
 
-**Status:** accepted
+**Status:** withdrawn 2026-09-21, with [0027](0027-public-artifact-links.md) -- the chat no longer draws; see "Withdrawn (2026-09-21)" below
 
 ## Context
 
@@ -25,3 +25,11 @@ The first instinct was the same shape `0016` already rejected once for SQL: a fi
 - Real risk surface is now "arbitrary markup the model chooses to emit," bounded by DOMPurify's SVG profile rather than trusting the model to emit only safe markup -- the same "safety lives in the mechanism, not in trusting the input" discipline `0016` applies to SQL, worth re-verifying any time the sanitization step itself changes.
 - Because this added no backend capability, the same fenced-code-block dispatch pattern generalizes for free to any future output shape worth rendering specially (nothing else needs this yet) -- it's a frontend lookup by language tag, not a new tool or schema change per shape.
 - The inline drawing is deliberately capped small to fit a chat bubble, which isn't enough detail for anything more complex than a simple shape -- a follow-up shipped a tap-to-enlarge full-screen view reusing the exact same sanitized markup, not a second render path or a second sanitize call.
+
+## Withdrawn (2026-09-21): the drawing goes with the sharing
+
+The paragraph telling the model it may draw is out of `buildSystemPrompt`, and `SvgGraphic`, `sanitizeSvg` and the DOMPurify dependency behind them are deleted. A `svg` fence now renders as what every other fence renders as: a code block.
+
+This decision was withdrawn by the removal of the feature built on top of it rather than on its own merits. [`0027`](0027-public-artifact-links.md) -- saving a graphic and sharing it at a link a signed-out browser could open -- is gone because a public web page is not a capability a native iOS client carries, and once nothing can save or share a picture, what is left of this ADR is a drawing capped to fit a chat bubble, which `0027` existed to get past in the first place. Removing both together is why no stub is left behind: an inert renderer kept alive for a producer who was already reaching for the share button is worse than an honest gap.
+
+The gap is honest, and it is the same one the Context above describes: a trend or a comparison still reads badly as prose or an improvised markdown table, and the windrose question that forced this ADR would get the same bad answer today. What has changed is where it has to be answered -- in the client the producer actually opens, by something that client can draw natively, not by markup a web view sanitizes. The reasoning worth carrying over is the sanitization principle, not the mechanism: model output rendered as real DOM is untrusted input, and safety belongs in the mechanism rather than in trusting what the model chose to emit.

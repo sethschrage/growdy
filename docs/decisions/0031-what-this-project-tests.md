@@ -82,7 +82,11 @@ blocks it forever.
   again), `sanitizeSvg.ts` (the one function between model-generated
   markup and script execution in a signed-out visitor's browser, see
   `0021`, `0027`) and `ObservationPhoto` (three states around a signing
-  call that can fail).
+  call that can fail). `sanitizeSvg.ts` is gone as of 2026-09-21,
+  deleted with the artifacts feature it existed to protect (`0021` and
+  `0027` are both withdrawn), and its tests went with it. The rule that
+  put it under test -- every exported function in `lib/` -- is
+  unchanged; what it covers moves as the code does.
 - **"Bug fix ships a failing test first" does not fit every bug.** A
   layout defect measured in the browser -- the scroll bugs that
   prompted this -- has no unit test that would have caught it, and

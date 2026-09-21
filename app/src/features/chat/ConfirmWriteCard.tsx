@@ -4,9 +4,9 @@ import { confirmWrite, declineWrite } from '@/data/writes'
 // The real "click, not the model's own judgment" affordance 0022 requires
 // -- confirm_write is called from here, straight from the producer's own
 // browser session, never proxied through the chat function or triggered
-// by anything the model does on its own. Mirrors SvgGraphic's pattern: a
-// fenced code block in the model's own markdown becomes a real component,
-// not a new chat-function capability.
+// by anything the model does on its own. The mechanism is a fenced code
+// block in the model's own markdown becoming a real component, rather
+// than a new chat-function capability.
 type WriteProposal = {
   proposal_id: string
   summary: unknown
@@ -52,7 +52,7 @@ export function ConfirmWriteCard({ code }: { code: string }) {
   // this is a stray fence from an old conversation before this shipped) --
   // fall back to plain text rather than a broken, buttonless card.
   if (!proposal) {
-    return <pre className="chat-graphic-fallback">{code}</pre>
+    return <pre className="chat-block-fallback">{code}</pre>
   }
 
   // Captured as a plain string so handleConfirm/handleDecline don't close

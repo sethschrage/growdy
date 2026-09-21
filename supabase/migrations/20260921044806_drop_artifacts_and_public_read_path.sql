@@ -1,0 +1,44 @@
+-- The artifacts feature goes, in full: the model drawing an SVG inline
+-- in a chat reply, the producer saving it, and the /a/<id> link a
+-- signed-out browser could open. 0027 built all three. This drops the
+-- two things in the database holding it up -- the table, and the one
+-- public read path in this project.
+--
+-- Not a refactor, and nothing is left behind a flag. Growdy is moving
+-- to a native SwiftUI iOS client, and the share link is a web page the
+-- producer has no way to reach from the app they actually open; the
+-- feature has never worked on the client they use. Their verdict on
+-- the two saved graphics was that they "aren't good anyways," and a
+-- capability that has never reached the person it was built for is not
+-- one to carry into the rewrite. If drawing a picture turns out to be
+-- what a question really needs, it gets built again, for the client
+-- that exists then.
+--
+-- The table is not empty, so the usual rule here would apply: rename
+-- now, drop in a later migration once there has been time to notice
+-- that something still needed it (CONTRIBUTING.md, "Migrations"). It
+-- deliberately does not. Both rows are untitled test records from
+-- 2026-09-17 and 2026-09-18, written while 0027 was being built, and
+-- the producer looked at them and asked for them to go with the
+-- feature. That waiting period exists to catch data somebody still
+-- wanted; here the person whose data it is has already said they don't
+-- -- and an artifacts_deprecated table would be a stub of exactly the
+-- thing this change removes, one the chat's schema catalog would then
+-- have to describe to the model or explain away on every request.
+--
+-- Nothing else in the schema points at artifacts: no foreign key
+-- references it, and its own two (producers, conversations) leave with
+-- it. Existing audit_log rows naming it are deliberately left alone,
+-- for the reason 20260918022000 gives -- the audit log records what
+-- happened, and editing it to pretend a table never existed is the
+-- opposite of what it is for.
+
+-- Dropped first, while the table it reads still exists. This was the
+-- only anon-reachable entry point in the project, so from here every
+-- path into this database requires a signed-in session again.
+drop function if exists public.get_public_artifact(uuid);
+
+-- The three policies, both indexes, and the audit_row_change trigger
+-- are all attached to the table and go with it. The trigger *function*
+-- stays: nine other tables fire it.
+drop table if exists public.artifacts;

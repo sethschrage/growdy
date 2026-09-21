@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
 import { listConversations, type Conversation } from '@/data/conversations'
 import { MessageContent } from '@/features/chat/MessageContent'
 import type { ChatMessage } from '@/features/chat/types'
@@ -32,11 +31,9 @@ function exportConversation(conversation: Conversation) {
 // Mounted only while open (App.tsx renders it conditionally), so a fresh
 // mount is what resets state on each open -- no imperative reset needed.
 export function HistoryDrawer({
-  session,
   onClose,
   onContinue,
 }: {
-  session: Session
   onClose: () => void
   onContinue: (conversation: Conversation) => void
 }) {
@@ -89,7 +86,7 @@ export function HistoryDrawer({
               {selected.transcript.map((m, i) => (
                 <div key={i} className={`chat-message-wrap chat-message-wrap--${m.role}`}>
                   <div className={`chat-message chat-message-${m.role}`}>
-                    <MessageContent role={m.role} content={m.content} session={session} conversationId={selected.id} />
+                    <MessageContent role={m.role} content={m.content} conversationId={selected.id} />
                   </div>
                 </div>
               ))}

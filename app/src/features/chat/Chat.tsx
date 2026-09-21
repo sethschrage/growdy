@@ -594,7 +594,6 @@ export function Chat({
                 <MessageContent
                   role={m.role}
                   content={m.content}
-                  session={session}
                   conversationId={loggedConversationId}
                   photoMetaFor={(path) => photoMetaRef.current.get(path) ?? null}
                   lastPhotoPath={lastPhotoPath}
@@ -636,7 +635,6 @@ export function Chat({
                   <MessageContent
                     role="assistant"
                     content={streamingText}
-                    session={session}
                     conversationId={loggedConversationId}
                     photoMetaFor={(path) => photoMetaRef.current.get(path) ?? null}
                     lastPhotoPath={lastPhotoPath}

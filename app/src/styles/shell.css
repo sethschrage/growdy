@@ -372,20 +372,21 @@
    burger, and a piece of a burger that fades out eight pixels from where
    it was has not gone back into anything. It looked like a flash because
    that is all it was: an opacity, with a token movement under it.
-   Nine seats is the height of the run of buttons, which is the distance
-   from the foot to the crown -- so shutting the menu carries the heel
-   and the fillings up the whole stack and puts them back under the lid,
-   and opening drops them out of it. */
+   The whole run of buttons is the distance from the foot to the crown --
+   so shutting the menu carries the heel and the fillings up the whole
+   stack and puts them back under the lid, and opening drops them out of
+   it. */
 .app-menu-bar > .app-menu-foot {
-  /* Eight buttons above it, so eight seats plus the stack's own offset
+  /* Seven buttons above it, so seven seats plus the stack's own offset
      -- the rail sits between them in the markup but is taken out of
      flow, so its index is not a row.
      This is the one number in here that does not follow from --i, so it
      is the one that has to be changed by hand when the menu gains or
      loses an item. Get it wrong and the burger's own slices stop landing
      in the crown and start overtaking the meat on the way up. New chat
-     leaving for the header is what took it from nine to eight. */
-  --travel: calc(var(--bar-top) + var(--seat) * 8);
+     leaving for the header took it from nine to eight, and Shared
+     artifacts going with the artifacts feature took it to seven. */
+  --travel: calc(var(--bar-top) + var(--seat) * 7);
   /* The foot keeps its own opacity out of it, so that the slices can be
      solid for the whole of that journey. Faded by the shared rule they
      arrived home invisible, which is the flash again in slow motion:
@@ -662,13 +663,13 @@
 .app-menu-bar .menu-rail {
   right: calc(100% + var(--space-1));
   /* Chrome, not burger: it does not go home with the rest of it, it
-     just gets out of the way. Its own index would have sent it ten
-     seats up, which for something that spans the whole stack is a leap
-     across the screen. */
+     just gets out of the way. Its own index would have sent it the
+     length of the stack, which for something that spans that stack is a
+     leap across the screen. */
   --travel: var(--seat);
   /* It stops inside the run of buttons, at both ends.
-     top/bottom of 0 measured the whole bar, and the bar is the nine
-     buttons plus a foot -- so the rail overshot the last button by the
+     top/bottom of 0 measured the whole bar, and the bar is the buttons
+     plus a foot -- so the rail overshot the last button by the
      whole foot and read as a scale for the menu rather than a handle on
      the buttons.
      The first button is the bar's first child, so the top is only
