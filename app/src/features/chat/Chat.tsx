@@ -192,54 +192,79 @@ export function Chat({
     // same reason -- scrolling up to re-read is not a request to close
     // anything.
     //
-    // And pulling it up the other way asks for the keyboard back, which
-    // is the same gesture read the other way round.
+    // Both directions, and both decided when the finger lifts.
     //
-    // Only when there is nothing left to scroll. On a conversation with
-    // history, dragging up is scrolling and must stay scrolling; at the
-    // bottom of it -- or on an empty chat, where every drag is at the
-    // bottom -- there is nowhere further to go, and a finger still
-    // pushing upward is asking for the thing that lives below the
-    // bottom. That is the keyboard.
+    // The first version acted on touchmove and worked on the simulator
+    // and not on a phone, which is the same lesson this file keeps
+    // learning: once iOS hands a gesture to the native scroller it stops
+    // delivering touchmove to the page. On a real drag the events arrive
+    // for a few pixels and then stop, so a threshold of 40 was never
+    // reached and nothing happened. Synthetic touches never trigger that
+    // handoff, which is why it looked fine here.
     //
-    // blur() and focus() rather than the Keyboard plugin's hide() and
-    // show(), so both halves work on the deployed web app as well as in
-    // the shell. Nothing here is native.
+    // touchend always arrives, and it is a user gesture, which is what
+    // iOS requires before it will raise a keyboard for a focus the page
+    // asked for. So the moves only accumulate how far the finger got,
+    // and the lift decides.
+    //
+    // Dismissing keeps a fast path on touchmove as well: blur needs no
+    // gesture, so when the events do arrive the keyboard goes at once
+    // rather than on the lift.
     let pullFrom: number | null = null
+    let startedAtBottom = false
+    let furthestUp = 0
+    let furthestDown = 0
+
+    const atBottom = () => {
+      const slack = Number.parseFloat(getComputedStyle(node).getPropertyValue('--scroll-slack')) || 0
+      return node.scrollHeight - node.scrollTop - node.clientHeight <= slack + 1
+    }
+
     const onTouchStart = (event: TouchEvent) => {
       pullFrom = event.touches[0]?.clientY ?? null
+      furthestUp = 0
+      furthestDown = 0
+      // Read before the drag scrolls anything: the question is whether
+      // they were at the end of the conversation when they started, not
+      // where the rubber band left them.
+      startedAtBottom = atBottom()
     }
+
+    // Deliberately called from two places. On this phone a drag is
+    // handed to the native scroller part way through and touchmove stops
+    // being delivered, so the move alone missed the threshold and
+    // nothing happened -- that is the bug this is fixing. touchend always
+    // arrives. Running it twice is harmless.
+    const settlePull = () => {
+      const field = inputRef.current
+      if (!field || pullFrom === null) return
+      const focused = document.activeElement === field
+      if (furthestDown >= PULL && focused) field.blur()
+      else if (furthestUp >= PULL && startedAtBottom && !focused) field.focus()
+    }
+
     const onTouchMove = (event: TouchEvent) => {
       if (pullFrom === null) return
       const y = event.touches[0]?.clientY
       if (y === undefined) return
-      const moved = y - pullFrom
-      const field = inputRef.current
-      if (!field) return
-
-      if (moved >= PULL) {
-        pullFrom = null
-        if (document.activeElement === field) field.blur()
-        return
-      }
-
-      if (-moved >= PULL) {
-        // Nowhere left to scroll. The slack is read from the
-        // stylesheet, which is where it is declared -- a second copy of
-        // it here is exactly the thing chat.css's own comment warns
-        // about, and the two would only have to agree until somebody
-        // changed one.
-        const slack = Number.parseFloat(getComputedStyle(node).getPropertyValue('--scroll-slack')) || 0
-        const atBottom = node.scrollHeight - node.scrollTop - node.clientHeight <= slack + 1
-        if (!atBottom || document.activeElement === field) return
-        pullFrom = null
-        // Called during the touch rather than after it: iOS will only
-        // raise the keyboard for a focus that happens inside a real
-        // gesture, and a touchmove is one.
-        field.focus()
-      }
+      furthestDown = Math.max(furthestDown, y - pullFrom)
+      furthestUp = Math.max(furthestUp, pullFrom - y)
+      // Act here when the events are still arriving: it is the more
+      // responsive of the two, and the keyboard moves under the finger
+      // rather than after it lifts. settlePull repeats the decision on
+      // touchend for the case where they stop arriving, and both are
+      // idempotent -- a field already focused is not focused twice.
+      settlePull()
     }
-    const forgetPull = () => {
+
+    const endPull = () => {
+      settlePull()
+      pullFrom = null
+    }
+
+    // A cancelled gesture is not a decision -- the system took the touch
+    // away, which is not the same as a finger being lifted.
+    const abandonPull = () => {
       pullFrom = null
     }
 
@@ -249,9 +274,9 @@ export function Chat({
     node.addEventListener('touchmove', onTouchMove, { passive: true })
     node.addEventListener('wheel', onStart, { passive: true })
     node.addEventListener('touchend', onEnd, { passive: true })
-    node.addEventListener('touchend', forgetPull, { passive: true })
+    node.addEventListener('touchend', endPull, { passive: true })
     node.addEventListener('touchcancel', onEnd, { passive: true })
-    node.addEventListener('touchcancel', forgetPull, { passive: true })
+    node.addEventListener('touchcancel', abandonPull, { passive: true })
     return () => {
       clearTimeout(release)
       node.removeEventListener('scroll', onScroll)
@@ -260,9 +285,9 @@ export function Chat({
       node.removeEventListener('touchmove', onTouchMove)
       node.removeEventListener('wheel', onStart)
       node.removeEventListener('touchend', onEnd)
-      node.removeEventListener('touchend', forgetPull)
+      node.removeEventListener('touchend', endPull)
       node.removeEventListener('touchcancel', onEnd)
-      node.removeEventListener('touchcancel', forgetPull)
+      node.removeEventListener('touchcancel', abandonPull)
     }
   }, [])
 
