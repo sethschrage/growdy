@@ -12,7 +12,11 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createUserScopedClient } from "../_shared/supabaseClient.ts";
+import {
+  createUserScopedClient,
+  resolveProducerId,
+  unauthorizedResponse,
+} from "../_shared/supabaseClient.ts";
 import { resolveTempestDeviceId } from "../_shared/weatherIngest.ts";
 
 Deno.serve(async (req: Request) => {
@@ -21,9 +25,18 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { provider_id, name, station_id, secret } = await req.json();
+    // verify_jwt: false here too, and this one had the least between an
+    // anonymous caller and an outbound request: resolveTempestDeviceId
+    // ran before the function touched the database at all, so a `curl`
+    // with no credentials made this project call Tempest on its behalf.
+    // Nothing of the project's was spent -- the token being tried is the
+    // caller's own -- but an open relay that reports whether a
+    // station/token pair is good is not something to leave running.
     const supabase = createUserScopedClient(req);
+    const producerId = await resolveProducerId(supabase);
+    if (!producerId) return unauthorizedResponse();
 
+    const { provider_id, name, station_id, secret } = await req.json();
     const deviceId = await resolveTempestDeviceId(station_id, secret);
 
     const { data, error } = await supabase.rpc("add_data_source", {

@@ -144,15 +144,16 @@ table, never anything polled. Real call sites:
 
 | File:line | What it logs | Reaches `data_sources.last_error`? |
 |---|---|---|
-| [`chat/index.ts:1181`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
-| [`chat/index.ts:1161`](../supabase/functions/chat/index.ts) | `chat stream crashed: ${err}` -- the request threw *after* the stream opened, so the producer sees a half-written answer stop | n/a |
-| [`chat/index.ts:881,1002`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
-| [`chat/index.ts:171,245`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed -- the model then reasons with no description of the database at all | n/a |
-| [`chat/index.ts:183`](../supabase/functions/chat/index.ts) | `NOT_DESCRIBED` names a relation that no longer exists ([0034](decisions/0034-a-schema-change-has-to-explain-itself.md)). CI fails on this too; the log covers a rename that reached production first | n/a |
-| [`chat/index.ts:958`](../supabase/functions/chat/index.ts) | One tool call threw. The model is handed the error text and usually recovers, so the producer may never see a problem | n/a |
+| [`chat/index.ts:1242`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
+| [`_shared/supabaseClient.ts:60`](../supabase/functions/_shared/supabaseClient.ts) | `producer lookup failed, refusing the request: ...` -- a request to `chat`, `ingest-weather` or `add-weather-source` that did not resolve to a producer, answered 401. An expired token looks exactly like an anonymous probe from here; the only way to tell them apart is volume | n/a |
+| [`chat/index.ts:1222`](../supabase/functions/chat/index.ts) | `chat stream crashed: ${err}` -- the request threw *after* the stream opened, so the producer sees a half-written answer stop | n/a |
+| [`chat/index.ts:928,1049`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
+| [`chat/index.ts:175,249`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed -- the model then reasons with no description of the database at all | n/a |
+| [`chat/index.ts:187`](../supabase/functions/chat/index.ts) | `NOT_DESCRIBED` names a relation that no longer exists ([0034](decisions/0034-a-schema-change-has-to-explain-itself.md)). CI fails on this too; the log covers a rename that reached production first | n/a |
+| [`chat/index.ts:1005`](../supabase/functions/chat/index.ts) | One tool call threw. The model is handed the error text and usually recovers, so the producer may never see a problem | n/a |
 | [`scan-conversations-for-observations/index.ts:138`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
 | [`scan-conversations-for-observations/index.ts:106`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
-| [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
+| [`ingest-weather/index.ts:77`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
 
 **A producer with no signal, which nothing here can see at all.** Every
@@ -318,6 +319,27 @@ catch it.
   reads `succeeded` while its own body shows `Voyage embeddings API
   error (429): ... no payment method on file ...` on most entries -- a
   Voyage AI billing gap, not a growdy bug).
+- **Which Edge Functions accept an unauthenticated request, and what
+  each one does before it finds out.** Three deploy with
+  `verify_jwt: false` so they can answer their own CORS preflight
+  (`chat`, `ingest-weather`, `add-weather-source` -- see
+  [`supabase/functions/_shared/cors.ts`](../supabase/functions/_shared/cors.ts)),
+  which means the gateway checks nothing and the function's own first
+  statement is the entire control. Nothing watches this: the setting
+  lives in the Supabase dashboard rather than in this repo, it is a
+  deploy-time flag rather than anything a migration or CI can see, and
+  the advisors above do not look at Edge Functions at all. `chat` spent
+  from its first deploy until 2026-09-21 calling Anthropic on this
+  project's key for anyone who sent it a POST. The check that catches
+  this is a `curl` with no credentials, per function, which is cheap:
+
+  ```
+  curl -sS -X POST https://fostmbhpnhjzhulphxzp.supabase.co/functions/v1/<name> \
+    -H "content-type: application/json" -d '{}'
+  ```
+
+  A 401 is the right answer for all three. Anything else means the
+  handler ran, and the question is what it did before it noticed.
 - **No backups exist.** Free tier, stated directly in
   [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s "Working directly against the
   live database" section -- a manual `supabase db dump` before any

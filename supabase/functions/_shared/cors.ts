@@ -1,8 +1,15 @@
 // Shared by every Edge Function that handles its own CORS/OPTIONS
-// preflight (chat, ingest-weather) -- both need verify_jwt: false at
-// deploy time for the same reason: Supabase's gateway-level JWT check
-// can't be selectively exempted for the preflight-only case, so each
-// function answers OPTIONS itself instead.
+// preflight (chat, ingest-weather, add-weather-source) -- all three need
+// verify_jwt: false at deploy time for the same reason: Supabase's
+// gateway-level JWT check can't be selectively exempted for the
+// preflight-only case, so each function answers OPTIONS itself instead.
+//
+// The half of that sentence that is easy to skip: with the gateway check
+// off, nothing upstream of the handler is checking anything, so each of
+// these three has to resolve its own caller before it does any work.
+// `resolveProducerId` in ./supabaseClient.ts is that step, and it is not
+// optional -- `chat` shipped without it and answered anonymous POSTs on
+// this project's Anthropic key until 2026-09-21.
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   // `accept` is here because the chat function chooses between a
