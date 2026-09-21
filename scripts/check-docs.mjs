@@ -392,9 +392,32 @@ function main() {
   const tags = git(['tag', '-l', 'v*']).split('\n').filter(Boolean)
   failures.push(...auditChangelog(tags, readFileSync('CHANGELOG.md', 'utf8')))
 
-  const clientSources = git(['ls-files', 'app/src/*.ts', 'app/src/*.tsx'])
+  const tracked = git(['ls-files', 'app/src/*.ts', 'app/src/*.tsx'])
     .split('\n')
     .filter((file) => file && !file.includes('.test.'))
+  // A file can be tracked and not on disk: `rm` without `git add` leaves
+  // the index still naming it, which is every deletion between doing it
+  // and staging it. That is a state of the working tree, not a
+  // documentation failure -- but it used to reach readFileSync below and
+  // come back out as a raw ENOENT stack, which reads as the checker
+  // being broken rather than as the tree being half-staged. It cost real
+  // time exactly once: removing the artifacts feature deleted four files
+  // this list names, and the run that was meant to confirm the docs were
+  // consistent instead died in node:fs.
+  // Skipped rather than failed, because the deletion is usually correct
+  // and the next `git add` makes the check complete -- but said out
+  // loud, because a checker that quietly examines less than it claims is
+  // worse than one that crashes.
+  const missing = tracked.filter((file) => !existsSync(file))
+  if (missing.length > 0) {
+    console.warn(
+      `  note: ${missing.length} tracked file(s) are deleted but not staged, so they were not ` +
+        `checked. Run \`git add -A\` for a complete check.\n` +
+        missing.map((file) => `    ${file}`).join('\n') +
+        '\n',
+    )
+  }
+  const clientSources = tracked.filter((file) => existsSync(file))
   failures.push(...auditDataLayer(clientSources.map((file) => [file, readFileSync(file, 'utf8')])))
 
   if (failures.length > 0) {
