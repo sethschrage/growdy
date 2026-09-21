@@ -936,3 +936,54 @@
   box-shadow: 0 0 0 var(--wood-dark);
   transform: translateY(var(--press));
 }
+
+
+/* The conversation swapping out for another one.
+   Named, so the transition is the conversation and not the whole screen:
+   the sky, the header and the compose bar are the things that stay put
+   while what is between them is replaced, and cross-fading all of it
+   would say the opposite.
+   The old one falls back and away, the new one arrives from slightly
+   in front -- a change of subject reads as the next thing coming
+   forward, not as a slide, which would imply somewhere to slide back
+   to. */
+.chat-messages {
+  view-transition-name: conversation;
+}
+
+::view-transition-old(conversation) {
+  animation: conversation-leaves 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(conversation) {
+  animation: conversation-arrives 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes conversation-leaves {
+  to {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+}
+
+@keyframes conversation-arrives {
+  from {
+    opacity: 0;
+    transform: scale(1.025);
+  }
+}
+
+/* Asked for less movement: the cross-fade stays, because something has
+   to say the conversation changed, and a fade is not motion. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(conversation),
+  ::view-transition-new(conversation) {
+    animation-name: conversation-fades;
+  }
+
+  @keyframes conversation-fades {
+    from {
+      opacity: 0;
+    }
+  }
+}
