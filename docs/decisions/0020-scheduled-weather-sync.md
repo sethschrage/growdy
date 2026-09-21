@@ -64,3 +64,50 @@ thing each did was a query or a call with the caller's own credentials;
 that is the function declining to be useful rather than a control, which
 is the same distinction migration `20260921040000` drew about a `PUBLIC`
 grant one day earlier.
+
+## Update (2026-09-21): "never seen by a human" was true of the Vault row and false of the header
+
+The Decision above says authorization is **"a shared secret minted into
+Supabase Vault by migration, never seen by a human."** The minting is
+exactly as described --- `gen_random_bytes` at apply time, never typed,
+never through a tool call. What the sentence misses is what happens to
+the value a moment later.
+
+The cron job reads it into an `X-Cron-Secret` header and hands it to
+`net.http_post`. `pg_net` stores each queued request whole --- url,
+headers, body --- in `net.http_request_queue` until its background worker
+drains the row, which takes about a second. On the live project,
+`authenticated` has `USAGE` on the `net` schema and `SELECT` on that
+table, and the table carries no RLS. So the secret is readable in
+plaintext, by any signed-in user, for about a second, every time a job
+fires --- hourly for the weather sync and every six hours for the other
+two. The chat model can read it too: `execute_readonly_query` runs as
+`authenticated` and this is a select.
+
+**Growdy cannot revoke that grant.** `net.http_request_queue` is owned by
+`supabase_admin` and migrations run as `postgres`. A
+`revoke all on net.http_request_queue from public` was attempted inside a
+`DO` block and rejected, with the ACL unchanged afterwards. The grant
+belongs to the platform.
+
+What a captured secret was worth is worth saying plainly, because it
+shapes the fix. All three functions return counts ---
+`{synced, errors}`, `{scanned, candidatesCreated, errors}` --- and no
+producer data reaches a caller. A replay could make the project spend
+money on Tempest, Anthropic and Voyage, and could put spurious candidates
+in a review queue. It could not read anybody's vineyard.
+
+So the secret stops travelling. `20260921080000` has the cron jobs send
+an HMAC over the secret name and a five-minute bucket
+(`private.cron_trigger_token`), and the verifier recompute it
+(`private.cron_token_valid`). The Vault row never enters `pg_net`; what
+sits in that queue for a second is worth five to ten minutes rather than
+forever, and only to somebody already polling at that second. A
+previously captured secret stops working the moment that migration
+applies --- verified, along with the rest of the window behaviour, before
+it was written.
+
+The same migration collapses six copies of the comparison into one
+verifier. Six places to keep true is the same shape as the error in the
+Decision above: a claim about `chat` that was true of a pattern and not
+of the code, which nothing noticed for six days.
