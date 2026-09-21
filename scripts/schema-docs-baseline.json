@@ -1,7 +1,7 @@
 {
   "uncommentedColumns": {
     "app_status": 3,
-    "artifacts": 5,
+    "artifacts_deprecated": 5,
     "audit_log": 11,
     "conversation_embeddings": 6,
     "conversations": 6,

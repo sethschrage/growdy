@@ -1,6 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MessageContent } from '@/features/chat/MessageContent'
+
+// The two interactive fences render real cards, and those cards import
+// the data layer, which builds the Supabase client at module load and
+// throws without VITE_SUPABASE_URL. A developer has a .env and never
+// sees it; CI does not, so this file passed locally and failed the first
+// time it ran on a machine that had never been set up. Mocked the way
+// every other component test here does it (AnswerMeta, ObservationForm,
+// PlantingDetail) -- the import chain is what is being cut, not the
+// behaviour, and nothing below calls either of these.
+vi.mock('@/data/writes', () => ({
+  confirmWrite: async () => ({}),
+  declineWrite: async () => {},
+}))
+
+vi.mock('@/data/observations', () => ({
+  createObservationCandidate: async () => null,
+}))
 
 // Which fences are interactive is a decision this component makes twice
 // -- once picking the component, once stripping react-markdown's <pre>
