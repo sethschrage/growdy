@@ -708,3 +708,32 @@ the next one exists too.
   only `service_role` user, which stopped being true when
   `scan-conversations-for-observations` and `embed-scheduled-memory`
   shipped.
+
+### `authenticated` still holds TRUNCATE on every table (open, latent)
+
+`20260921090000` took `TRUNCATE`, `REFERENCES` and `TRIGGER` away from
+`anon`, which left it holding exactly one privilege in `public`: `SELECT`
+on `app_status`. **The same platform default is still in place for
+`authenticated`**, verified after that migration: it holds `TRUNCATE` on
+every table in the schema.
+
+RLS does not apply to `TRUNCATE`, and `audit_row_change` is a row-level
+trigger, so a truncate would empty a table and record nothing.
+
+It is latent for the same three reasons `anon`'s was: PostgREST has no
+`TRUNCATE` verb, `execute_readonly_query` runs read-only, and
+`propose_write_query` wraps what it is given in
+`with t as (%s returning *)`, where `TRUNCATE` does not parse. None of
+those was put there for this reason.
+
+It was not fixed alongside `anon` because the two are not the same job.
+`anon` needed exactly one grant kept and the rest could go in one line.
+`authenticated` is the role the whole app runs as: every policy assumes a
+specific set of `SELECT`/`INSERT`/`UPDATE`/`DELETE` grants per table, and
+a blanket `revoke all` would take those with it. Doing it safely means
+enumerating what each table actually needs and re-granting it, which is a
+migration to write carefully rather than at the end of a long night.
+
+The narrow version -- `revoke truncate, references, trigger on all tables
+in schema public from authenticated` -- touches nothing the app uses and
+is probably the right first step.
