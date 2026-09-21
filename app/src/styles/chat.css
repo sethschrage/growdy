@@ -189,133 +189,15 @@
   color: var(--cream);
 }
 
-/* Layout safety only, not a creative constraint -- the model decides what
-   to draw (see supabase/functions/chat/index.ts's system prompt), this
-   just keeps one drawing from overflowing or dominating the page. */
-.chat-graphic {
-  max-width: 100%;
-  max-height: 480px;
-  overflow: hidden;
-  margin: 0;
-  cursor: zoom-in;
-}
-
-.chat-graphic svg {
-  max-width: 100%;
-  height: auto;
-  display: block;
-}
-
-.chat-graphic-hint {
-  margin: 2px 0 8px;
-  font-size: 11px;
-  color: var(--ink);
-  opacity: 0.65;
-}
-
-.chat-graphic-fallback {
+/* The raw fenced block, shown as text when the card that was supposed
+   to render it cannot read it -- malformed JSON from the model, or a
+   stray fence from an older conversation. Wraps rather than inheriting
+   <pre>'s white-space: pre, which overflowed the bubble. */
+.chat-block-fallback {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 13px;
   margin: 0 0 8px;
-}
-
-.chat-graphic-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-}
-
-.chat-graphic-overlay-close {
-  position: absolute;
-  top: calc(12px + env(safe-area-inset-top));
-  right: 12px;
-  background: none;
-  border: none;
-  box-shadow: none;
-  color: var(--cream);
-  font-size: 32px;
-  line-height: 1;
-  padding: 4px 8px;
-  z-index: 1;
-}
-
-.chat-graphic-overlay-close:active {
-  box-shadow: none;
-  transform: none;
-}
-
-.chat-graphic-overlay-actions {
-  position: absolute;
-  top: calc(16px + env(safe-area-inset-top));
-  left: 16px;
-  right: 56px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 1;
-}
-
-.chat-graphic-overlay-actions > button {
-  font-size: 13px;
-  padding: 6px 14px;
-}
-
-.chat-graphic-share-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.chat-graphic-share-link input {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  padding: 6px 8px;
-}
-
-.chat-graphic-share-link button {
-  font-size: 12px;
-  padding: 6px 10px;
-  white-space: nowrap;
-}
-
-.chat-graphic-share-error {
-  position: absolute;
-  top: calc(60px + env(safe-area-inset-top));
-  left: 16px;
-  right: 16px;
-  z-index: 1;
-  color: var(--cream);
-  background: rgba(0, 0, 0, 0.5);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.chat-graphic-overlay-content {
-  width: min(90vw, 480px);
-  max-height: 100%;
-  cursor: default;
-}
-
-.chat-graphic-overlay-content svg {
-  /* A model-written svg often has only a viewBox, no width/height
-     attributes -- width and height both `auto` inside a flex-centered
-     parent then has no definite size to resolve from and collapses to
-     0x0 (confirmed directly). A definite width lets the viewBox's own
-     aspect ratio resolve height. */
-  width: 100%;
-  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  height: auto;
-  display: block;
 }
 
 /* The real confirm/decline affordance 0022 requires -- a fenced

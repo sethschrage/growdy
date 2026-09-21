@@ -127,13 +127,6 @@ erDiagram
         timestamptz observed_at
         numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
     }
-    ARTIFACTS {
-        uuid id PK "also the public link -- see docs/decisions/0027"
-        uuid producer_id FK
-        uuid conversation_id FK "nullable"
-        text title "nullable"
-        text content "raw svg, sanitized at render time"
-    }
     PRODUCER_MEMORY {
         uuid id PK
         uuid producer_id FK
@@ -172,12 +165,18 @@ erDiagram
         text message "nullable -- shown on the block screen"
     }
 
+    ARTIFACTS_DEPRECATED {
+        uuid id PK "dead -- nothing reads this table"
+        uuid producer_id FK "the producer the saved graphic belonged to"
+        uuid conversation_id FK "the chat turn it came out of"
+        text title "nullable -- neither surviving row has one"
+        text content "the SVG the model wrote"
+    }
+
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns
     PRODUCERS ||--o{ OBSERVATION_CANDIDATES : "reviews"
     CONVERSATIONS ||--o{ OBSERVATION_CANDIDATES : "scanned into"
-    PRODUCERS ||--o{ ARTIFACTS : "shares"
-    CONVERSATIONS |o--o{ ARTIFACTS : "generated (optional)"
     PARCELS ||--o{ PLOTS : "divided into"
     PLOTS ||--o{ PLOT_ROWS : contains
     PARCELS ||--o{ PLANTING : "located in"
@@ -198,6 +197,17 @@ erDiagram
     PRODUCERS ||--o{ AUDIT_LOG : "has writes logged (0022)"
     PENDING_WRITES |o--o{ AUDIT_LOG : "committed as (optional)"
 ```
+
+A note on `ARTIFACTS_DEPRECATED`, because a tombstone in a diagram
+invites the question. The artifacts feature -- the model drawing an SVG
+inline in a reply, the producer saving it, and a `/a/<id>` page a
+signed-out browser could open -- was removed entirely, and `0027` is
+withdrawn. The table is drawn here only because it still exists, and it
+still exists because [`CONTRIBUTING.md`](../CONTRIBUTING.md) requires a
+migration that would destroy real data to rename rather than drop, with
+the actual drop left for its own later migration. Nothing reads it, and
+it holds two untitled records from the week the feature was built. It
+goes in a migration of its own, and this block goes with it.
 
 ## Reading this diagram
 
@@ -366,17 +376,233 @@ erDiagram
   mechanism, from direct maintainer SQL against a table the trigger is
   attached to. Both tables were live from 0022's first migration but
   missing from this diagram until now -- a real gap, not a deliberate
-  omission like the derived views below.
-- **`artifacts` is the first table a signed-out visitor can reach at
-  all** -- see [0027](decisions/0027-public-artifact-links.md). Not via
-  any RLS policy granting `anon` access to the table itself (there is
-  none; `anon` has no grant on `artifacts` at all), but through one
-  narrow function, `get_public_artifact(id)`, looked up by exact id
-  only -- a point lookup can't be turned into a listable collection the
-  way a table grant could. Every row that exists is public; there's no
-  private/unshared state modeled yet.
+  omission like the derived views below. `audit_log.table_name` can
+  also name a table that no longer exists (`parcel_shares`,
+  `artifacts`): the log records what happened, so rows naming a dropped
+  table are left exactly as written rather than tidied away.
+- **No table here is reachable without a session.** `artifacts` was,
+  for four days -- not through an RLS policy granting `anon` access to
+  the table, but through one narrow `get_public_artifact(id)` looked up
+  by exact id, since a point lookup can't be turned into a listable
+  collection the way a table grant could
+  ([0027](decisions/0027-public-artifact-links.md)). The table and the
+  function were dropped together on 2026-09-21 when the feature they
+  served was removed, so `anon` again holds no grant, policy or
+  function anywhere in this schema. The function shape is the part
+  worth reusing if something public is ever asked for again; the table
+  is not coming back.
 
 ## History
+
+### 2026-09-21 -- before the artifacts feature was removed ([0027](decisions/0027-public-artifact-links.md))
+
+The diagram above lost `artifacts`, four days after the 2026-09-17
+entry further down records it gaining one. It held one row per shared
+graphic, with the `id` doubling as the public link, and it was the
+only table in this schema a signed-out visitor could ever reach --
+through `get_public_artifact(id)`, dropped in the same migration.
+
+Two rows existed and both went with it, rather than being renamed and
+dropped later the way this repo usually retires a table holding real
+data. That caution is there to protect data somebody still wants;
+these were untitled test records written while the feature was being
+built, and the producer whose data it was asked for them to go. Rows
+in `audit_log` naming the table stay exactly where they are -- the log
+records what happened, and a dropped table is part of what happened.
+
+```mermaid
+erDiagram
+    PRODUCERS {
+        uuid id PK
+        text name
+    }
+    PROFILES {
+        uuid id PK "also FK -> auth.users, Supabase-managed"
+        uuid producer_id FK
+    }
+    PARCELS {
+        uuid id PK
+        uuid producer_id FK
+        text name
+    }
+    PLOTS {
+        uuid id PK
+        uuid parcel_id FK
+        uuid producer_id FK
+        text name
+    }
+    PLOT_ROWS {
+        uuid id PK
+        uuid plot_id FK
+        uuid producer_id FK
+        int number
+        numeric length_meters "nullable"
+        numeric spacing_meters "nullable"
+        int end_post_count "nullable"
+    }
+    PLANTING {
+        uuid id PK
+        uuid producer_id FK
+        uuid parcel_id FK
+        uuid plot_id FK "nullable"
+        uuid plot_row_id FK "nullable"
+        int position "nullable"
+        geography location "nullable"
+        uuid variety_id FK "nullable"
+        uuid scion_variety_id FK "nullable"
+        uuid rootstock_variety_id FK "nullable"
+        text nickname "nullable"
+        text category "nullable"
+        date planted_date "nullable"
+        date dead_date "nullable"
+        date removed_date "nullable"
+        text removed_reason "nullable"
+    }
+    PLANT_TYPES {
+        uuid id PK
+        uuid proposed_by_producer_id FK "nullable"
+        text name
+        text kind
+        text status
+        text common_name "nullable"
+    }
+    OBSERVATIONS {
+        uuid id PK
+        uuid planting_id FK "nullable -- what the note is about"
+        uuid producer_id FK
+        date observed_date "nullable"
+        text note
+        text photo_metadata "nullable -- storage path, named before it held one"
+        geography photo_location "nullable -- where the camera was, see docs/decisions/0030"
+        real photo_location_accuracy_m "nullable"
+        uuid conversation_id FK "nullable"
+    }
+    CONVERSATIONS {
+        uuid id PK
+        uuid producer_id FK
+        text mode
+        jsonb transcript
+        timestamptz scanned_at "nullable -- see docs/decisions/0025 follow-up work"
+        timestamptz embedded_at "nullable -- see docs/decisions/0023"
+    }
+    OBSERVATION_CANDIDATES {
+        uuid id PK
+        uuid conversation_id FK "nullable -- a typed note has no conversation"
+        uuid producer_id FK
+        text summary
+        text note "nullable"
+        date observed_date "nullable"
+        uuid planting_id FK "nullable"
+        text photo_path "nullable -- observation-photos bucket"
+        geography photo_location "nullable -- where the camera was"
+        real photo_location_accuracy_m "nullable"
+        text source "chat_scan, photo, producer, or chat_tool"
+        text status "pending, confirmed, or dismissed"
+        timestamptz reviewed_at "nullable"
+        uuid client_id "nullable, globally unique -- minted on the device before the server ever saw it"
+    }
+    DATA_PROVIDERS {
+        uuid id PK
+        text category
+        text name
+        boolean enabled
+        text context "nullable"
+    }
+    DATA_SOURCES {
+        uuid id PK
+        uuid provider_id FK
+        uuid producer_id FK
+        text name
+        text external_id
+        uuid vault_secret_id "nullable -- no credential needed, e.g. Device/USA-NPN"
+        boolean enabled
+        text context "nullable"
+        jsonb config "nullable -- e.g. Device's last-known lat/long"
+        text backfill_status "nullable"
+        timestamptz backfill_cursor "nullable"
+        timestamptz backfill_start "nullable"
+        timestamptz last_synced_at "nullable"
+        text last_error "nullable"
+        text last_warning "nullable"
+    }
+    WEATHER_OBSERVATIONS {
+        uuid id PK
+        uuid source_id FK
+        uuid producer_id FK
+        timestamptz observed_at
+        numeric air_temperature "nullable, one of 14 more validated metric columns -- see docs/decisions/0019"
+    }
+    ARTIFACTS {
+        uuid id PK "also the public link -- see docs/decisions/0027"
+        uuid producer_id FK
+        uuid conversation_id FK "nullable"
+        text title "nullable"
+        text content "raw svg, sanitized at render time"
+    }
+    PRODUCER_MEMORY {
+        uuid id PK
+        uuid producer_id FK
+        text content
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+        text source "manual or model-suggested"
+    }
+    CONVERSATION_EMBEDDINGS {
+        uuid id PK
+        uuid conversation_id FK
+        uuid producer_id FK
+        text chunk_text
+        vector embedding "nullable, 1024-dim -- see docs/decisions/0023"
+    }
+    PENDING_WRITES {
+        uuid id PK
+        uuid producer_id FK
+        text query
+        jsonb summary "nullable"
+        text status "pending, applied, or declined -- see docs/decisions/0022"
+    }
+    AUDIT_LOG {
+        uuid id PK
+        uuid producer_id FK
+        text table_name
+        uuid row_id
+        text operation "INSERT, UPDATE, or DELETE"
+        jsonb old_data "nullable"
+        jsonb new_data "nullable"
+        uuid pending_write_id FK "nullable"
+        timestamptz reverted_at "nullable -- see docs/decisions/0022"
+    }
+    APP_STATUS {
+        boolean id PK "CHECK (id) plus the primary key: exactly one row can ever exist"
+        boolean maintenance "hard-blocks every open tab when true"
+        text message "nullable -- shown on the block screen"
+    }
+
+    PRODUCERS ||--o{ PROFILES : "has members"
+    PRODUCERS ||--o{ PARCELS : owns
+    PRODUCERS ||--o{ OBSERVATION_CANDIDATES : "reviews"
+    CONVERSATIONS ||--o{ OBSERVATION_CANDIDATES : "scanned into"
+    PRODUCERS ||--o{ ARTIFACTS : "shares"
+    CONVERSATIONS |o--o{ ARTIFACTS : "generated (optional)"
+    PARCELS ||--o{ PLOTS : "divided into"
+    PLOTS ||--o{ PLOT_ROWS : contains
+    PARCELS ||--o{ PLANTING : "located in"
+    PLOTS |o--o{ PLANTING : "organizes (optional)"
+    PLOT_ROWS |o--o{ PLANTING : "organizes (optional)"
+    PLANTING |o--o{ OBSERVATIONS : "has (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is variety for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is scion for (optional)"
+    PLANT_TYPES |o--o{ PLANTING : "is rootstock for (optional)"
+    PRODUCERS |o--o{ PLANT_TYPES : "proposed by (optional)"
+    PRODUCERS ||--o{ CONVERSATIONS : "has chat sessions"
+    CONVERSATIONS |o--o{ OBSERVATIONS : "led to (optional)"
+    DATA_PROVIDERS ||--o{ DATA_SOURCES : "producers configure against"
+    DATA_SOURCES ||--o{ WEATHER_OBSERVATIONS : reports
+    PRODUCERS ||--o{ PRODUCER_MEMORY : "remembers (0023)"
+    CONVERSATIONS ||--o{ CONVERSATION_EMBEDDINGS : "chunked into (0023)"
+    PRODUCERS ||--o{ PENDING_WRITES : "proposes (0022)"
+    PRODUCERS ||--o{ AUDIT_LOG : "has writes logged (0022)"
+    PENDING_WRITES |o--o{ AUDIT_LOG : "committed as (optional)"
+```
 
 ### 2026-09-19 -- before the queue widened and photos arrived ([0030](decisions/0030-every-observation-through-one-queue.md))
 

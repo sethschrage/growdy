@@ -51,48 +51,6 @@ export type Database = {
         }
         Relationships: []
       }
-      artifacts: {
-        Row: {
-          content: string
-          conversation_id: string | null
-          created_at: string
-          id: string
-          producer_id: string
-          title: string | null
-        }
-        Insert: {
-          content: string
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          producer_id: string
-          title?: string | null
-        }
-        Update: {
-          content?: string
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          producer_id?: string
-          title?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "artifacts_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "artifacts_producer_id_fkey"
-            columns: ["producer_id"]
-            isOneToOne: false
-            referencedRelation: "producers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       audit_log: {
         Row: {
           changed_by: string | null
@@ -1103,14 +1061,6 @@ export type Database = {
         Returns: {
           content: string
           id: string
-        }[]
-      }
-      get_public_artifact: {
-        Args: { p_id: string }
-        Returns: {
-          content: string
-          created_at: string
-          title: string
         }[]
       }
       parcel_lookup_counts: {

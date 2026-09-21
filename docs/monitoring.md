@@ -295,20 +295,25 @@ catch it.
 - **Security/performance advisors** (`get_advisors`, or Dashboard ->
   Advisors). [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says to
   check these after every migration; nothing currently reminds anyone
-  outside of that moment. Real findings as of 2026-09-17 (re-check
-  rather than trust this list): `pg_net` extension installed in
-  `public` schema (should move to `extensions`); two `SECURITY DEFINER`
-  functions callable by `anon` -- `get_public_artifact` is intentional
-  ([`0027`](decisions/0027-public-artifact-links.md)), `rls_auto_enable`
-  is not defined by any migration in this repo at all (`pg_get_functiondef`
-  shows it owned by `postgres`, not the migration-applying role) -- it's
-  Supabase's own platform-injected event trigger that auto-enables RLS on
-  any new `public` table, a defense-in-depth default, not a growdy
-  artifact. Harmless if called directly outside its event-trigger context
-  (`pg_event_trigger_ddl_commands()` only returns rows during a live DDL
-  event), which is why the linter still flags it as anon-callable; leaked-
-  password protection disabled in Auth; 18 unused indexes (INFO-level,
-  expected at this scale, not urgent).
+  outside of that moment. Real findings as of 2026-09-17, less the one
+  the 2026-09-21 removal took with it (re-check rather than trust this
+  list): `pg_net` extension installed in `public` schema (should move to
+  `extensions`); one `SECURITY DEFINER` function callable by `anon` --
+  `rls_auto_enable`, which is not defined by any migration in this repo
+  at all (`pg_get_functiondef` shows it owned by `postgres`, not the
+  migration-applying role) -- it's Supabase's own platform-injected event
+  trigger that auto-enables RLS on any new `public` table, a
+  defense-in-depth default, not growdy's. Harmless if called directly
+  outside its event-trigger context (`pg_event_trigger_ddl_commands()`
+  only returns rows during a live DDL event), which is why the linter
+  still flags it as anon-callable; leaked-password protection disabled in
+  Auth; 18 unused indexes (INFO-level, expected at this scale, not
+  urgent). The second anon-callable function this list used to carry was
+  growdy's own and deliberate -- `get_public_artifact`
+  ([`0027`](decisions/0027-public-artifact-links.md)) -- and it was
+  dropped with the artifacts feature. Nothing in this project grants
+  `anon` anything any more, so the next anon-callable finding naming a
+  function from these migrations is one to chase rather than to expect.
 - **pg_cron job health** -- `select * from cron.job_run_details order by
   start_time desc` for the *three* scheduled jobs
   (`sync-weather-sources-hourly`, `scan-conversations-for-observations-6h`,

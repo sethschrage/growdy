@@ -372,20 +372,24 @@
    burger, and a piece of a burger that fades out eight pixels from where
    it was has not gone back into anything. It looked like a flash because
    that is all it was: an opacity, with a token movement under it.
-   Nine seats is the height of the run of buttons, which is the distance
-   from the foot to the crown -- so shutting the menu carries the heel
-   and the fillings up the whole stack and puts them back under the lid,
-   and opening drops them out of it. */
+   The whole run of buttons is the distance from the foot to the crown --
+   so shutting the menu carries the heel and the fillings up the whole
+   stack and puts them back under the lid, and opening drops them out of
+   it. */
 .app-menu-bar > .app-menu-foot {
-  /* Eight buttons above it, so eight seats plus the stack's own offset
-     -- the rail sits between them in the markup but is taken out of
-     flow, so its index is not a row.
-     This is the one number in here that does not follow from --i, so it
-     is the one that has to be changed by hand when the menu gains or
-     loses an item. Get it wrong and the burger's own slices stop landing
-     in the crown and start overtaking the meat on the way up. New chat
-     leaving for the header is what took it from nine to eight. */
-  --travel: calc(var(--bar-top) + var(--seat) * 8);
+  /* How far the foot has come: one seat per button above it, plus the
+     stack's own offset.
+     --seats is derived from the markup rather than typed (the ladder is
+     below). It used to be a literal, and it was the one number in here
+     that did not follow from --i -- the one somebody had to remember to
+     change. It went nine to eight when New chat left for the header, and
+     eight to seven when Shared artifacts went with the artifacts
+     feature, and each time the only thing standing between a correct
+     number and a wrong one was that somebody happened to think of it.
+     Get it wrong and the burger's slices stop landing in the crown and
+     start overtaking the meat on the way up, which is a subtle enough
+     failure that it would ship. */
+  --travel: calc(var(--bar-top) + var(--seat) * var(--seats));
   /* The foot keeps its own opacity out of it, so that the slices can be
      solid for the whole of that journey. Faded by the shared rule they
      arrived home invisible, which is the flash again in slow motion:
@@ -662,13 +666,13 @@
 .app-menu-bar .menu-rail {
   right: calc(100% + var(--space-1));
   /* Chrome, not burger: it does not go home with the rest of it, it
-     just gets out of the way. Its own index would have sent it ten
-     seats up, which for something that spans the whole stack is a leap
-     across the screen. */
+     just gets out of the way. Its own index would have sent it the
+     length of the stack, which for something that spans that stack is a
+     leap across the screen. */
   --travel: var(--seat);
   /* It stops inside the run of buttons, at both ends.
-     top/bottom of 0 measured the whole bar, and the bar is the nine
-     buttons plus a foot -- so the rail overshot the last button by the
+     top/bottom of 0 measured the whole bar, and the bar is the buttons
+     plus a foot -- so the rail overshot the last button by the
      whole foot and read as a scale for the menu rather than a handle on
      the buttons.
      The first button is the bar's first child, so the top is only
@@ -830,6 +834,68 @@
    window, which do not care what is under the finger. */
 .app-menu-bar--passing {
   pointer-events: none;
+}
+
+/* How many seats the stack actually has, counted from the DOM.
+   The bar's children are the buttons, then the rail, then the foot, so
+   the seat count is two fewer than the child count. Each rule matches
+   only if the bar really has that many children and the last match wins,
+   so adding or removing a button moves the count by itself. A ladder,
+   like --i below, and for the same reason: CSS cannot count, but it can
+   be asked whether a thing exists.
+   The ceiling is the same thirteen the --i ladder stops at. Past that
+   the foot under-travels rather than breaking, and the next person gets
+   a menu that is visibly wrong instead of subtly wrong. */
+.app-menu-bar {
+  --seats: 1;
+}
+
+.app-menu-bar:has(> *:nth-child(4)) {
+  --seats: 2;
+}
+
+.app-menu-bar:has(> *:nth-child(5)) {
+  --seats: 3;
+}
+
+.app-menu-bar:has(> *:nth-child(6)) {
+  --seats: 4;
+}
+
+.app-menu-bar:has(> *:nth-child(7)) {
+  --seats: 5;
+}
+
+.app-menu-bar:has(> *:nth-child(8)) {
+  --seats: 6;
+}
+
+.app-menu-bar:has(> *:nth-child(9)) {
+  --seats: 7;
+}
+
+.app-menu-bar:has(> *:nth-child(10)) {
+  --seats: 8;
+}
+
+.app-menu-bar:has(> *:nth-child(11)) {
+  --seats: 9;
+}
+
+.app-menu-bar:has(> *:nth-child(12)) {
+  --seats: 10;
+}
+
+.app-menu-bar:has(> *:nth-child(13)) {
+  --seats: 11;
+}
+
+.app-menu-bar:has(> *:nth-child(14)) {
+  --seats: 12;
+}
+
+.app-menu-bar:has(> *:nth-child(15)) {
+  --seats: 13;
 }
 
 .app-menu-bar > *:nth-child(2) {

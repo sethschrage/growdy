@@ -13,16 +13,14 @@ flowchart TD
     Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
     Browser["Producer's browser"]
     iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
-    PublicViewer["Signed-out visitor<br/>with a shared link"]
 
     GH -->|every PR touching migrations| CI
     GH -->|"push to main: auto-deploy"| Vercel
     Browser -->|loads| Vercel
     GH -->|"cap sync + Xcode build, manual, unreleased"| iPhone
-    PublicViewer -->|"/a/:id, no sign-in"| Vercel
 
     subgraph App["app/ -- React + Vite, no server of its own"]
-        Features["Features<br/>chat, observations, producer, artifacts"]
+        Features["Features<br/>chat, observations, producer, releases"]
         DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
         Features --> DataLayer
     end
@@ -51,8 +49,7 @@ flowchart TD
     GH --> EmbedFn
 
     App -->|sign in| Auth
-    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources, artifact share/delete"| DB
-    PublicViewer -->|"get_public_artifact(id) -- the one anon-reachable RPC, see 0027"| DB
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources"| DB
     App <-->|"upload a photo on attach; read one back through a 5-minute signed URL"| Storage
     ChatFn -->|"signed URL under the caller's own JWT, then the bytes"| Storage
     App -->|"user message, accept: text/event-stream"| ChatFn
@@ -85,7 +82,7 @@ flowchart TD
   with the menu's own arithmetic beside it in `labelDrag.ts` and
   `menuOpenness.ts`, because a pointer gesture is miserable to test
   through a DOM and trivial to test as a function. Features (chat,
-  observations, producer data, artifacts) hold the components and their
+  observations, producer data, releases) hold the components and their
   hooks; `app/src/data/` holds every table, view and RPC call the client
   makes, typed against the generated schema in `data/schema.ts`; `lib/`
   is platform and pure logic both -- the Supabase client itself, native
@@ -198,13 +195,19 @@ flowchart TD
   per-request sits in that prefix, since the cache matches exact text and
   one volatile token makes every request a miss that also pays the write
   premium (see [`0033`](decisions/0033-what-goes-in-the-cached-prompt.md)).
-- **The app has one signed-out-reachable surface now.** A shared artifact
-  link (`/a/:id`) calls `get_public_artifact(id)` directly from the
-  browser -- no Edge Function, no session -- the first and only place
-  `anon` can reach Postgres at all, deliberately a narrow function lookup
-  by exact id rather than an RLS grant to `anon` (a table grant could be
-  turned into a listable collection; a function can't) -- see
-  [`docs/decisions/0027`](decisions/0027-public-artifact-links.md).
+- **Nothing reaches Postgres without a credential.** The app and the
+  three browser-callable functions forward the producer's own JWT; the
+  three `pg_cron` callers present a Vault-stored `X-Cron-Secret` and run
+  as `service_role`; a migration is applied by hand after its PR merges.
+  `anon` has no grant, no policy and no function into this database.
+  That held for every version of this diagram but one: for four days a
+  shared artifact link (`/a/:id`) read through `get_public_artifact(id)`
+  with no session at all, and it went on 2026-09-21 with the feature it
+  served. What made *that* safe is the part worth keeping for the next
+  public-facing thing, whenever one is asked for -- a narrow function
+  taking one id, never an RLS grant to `anon`, because a table grant can
+  be turned into a listable collection and a function lookup can't (see
+  [`docs/decisions/0027`](decisions/0027-public-artifact-links.md)).
 - **The app's own direct connection to the database covers more ground
   than it used to** -- auth, the producer-id lookup, conversation-history
   logging (`docs/decisions/0011`), the `app_status` poll
@@ -262,6 +265,91 @@ flowchart TD
   for exactly where it runs and its one real fragility.
 
 ## History
+
+### 2026-09-21 -- before the artifacts feature was removed ([0027](decisions/0027-public-artifact-links.md))
+
+This diagram had a signed-out actor in it. A visitor holding a shared
+link loaded the app from Vercel at `/a/:id` and read Postgres through
+`get_public_artifact(id)` -- the only arrow into this database that
+carried no session, and the only reason `anon` appeared here at all.
+The pictures behind those links came from the chat drawing SVG inline
+([0021](decisions/0021-chat-renders-svg-graphics.md)). Both were
+removed in full rather than replaced: the producer uses a phone, the
+next client for it is native, and a page a stranger opens in a browser
+is the one capability that does not come along. `0027`'s withdrawal
+note has the rest of the reasoning.
+
+```mermaid
+flowchart TD
+    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
+    CI["CI on every PR<br/>db-lint: fresh local Postgres + schema/doc checks<br/>web: tsc, oxlint, vitest"]
+    Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
+    Browser["Producer's browser"]
+    iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
+    PublicViewer["Signed-out visitor<br/>with a shared link"]
+
+    GH -->|every PR touching migrations| CI
+    GH -->|"push to main: auto-deploy"| Vercel
+    Browser -->|loads| Vercel
+    GH -->|"cap sync + Xcode build, manual, unreleased"| iPhone
+    PublicViewer -->|"/a/:id, no sign-in"| Vercel
+
+    subgraph App["app/ -- React + Vite, no server of its own"]
+        Features["Features<br/>chat, observations, producer, artifacts"]
+        DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
+        Features --> DataLayer
+    end
+    Vercel --> App
+    iPhone -->|"runs a bundled copy of dist/ -- no Vercel at runtime"| App
+
+    subgraph Supabase["Supabase project: growdybase"]
+        Auth["Auth -- Google Sign-In<br/>web: OAuth redirect; iOS: native ID token"]
+        DB["Postgres<br/>tables + views, RLS-scoped"]
+        Storage["Storage: observation-photos<br/>private bucket, tenancy on the object path"]
+        Cron["pg_cron + pg_net<br/>1 hourly + 2 six-hourly schedules"]
+        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_GROWDY_KEY, VOYAGE_API_KEY"]
+        AddWeatherFn["Edge Function: add-weather-source"]
+        IngestFn["Edge Function: ingest-weather"]
+        SyncFn["Edge Function: sync-scheduled-weather"]
+        ScanFn["Edge Function: scan-conversations-for-observations"]
+        EmbedFn["Edge Function: embed-scheduled-memory"]
+    end
+
+    GH -->|"migration files, applied manually after merge"| DB
+    GH -->|"function code, deployed manually after merge"| ChatFn
+    GH --> AddWeatherFn
+    GH --> IngestFn
+    GH --> SyncFn
+    GH --> ScanFn
+    GH --> EmbedFn
+
+    App -->|sign in| Auth
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources, artifact share/delete"| DB
+    PublicViewer -->|"get_public_artifact(id) -- the one anon-reachable RPC, see 0027"| DB
+    App <-->|"upload a photo on attach; read one back through a 5-minute signed URL"| Storage
+    ChatFn -->|"signed URL under the caller's own JWT, then the bytes"| Storage
+    App -->|"user message, accept: text/event-stream"| ChatFn
+    ChatFn -->|"the answer as it is composed -- SSE; one JSON object for a caller that didn't ask"| App
+    ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    ChatFn <-->|"messages + read-only SQL + write proposals + memory search + phenology + web access tools <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    ChatFn -->|"live grapevine phenology lookup"| USANPN["USA National Phenology<br/>Network API"]
+    ChatFn -->|"embed a search query"| Voyage["Voyage AI (via MongoDB)<br/>embeddings API"]
+    App -->|"add a Tempest source"| AddWeatherFn
+    AddWeatherFn <-->|"caller's forwarded JWT"| DB
+    AddWeatherFn -->|"resolve station ID -> device ID"| Tempest["Tempest Weather API"]
+    App -->|"manual sync"| IngestFn
+    IngestFn <-->|"caller's forwarded JWT"| DB
+    IngestFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, hourly"| SyncFn
+    SyncFn <-->|"service_role -- every enabled source at once"| DB
+    SyncFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, every 6h"| ScanFn
+    ScanFn <-->|"service_role -- every unscanned conversation"| DB
+    ScanFn -->|"classify transcript -> candidate observations"| Anthropic
+    Cron -->|"X-Cron-Secret, every 6h"| EmbedFn
+    EmbedFn <-->|"service_role -- every unembedded row"| DB
+    EmbedFn -->|"embed memory entries + conversation chunks"| Voyage
+```
 
 ### 2026-09-19 -- before photos had somewhere to live ([0030](decisions/0030-every-observation-through-one-queue.md))
 

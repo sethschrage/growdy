@@ -1,6 +1,6 @@
 # 0027. Sharing a chat graphic via an unguessable public link
 
-**Status:** accepted
+**Status:** withdrawn 2026-09-21 -- the feature is removed outright, not replaced; see "Withdrawn (2026-09-21)" below
 
 ## Context
 
@@ -31,3 +31,13 @@ The real design question isn't the mechanism (Postgres already has cryptographic
 This ADR originally shipped with links as permanent and un-revocable, naming a `delete` policy for the owner as the fix "if revocation becomes a real need." The panel promised for `0.14.0` (`ArtifactsView`) is that real need -- a producer browsing everything they've ever shared with no way to remove anything is a real gap, not a deferred nice-to-have, once they can actually see the list. Added directly: `delete` RLS for the owner (`user_can_access_producer(producer_id)`, the same check every other policy on this table already uses) and a `grant delete ... to authenticated`. No new risk surface -- the same owner check that already governs `select`/`insert` now also governs `delete`.
 
 `ArtifactsView` itself reuses `ProducerDataView`'s modern visual language (`.pdv-*`) rather than the pixel-art chat chrome, per the original roadmap note for this panel ("a second visual language... deliberately distinct") -- concretely, this means `ArtifactsView` lives inside a `.pdv-overlay` and its detail view reuses `.pdv-detail-*` (the same bottom-sheet/modal `PlantingDetail` already established), rather than inventing a third design language.
+
+## Withdrawn (2026-09-21): removed, not replaced
+
+All of it is gone -- the `artifacts` table, `get_public_artifact`, the `/a/:id` route, `PublicArtifactView`, `ArtifactsView` and the share action that fed them. Nothing took their place: no flag, no login-gated successor, no private saved-graphics panel holding the shape open. The drawing half this ADR was built on top of went in the same pass (`0021`), since a picture nothing can save or share is just the chat bubble it was capped to fit.
+
+The reason is the client. This ADR's whole value was a page someone with no Growdy account and no app installed could open in a browser, and the app the producer actually uses is on a phone -- now heading for a native iOS client rather than the Capacitor shell `0029` wrapped. A signed-out web page is precisely the capability that does not come along: sharing one would mean keeping a web build alive for a single feature the producer has never once reached from the app they open. Carrying it forward is a decision to maintain two clients, and that is a bigger commitment than the feature has earned.
+
+The evidence agrees with the architecture. Two artifacts were ever saved -- both untitled, 2026-09-17 and 2026-09-18, both written while this ADR was being built -- and the producer's own verdict on them was that they "aren't good anyways." So the widest door this schema has ever opened was opened for something nobody used twice. If drawing a picture turns out to be what a question really needs, it gets built again for the client that exists then, rather than kept alive as a stub in the meantime.
+
+What survives is the mechanism, not the feature. A narrow `SECURITY DEFINER` function taking one id and returning one row -- never an RLS grant to `anon`, which filters rows and not query shape -- is still the bar for the next public-facing thing this project builds, and the Decision above is still where that reasoning is written down.

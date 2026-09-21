@@ -183,10 +183,10 @@ export function SearchIcon({ size = 20, className }: IconProps) {
 }
 
 /**
- * Attach a photo. Distinct from PictureIcon on purpose: one of these
- * takes a picture and the other opens the ones already saved, and the
- * old set used a single icon for both -- the same symbol in the compose
- * bar and in the features menu, meaning two different things.
+ * Take a photo. Distinct from PictureIcon on purpose: one of these
+ * opens the camera and the other opens the pictures already saved, and
+ * the old set used a single icon for both -- which is unreadable now
+ * that the two sit side by side in the same photo menu.
  */
 export function CameraIcon({ size = 20, className }: IconProps) {
   return (
@@ -197,7 +197,7 @@ export function CameraIcon({ size = 20, className }: IconProps) {
   )
 }
 
-/** Shared artifacts: a picture that has been saved. */
+/** Choose a photo from the library: a picture that is already saved. */
 export function PictureIcon({ size = 20, className }: IconProps) {
   return (
     <Icon size={size} className={className}>

@@ -1,74 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fake } from '@/test/fakeSupabase'
-import {
-  createArtifact,
-  deleteArtifact,
-  fetchPublicArtifact,
-  listArtifacts,
-} from '@/data/artifacts'
 import { fetchMaintenanceStatus } from '@/data/appStatus'
 import { confirmWrite, declineWrite } from '@/data/writes'
 import { sendChatMessage } from '@/data/chat'
 
-// The small modules together, rather than four files of three tests.
+// The small modules together, rather than three files of three tests.
 
 vi.mock('@/lib/supabaseClient', async () => ({
   supabase: (await import('@/test/fakeSupabase')).fakeClient,
 }))
 
 beforeEach(() => fake.reset())
-
-describe('artifacts', () => {
-  it('lists saved graphics newest first', async () => {
-    fake.returns([{ id: 'a1', title: null, content: '<svg/>', created_at: '2026-09-19' }])
-    expect(await listArtifacts()).toHaveLength(1)
-    expect(fake.only().chain).toContainEqual(['order', ['created_at', { ascending: false }]])
-  })
-
-  it('saves the raw model output, not the sanitized copy', async () => {
-    // 0027: every read sanitizes, so storing a cleaned copy would be a
-    // safety claim nobody re-checks.
-    fake.returns({ id: 'a2' })
-    const raw = '<svg onload="alert(1)"><rect/></svg>'
-    expect(
-      await createArtifact({ producerId: 'producer-1', conversationId: 'c1', content: raw }),
-    ).toBe('a2')
-    const [[inserted]] = fake.chainArgs('insert') as [[{ content: string; producer_id: string }]]
-    expect(inserted.content).toBe(raw)
-    expect(inserted.producer_id).toBe('producer-1')
-  })
-
-  it('refuses to report a share that did not save', async () => {
-    fake.returns(null)
-    await expect(
-      createArtifact({ producerId: 'producer-1', conversationId: null, content: '<svg/>' }),
-    ).rejects.toThrow('The graphic was not saved.')
-  })
-
-  it('deletes one artifact', async () => {
-    await deleteArtifact('a1')
-    expect(fake.only().chain).toContainEqual(['eq', ['id', 'a1']])
-  })
-
-  it('reads a shared artifact through the one anon-reachable function', async () => {
-    // 0027: a signed-out visitor holding a link can reach this and
-    // nothing else, so it is an RPC rather than a table read.
-    fake.returns([{ title: 'Row map', content: '<svg/>', created_at: '2026-09-19' }])
-    const artifact = await fetchPublicArtifact('a1')
-    expect(artifact?.title).toBe('Row map')
-    const query = fake.only()
-    expect(query.kind).toBe('rpc')
-    expect(query.name).toBe('get_public_artifact')
-    expect(query.args[0]).toEqual({ p_id: 'a1' })
-  })
-
-  it('returns null for a link that resolves to nothing', async () => {
-    // Revoked or mistyped. The caller renders "not found" -- this is not
-    // an error condition.
-    fake.returns([])
-    expect(await fetchPublicArtifact('gone')).toBeNull()
-  })
-})
 
 describe('app status', () => {
   it('reads the maintenance flag and its message', async () => {

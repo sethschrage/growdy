@@ -3,10 +3,9 @@ import { createObservationCandidate } from '@/data/observations'
 import type { PhotoLocation } from '@/lib/photo'
 
 // A fenced ```log-observation block in the model's own reply becomes a
-// real "Log this" button on that message -- the third instance of the
-// pattern SvgGraphic (0021) and ConfirmWriteCard (0022) already
-// established, and deliberately the same shape rather than a new
-// mechanism.
+// real "Log this" button on that message -- the same pattern
+// ConfirmWriteCard (0022) established, and deliberately the same shape
+// rather than a new mechanism.
 //
 // Why this exists: logging an observation used to mean leaving the
 // conversation for a separate form, or going through the write tool's
@@ -69,7 +68,7 @@ export function LogObservationCard({
   // the text rather than a button that can't do anything, same fallback
   // ConfirmWriteCard uses.
   if (!draft) {
-    return <pre className="chat-graphic-fallback">{code}</pre>
+    return <pre className="chat-block-fallback">{code}</pre>
   }
 
   // Captured as plain values so handleLog doesn't close over `draft`
