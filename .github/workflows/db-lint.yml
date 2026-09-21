@@ -45,7 +45,20 @@ jobs:
       - name: Check for migration changes
         id: changes
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^supabase/migrations/'; then
+          # The diff is checked separately from the grep, because the two
+          # failures mean opposite things and this used to conflate them.
+          # `grep -q` exits non-zero on no match AND on no input, so a
+          # git diff that failed -- the base ref not fetched is the easy
+          # way to see it -- took the else branch and answered "no
+          # migrations changed". Every database-backed check below is
+          # gated on that answer, so the whole database half of CI
+          # skipped itself and the board went green. A check that cannot
+          # tell whether it should run must not answer "no".
+          if ! changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD"); then
+            echo "::error::could not diff against origin/${{ github.base_ref }} -- refusing to guess whether migrations changed"
+            exit 1
+          fi
+          if printf '%s\n' "$changed" | grep -q '^supabase/migrations/'; then
             echo "migrations_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "migrations_changed=false" >> "$GITHUB_OUTPUT"

@@ -13,6 +13,8 @@ Auto-merge is on and there's no per-PR review, so this is the last point
 anyone looks. "None" is the right answer for most PRs -- but answer it,
 don't delete it. See CONTRIBUTING.md, Workflow step 4.
 
+- AGENTS.md (does it still describe the project a new agent arrives in?)
+- CONTRIBUTING.md (did this change a rule, or make one untrue?)
 - README.md (Stack table still accurate?)
 - docs/architecture.md (diagram still right? old one moved to ## History?)
 - docs/data-model.md
