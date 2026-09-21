@@ -227,10 +227,15 @@ changed over time shouldn't require `git log -p`.
 
 - Live in `supabase/functions/<name>/index.ts`, one function per
   directory.
-- Same discipline as migrations: written and reviewed in a PR first,
-  deployed to the live Supabase project only after merge -- never
-  before, and never edited directly on the live project outside of a
-  reviewed change to the file in this repo.
+- Written and reviewed in a PR first, deployed to the live Supabase
+  project after merge, and never edited directly on the live project
+  outside of a reviewed change to the file in this repo.
+- Deploying *before* the merge is the one deviation this process allows,
+  and only when the live function is the only place the change can be
+  verified. Workflow step 7 has the conditions, all four of them, and
+  only step 7 has them: a second copy is a second thing to keep true,
+  and this section restating the rule as absolute is how the file spent
+  a release contradicting itself. Migrations get no such case.
 - Any secret a function needs (an API key, for example) is set
   directly in Supabase's Edge Function secrets, never committed to the
   repo, never passed through a migration.
@@ -308,7 +313,7 @@ existed, so a PR touching only the client was auto-merged on the
 strength of a schema check that never looked at it.
 
 `.github/workflows/db-lint.yml` starts a local Supabase stack, applying
-every migration from scratch, and runs three checks against the database
+every migration from scratch, and runs four checks against the database
 that produces. A migration that fails to apply cleanly fails the PR on
 its own.
 
@@ -353,6 +358,19 @@ corrected file printed, ready to paste. `node
 scripts/check-schema-docs.mjs --update-baseline` writes it directly if
 you have a local stack running. That is what makes it a ratchet rather
 than a cap: the number falls and then stays down.
+
+`scripts/check-rls-shape.mjs` reads the policies on that same database
+and fails one that passes a row's own column to a tenancy helper --
+`using (private.user_can_access_producer(producer_id))` -- instead of
+comparing against the caller resolved once. Both are correct; the first
+runs the helper per row, and on `weather_observations` at 143,588 rows
+that was 1,500ms against 15ms, which is how a weather question came to
+spend eight model turns working around a statement timeout
+([`0036`](docs/decisions/0036-rls-predicates-are-evaluated-once.md)).
+Nothing else here would catch it: `db lint` reads PL/pgSQL bodies,
+Supabase's initplan advisor doesn't fire on a `SECURITY DEFINER` helper,
+and the same policy on a four-row table is free -- so it looks fine until
+a table grows.
 
 The stack-dependent steps are skipped internally for a PR that touches
 no migration, but the workflow itself still runs -- a required check has
@@ -424,9 +442,14 @@ isn't one release per feature PR -- but a real feature never sits
 unreleased (and unannounced in the app) waiting for enough small stuff
 to pile up alongside it. When it's time to cut one:
 
-1. Check `README.md`, this file, `docs/data-model.md`, and any ADR with a
+1. Check `README.md`, this file, `docs/architecture.md`,
+   `docs/data-model.md`, `docs/monitoring.md`, and any ADR with a
    placeholder or "not yet decided" left in it against what actually
-   shipped in the batch -- not just the CHANGELOG entry. A
+   shipped in the batch -- not just the CHANGELOG entry. That is step
+   4's list plus this file, and it cannot be shorter than step 4's:
+   with no per-PR review this is the only pass that catches what step 4
+   skipped, and a backstop that reads fewer docs than the gate it backs
+   up misses exactly what got through. A
    fast-moving batch of PRs reliably leaves the higher-level docs
    describing an earlier version of the project than the one about to
    be tagged; catch that here; don't let it accumulate. Check Supabase's
