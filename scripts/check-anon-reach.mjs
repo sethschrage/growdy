@@ -56,6 +56,8 @@ export const EXPOSED_SCHEMAS = ['public', 'graphql_public']
 export const ANON_MAY_REACH = {
   'function public.rls_auto_enable()':
     "Supabase's own platform-injected event trigger, not this project's function. Recorded as benign in docs/monitoring.md since the 2026-09-17 advisor snapshot, and not ours to revoke.",
+  'function graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb)':
+    "Supabase's own GraphQL entrypoint, owned by supabase_admin and not ours to revoke. Anonymous callers reach it by design, the same way they reach PostgREST, and it is SECURITY INVOKER -- so every query through it is RLS-scoped exactly as the equivalent REST call would be. Named here rather than excluded by schema, because 'it is in graphql_public' is a weaker reason than 'it is this function and here is why'.",
   'table public.app_status SELECT':
     'The maintenance flag. app/src/app/App.tsx calls useAppStatus() before it decides whether there is a session, so a signed-out visitor polls it -- and the block screen exists for exactly the people looking at a broken app.',
 }
