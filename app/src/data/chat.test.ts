@@ -149,6 +149,22 @@ describe('streamChatMessage', () => {
     expect(body.photoTakenOn).toBe('2026-09-18')
   })
 
+  it('omits the photo fields entirely when this turn is not about a photo', async () => {
+    // The function itself would not notice -- it tests `photoPath` for
+    // truthiness, so a null reads the same as a missing key. This pins
+    // the wire shape rather than the behaviour, which is the point:
+    // `app/src/data/` is currently the only specification of what the
+    // Edge Functions accept (0038), and a second client has to send the
+    // same body. A test is the only part of that spec that can be wrong
+    // out loud.
+    fetchMock.mockResolvedValue(sseResponse([frame({ type: 'done', text: '' })]))
+    await streamChatMessage({ messages }, () => {})
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect('photoPath' in body).toBe(false)
+    expect('photoTakenOn' in body).toBe(false)
+  })
+
   it('falls back to a buffered answer when the stream will not load', async () => {
     // The iOS shell's WebView rejected a streamed body with a bare
     // "Load failed" while the function answered 200, did the work and

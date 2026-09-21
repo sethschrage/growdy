@@ -17,33 +17,6 @@ export type ChatRequest = {
   photoTakenOn?: string | null
 }
 
-// Throws with the server's own message rather than the transport's.
-// A function that rejects a request explains why in its JSON body, and
-// `error.message` at this level is only ever "Edge Function returned a
-// non-2xx status code" -- true, and useless to the producer reading it.
-export async function sendChatMessage(request: ChatRequest): Promise<ChatReply> {
-  const { data, error } = await supabase.functions.invoke('chat', {
-    body: {
-      messages: request.messages.map(({ role, content }) => ({ role, content })),
-      ...(request.photoPath ? { photoPath: request.photoPath } : {}),
-      ...(request.photoTakenOn ? { photoTakenOn: request.photoTakenOn } : {}),
-    },
-  })
-
-  if (error) {
-    let message = error.message
-    try {
-      const body = await (error as { context: Response }).context.json()
-      if (body?.error) message = body.error
-    } catch {
-      // The context wasn't a JSON response -- fall back to error.message.
-    }
-    throw new Error(message)
-  }
-
-  return data as ChatReply
-}
-
 // What the function reports while it works. Each of these corresponds
 // to something that actually happened -- a model turn, a named tool, a
 // piece of the answer, what it cost -- rather than to a timer.

@@ -15,9 +15,16 @@ supabase/.temp
 # that renders real components against the real stylesheet so their
 # geometry can be read with getBoundingClientRect instead of guessed at
 # from a screenshot. The zz- prefix marks those as scratch: they are how
-# a number gets checked, not part of the app, and they must never reach a
-# build. Named rather than gitignoring the whole directory, which holds
-# the icons and the manifest.
+# a number gets checked, not part of the app. Named rather than
+# gitignoring the whole directory, which holds the icons and the
+# manifest.
+#
+# This line only keeps them out of git. That is enough for Vercel, which
+# builds from git, and it is not enough for the phone: a local
+# `npm run build` copies public/ wholesale and `npx cap sync` carries the
+# result into the iOS bundle, so the harnesses shipped in the only build
+# a producer ever installs. Keeping them out of a build is a build's job,
+# and app/vite.config.ts does it.
 app/public/zz-*
 
 # Screen recordings and screenshots dropped in for reference. They are

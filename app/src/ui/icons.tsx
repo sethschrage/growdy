@@ -50,16 +50,6 @@ function Icon({
   )
 }
 
-/** Send. */
-export function ArrowIcon({ size = 18, className }: IconProps) {
-  return (
-    <Icon size={size} className={className}>
-      <path d="M4 12h14" />
-      <path d="M12 6l6 6-6 6" />
-    </Icon>
-  )
-}
-
 /**
  * Send: up, not right.
  *
