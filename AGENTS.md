@@ -11,6 +11,38 @@ and does nothing but point here, because Claude Code auto-loads that
 filename specifically -- if another tool wants its own entry point, add
 a pointer the same way rather than a second copy of the rules.
 
+## Two clients, one backend
+
+Before any of the process below means anything: growdy is being rebuilt
+around a native client, and which client you are working in decides
+which of these rules reach you.
+
+- **The iOS app is being rebuilt as a native SwiftUI client, and it is
+  the full-featured one. New feature work goes there.** It does not
+  exist in this repo yet -- what is on the producer's phone today is
+  the Capacitor shell in `app/ios/`, wrapping the same React build.
+  Where the SwiftUI project lives, how it is tested, how it reaches the
+  phone: none of that is decided. If you are the one deciding it, that
+  is an ADR, not a preference you act on quietly.
+- **The React app in `app/` is frozen as a desktop surface.** It stays
+  deployed and working -- reviewing vineyard data, history, the
+  producer tree on a real screen -- and takes no new features. Keeping
+  it running is in scope; growing it is not.
+- **Everything that is not a user interface is shared and stays where
+  it is**: the Postgres schema and its RLS, the six Edge Functions, the
+  auth model, the prompts. That is most of the system, and a change
+  there is a change to both clients at once.
+
+[`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md) is the
+decision and the measurements behind it; read it before proposing
+anything that assumes a single client. It also names a debt nothing
+else has picked up: the API contract between the clients and the Edge
+Functions has never been written down, because with one client the
+client *was* the specification. `app/src/data/` is still the only
+description of the SSE event types, the RPC signatures and the error
+shapes a second client has to match, and reading TypeScript is not a
+specification anyone can hold Swift to.
+
 ## The one that keeps getting missed
 
 **Update the base docs in the same PR as the change.** Before opening
@@ -26,6 +58,14 @@ any PR, ask of each:
 - `docs/data-model.md` -- does it still match the schema?
 - `docs/monitoring.md` -- did this add something that can fail quietly?
 - `docs/decisions/` -- does this contradict or amend an existing ADR?
+- `AGENTS.md` (this file) and [`CONTRIBUTING.md`](CONTRIBUTING.md) --
+  did this change a rule, or change the thing a rule describes? These
+  two *are* the process, and nothing mechanical checks prose: a rule
+  that has quietly stopped being true reads exactly like one that
+  works. They were on no staleness list at all until 2026-09-21, and it
+  showed: the `--no-verify-jwt` hazard below lived only in
+  `docs/monitoring.md` and a commit message, and this file managed not
+  to mention that the project has a client.
 
 For most PRs every answer is no, and that takes a few seconds. The PRs
 where the answer is yes are exactly the ones nobody will remember a
@@ -33,13 +73,23 @@ month later. A change to what the project *is* -- a new client, a new
 deploy path, a new external dependency -- has almost certainly made at
 least one of these wrong.
 
-Part of this is now checked on every PR
-([`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md)):
-dead links and anchors, ADR numbering and collisions, the Edge Functions
-and tables the diagrams draw, the scheduled jobs the docs name, the
-dashboard's columns. That covers pointers, counts and names -- the
-mechanical half. Whether a paragraph is still *true* is still on you,
-and it is the half that matters.
+Part of this is checked in CI
+([`0035`](docs/decisions/0035-what-the-docs-are-checked-against.md)) --
+but only part of it runs on every PR, and the difference is worth
+knowing before you trust a green board. `scripts/check-docs.mjs` needs
+no database and reports on everything: dead links and anchors, ADR
+numbering and collisions, the Edge Functions the architecture diagram
+draws, the migration filename convention, a CHANGELOG entry per
+released tag. The rest -- the tables the ER diagram draws, the
+scheduled jobs the docs name, the dashboard's columns -- is
+`scripts/check-docs-db.mjs`, which queries a Postgres built from the
+migrations and therefore runs **only when the PR touches
+`supabase/migrations/`**. A docs-only PR can delete a table from the ER
+diagram or rename a cron job and go fully green.
+
+That covers pointers, counts and names -- the mechanical half. Whether
+a paragraph is still *true* is still on you, and it is the half that
+matters.
 
 This matters more here than in most repos because auto-merge is on and
 there is no per-PR review. Nobody is going to catch it after you.
@@ -71,25 +121,42 @@ there is no per-PR review. Nobody is going to catch it after you.
   whether the chat is told about it, what happens to existing rows --
   none of it is inferable from the request, and a plausible guess is
   worse than a question, because it ships. You will not get far without
-  asking: a hook refuses the write outright, and CI fails the PR after
-  it. Neither can tell whether the answers came from the person or from
-  you, which is exactly why the asking is the point.
+  asking: in Claude Code a `PreToolUse` hook refuses the write outright
+  -- it is configured in `.claude/settings.json`, so another tool will
+  not fire it -- and CI fails the PR either way. Neither can tell
+  whether the answers came from the person or from you, which is
+  exactly why the asking is the point.
 - **Migrations wait for the merge. Edge Functions sometimes can't.**
   Applying a migration before review is a schema change nobody agreed
   to. Deploying a *function* early is allowed only when the live
   function is the only place the change can be verified -- caching,
   streaming, or a production failure -- and then the PR goes up the
   same session saying so. `CONTRIBUTING.md` step 7 has the conditions.
+  **Every deploy carries `--no-verify-jwt`** (or `verify_jwt: false`
+  through the Supabase MCP server, whose default is `true`). All six
+  functions run with the gateway check off and authorize themselves;
+  deploying without the flag turns it back on, which 401s the CORS
+  preflight and every `pg_cron` caller, and nothing in CI or the
+  advisors can see it. Step 7 has the command and the two `curl` checks
+  that say which state you are actually in.
 - **Tests are not optional work.** A bug fix ships a test that fails
   without it; a new function in `app/src/data/` or `app/src/lib/` ships
   unit tests; touching an untested file brings it under test in the
-  same PR. `npm test` in `app/`, and CI runs it on every PR. The full
-  rules, including what deliberately isn't tested, are in
-  `CONTRIBUTING.md` under "Tests".
+  same PR. `npm test` in `app/`, and CI runs it on every PR. Those
+  rules and that command are the React client's; the native client has
+  no testing story yet, and inventing one silently is the thing not to
+  do (see "Two clients, one backend"). The full rules, including what
+  deliberately isn't tested, are in `CONTRIBUTING.md` under "Tests".
 
 ## Verify, don't assume
 
-Claims about what the app does get checked against `app/src/`, not
-against an ADR or a PR title -- those describe intent, and intent and
-shipped code have diverged here before. The same goes for anything
-you're about to write in a doc: if you can run it, run it.
+Claims about what the app does get checked against the source of the
+client you are making the claim about -- `app/src/` for the React app,
+the native client's own source once there is one -- not against an ADR
+or a PR title, which describe intent, and intent and shipped code have
+diverged here before. Reading React to establish what the native client
+does is that same mistake wearing a new hat: after
+[`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md) they are
+two implementations, and only the API underneath them is shared. The
+same goes for anything you're about to write in a doc: if you can run
+it, run it.

@@ -17,10 +17,12 @@
 
       status-bar-style black-translucent hands the app the whole screen,
       status bar included, so it is the app's job to keep content clear of
-      the notch and the home indicator. index.css already does that through
-      env(safe-area-inset-*) in eighteen places -- and those values read 0
-      in an ordinary Safari tab, where Safari's own bars occupy that space,
-      so this is the first time that work does anything at all.
+      the notch and the home indicator. The stylesheets under src/styles/
+      already do that with env(safe-area-inset-*), in each file that puts
+      something against an edge -- index.css itself is only the @import
+      list that orders them. Those values read 0 in an ordinary Safari
+      tab, where Safari's own bars occupy that space, so this is the first
+      time that work does anything at all.
     -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

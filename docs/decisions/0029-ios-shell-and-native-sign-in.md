@@ -1,6 +1,6 @@
 # 0029. Shipping growdy to iOS as a Capacitor shell, with native sign-in
 
-**Status:** accepted
+**Status:** the shell half is superseded by [0038](0038-the-phone-gets-its-own-client.md) -- the phone gets a client of its own rather than a wrapper around the web one. The native ID-token sign-in below is unaffected and carries into SwiftUI unchanged. The shell is still what runs on the producer's phone until the native client exists.
 
 ## Context
 
@@ -11,6 +11,8 @@ Two questions had to be answered, and only two. Everything else about this chang
 ## Decision
 
 **A Capacitor shell wrapping the existing web build, not a native rewrite.** The entire app -- chat, the write tool, artifacts, producer data -- is React that already works. A native rewrite would mean maintaining two implementations of every feature for the sake of a wrapper, and this project has exactly one developer. Capacitor keeps one codebase, keeps the Vercel deploy exactly as `0008` describes it, and leaves the native door open. `app/ios/` is a real Xcode project checked into the repo; `npx cap sync` copies `dist/` into it.
+
+**Superseded on 2026-09-21 by [0038](0038-the-phone-gets-its-own-client.md), and not because the reasoning above was wrong.** "Two implementations of every feature, with one developer" is still an accurate statement of the price, and `0038` pays it deliberately. What changed is that the other side of the ledger stopped being theoretical: 436 lines of client code exist for no reason except that a `WKWebView` will not behave like a phone, six of `0.15.0`'s forty-two commits went on keyboard and gesture fixes, and a probe run on the device established that `backdrop-filter` silently ignores an SVG filter, so the intended glass is unreachable in CSS at any price. A wrapper was the cheaper option while the cost of fighting it was unmeasured. `0038` has the measurements.
 
 **This does not replace the home-screen install that shipped alongside `0028`** (a web app manifest plus the Apple-specific meta tags Safari reads). That remains the right answer for anyone reaching growdy in a browser, and it keeps working untouched. The shell exists for what a manifest structurally cannot reach: the App Store, push notifications, and the native capabilities a field app will plausibly want -- camera for observations, geolocation, background sync. The two are layers, not alternatives, and the PWA install is the fallback for every producer who never installs from the Store.
 

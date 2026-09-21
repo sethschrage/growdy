@@ -23,6 +23,17 @@ filename; another tool wanting its own entry point gets another pointer,
 not another copy. `AGENTS.md` is a pointer too: when a rule here changes
 and `AGENTS.md` mentions it, both move in the same PR.
 
+One thing to know before reading the rest, because it changes what
+several of these rules cover: growdy has two clients. The iOS app is
+being rebuilt as a native SwiftUI client and becomes the full-featured
+one; the React app in `app/` is frozen as a desktop surface; everything
+below the user interface -- schema, RLS, Edge Functions, auth, prompts
+-- is shared by both
+([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md), and
+`AGENTS.md` opens with the short version). Sections here that are the
+React client's say so. None of them has a native equivalent yet, and
+the honest state of that is "not decided", not "the same as `app/`".
+
 ## Workflow
 
 1. Create a feature branch (`feat/...`, `fix/...`, `docs/...`).
@@ -47,8 +58,14 @@ and `AGENTS.md` mentions it, both move in the same PR.
    `README.md` (does the Stack table still describe what runs?),
    `docs/architecture.md` (does the diagram still show what talks to
    what? if not, move the old one to `## History` first -- see
-   "Diagrams"), `docs/data-model.md`, `docs/monitoring.md`, and any ADR
-   this change amends or contradicts. Most PRs make none of them stale
+   "Diagrams"), `docs/data-model.md`, `docs/monitoring.md`, any ADR
+   this change amends or contradicts, and [`AGENTS.md`](AGENTS.md) plus
+   this file (did this change a rule, or the thing a rule describes?).
+   The last two were on no staleness list until 2026-09-21, which is
+   why the `--no-verify-jwt` hazard in step 7 spent a release living
+   only in `docs/monitoring.md`: the process files are the one pair
+   nothing mechanical can check, since a stale rule reads exactly like
+   a working one. Most PRs make none of them stale
    and the answer is a quick no. The ones that do are exactly the PRs
    where nobody will remember a month later. A PR that changes what the
    project *is* -- a new client, a new deploy path, a new external
@@ -79,6 +96,58 @@ and `AGENTS.md` mentions it, both move in the same PR.
 7. **Only after merge**, apply any migration or deploy any Edge Function
    to the live Supabase project. The database (and its server-side
    functions) are never ahead of what's actually merged into `main`.
+
+   **A function deploy carries `--no-verify-jwt`, every time:**
+
+   ```
+   supabase functions deploy <name> --no-verify-jwt
+   ```
+
+   (add `--project-ref fostmbhpnhjzhulphxzp` if this machine's CLI
+   isn't linked; through the Supabase MCP server it is
+   `deploy_edge_function` with `verify_jwt: false`, whose default is
+   `true` and whose own description argues for leaving it that way.)
+
+   All six functions run with the gateway's JWT check off, for two
+   unrelated reasons -- `chat`, `ingest-weather` and
+   `add-weather-source` have to answer their own CORS preflight, and
+   `sync-scheduled-weather`, `scan-conversations-for-observations` and
+   `embed-scheduled-memory` are called by `pg_cron`, which is not a
+   signed-in user. Each one authorizes itself instead
+   ([`docs/monitoring.md`](docs/monitoring.md), section 6). Deploying
+   the ordinary way silently turns the check back on for that function,
+   which 401s the preflight for the first three and every cron run for
+   the last three -- and nothing catches it: the flag is a deploy-time
+   argument, not a value in this repo, so no migration, no CI job and
+   none of Supabase's advisors can see it.
+
+   Check that the flag stuck rather than assuming it did. For the three
+   a browser calls, an unauthenticated preflight is the discriminating
+   test -- the function answers `OPTIONS` itself with a 200, and a 401
+   means the gateway answered instead and every request from the app is
+   already dead:
+
+   ```
+   curl -sS -o /dev/null -w '%{http_code}\n' -X OPTIONS \
+     https://fostmbhpnhjzhulphxzp.supabase.co/functions/v1/<name>
+   ```
+
+   The three `pg_cron` calls have no preflight to read, so for those the
+   flag comes back from the Supabase API (`list_edge_functions` through
+   the MCP server) -- the only way to see it without deploying.
+
+   Worth running on all six either way: an unauthenticated `POST` must
+   answer 401, which is the function's *own* guard turning away a
+   stranger. That one reads the same whichever way the flag is set,
+   which is exactly why it is a separate check -- `chat` answered
+   anonymous POSTs on this project's Anthropic key from its first
+   deploy until 2026-09-21.
+
+   ```
+   curl -sS -o /dev/null -w '%{http_code}\n' \
+     -X POST https://fostmbhpnhjzhulphxzp.supabase.co/functions/v1/<name> \
+     -H "content-type: application/json" -d '{}'
+   ```
 
    **Except when the live function is the only place a change can be
    verified.** Some Edge Function work cannot be checked anywhere else:
@@ -205,6 +274,13 @@ assumptions about what's currently live.
 
 ## Frontend deploys
 
+This describes the React client in `app/`, which is one of two clients
+and the one that is frozen
+([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md)). How a
+native build reaches the producer's phone is a different path with
+almost no automation in it, and none of what follows applies to it --
+see Releases step 2 for what exists today.
+
 Unlike a migration or Edge Function, the app (`app/`) has no manual deploy
 step. Vercel is connected directly to this GitHub repo (see
 `docs/decisions/0008`): every push to `main` builds and deploys it to
@@ -230,6 +306,15 @@ changed over time shouldn't require `git log -p`.
 - Written and reviewed in a PR first, deployed to the live Supabase
   project after merge, and never edited directly on the live project
   outside of a reviewed change to the file in this repo.
+- **Deployed with `--no-verify-jwt`, all six of them, every time**:
+  `supabase functions deploy <name> --no-verify-jwt`. The CLI turns the
+  gateway's JWT check back on for anything deployed without it, and
+  these functions are built to run with it off and authorize
+  themselves, so the ordinary command breaks the CORS preflight for the
+  three a browser calls and 401s the three `pg_cron` fires. Step 7 has
+  the reasoning and the two `curl`s that tell you which state you are
+  in; that pairing is deliberate, since the check is worth nothing
+  except immediately after a deploy.
 - Deploying *before* the merge is the one deviation this process allows,
   and only when the live function is the only place the change can be
   verified. Workflow step 7 has the conditions, all four of them, and
@@ -269,11 +354,21 @@ problems that are worth fixing structurally instead. Concretely:
 
 ## Tests
 
-The client is tested with [Vitest](https://vitest.dev) and Testing
-Library, configured inside `app/vite.config.ts` so tests resolve and
-transform through the same pipeline the build uses. `npm test` in
-`app/` runs them; `npm run test:watch` while working. Tests sit beside
-what they test, as `x.test.ts` next to `x.ts`.
+Everything in this section is about the React client in `app/`. The
+native client has no testing story yet -- not a lax one, an absent one
+-- and the rules below do not silently extend to it: they name
+TypeScript paths, a Vitest config and an `npm` script, none of which a
+Swift target has. The principles underneath them (test where a wrong
+answer is silent, a regression test that has never been red is a guess)
+are worth carrying over; the mechanics have to be decided and written
+down here, in the same session they are settled, like any other process
+rule.
+
+The React client is tested with [Vitest](https://vitest.dev) and
+Testing Library, configured inside `app/vite.config.ts` so tests
+resolve and transform through the same pipeline the build uses. `npm
+test` in `app/` runs them; `npm run test:watch` while working. Tests
+sit beside what they test, as `x.test.ts` next to `x.ts`.
 
 The project reached `0.13.0` in its first seven days without a single
 test, and the cost showed up in one place repeatedly: the chat's scroll
@@ -312,6 +407,15 @@ runs the test suite for `app/`. None of those three ran in CI before it
 existed, so a PR touching only the client was auto-merged on the
 strength of a schema check that never looked at it.
 
+It runs with `working-directory: app`, and that boundary is the thing to
+hold on to: nothing outside `app/` is typechecked, linted or tested by
+anything. `supabase/functions/` is not -- which now means the six
+self-authorization checks that are the whole access control on those
+functions are held in place by nothing but memory -- and neither is
+`scripts/`, nor a native client when one exists. A PR entirely outside
+`app/` still gets two green required checks; they just had nothing in
+the diff to look at.
+
 `.github/workflows/db-lint.yml` starts a local Supabase stack, applying
 every migration from scratch, and runs four checks against the database
 that produces. A migration that fails to apply cleanly fails the PR on
@@ -336,9 +440,18 @@ architecture diagram draws the Edge Functions that exist, migrations
 follow the filename convention, every released tag has a CHANGELOG
 entry, and no component queries Supabase outside `app/src/data/`. It
 needs no database, so it reports on every PR --- including the ones that
-only touch docs. `scripts/check-docs-db.mjs` does the same against the
-schema: the ER diagram draws every table, the scheduled jobs are the
-documented ones, and the dashboard's cards name columns that exist.
+only touch docs.
+
+`scripts/check-docs-db.mjs` does the same against the schema -- the ER
+diagram draws every table, the scheduled jobs are the documented ones,
+the dashboard's cards name columns that exist -- but it queries the
+Postgres that `db-lint.yml` builds from the migrations, so **it runs
+only when the PR touches `supabase/migrations/`**. Same for `db lint`,
+`check-schema-docs.mjs` and `check-rls-shape.mjs`. Read that as the
+coverage it is: a docs-only PR can delete a table from the ER diagram,
+rename a cron job in `docs/monitoring.md` or point a dashboard card at
+a column that does not exist, and go entirely green. The two halves are
+worth keeping straight when a green board is the only review a PR gets.
 
 What those two deliberately do *not* do is require a doc to change when
 code changes. That is a gate rather than a check: it is satisfied by
@@ -378,6 +491,23 @@ to report on every PR or it blocks them forever. The checkers' own tests
 (`node --test scripts/*.test.mjs`) run unconditionally, because a regex
 that has quietly stopped matching looks exactly like a PR with nothing
 wrong in it.
+
+### What a green board does not mean
+
+Several rules in this file are enforced by nothing but whoever is
+reading it, and with no per-PR review that is worth naming rather than
+leaving to be discovered. Not checked by anything: that
+`app/src/data/schema.ts` was regenerated with the migration that made
+it stale (the file is generated, so a stale copy type-checks happily
+against a schema that no longer exists); that a destructive migration
+renamed instead of dropping; that a new table has RLS turned on at all,
+or what is granted to `anon`; that a function deploy carried
+`--no-verify-jwt`; that the PR title is a conventional commit, which
+squash merge turns into `main`'s commit subject; that auto-merge was
+actually requested; that a migration waited for the merge; that the
+release body has the shape Releases step 4 describes. Most of those are
+mechanizable and some should be mechanized. Until they are, a green
+board means the mechanical half passed, and nothing more.
 
 ## Architecture Decision Records (ADRs)
 
@@ -442,11 +572,11 @@ isn't one release per feature PR -- but a real feature never sits
 unreleased (and unannounced in the app) waiting for enough small stuff
 to pile up alongside it. When it's time to cut one:
 
-1. Check `README.md`, this file, `docs/architecture.md`,
-   `docs/data-model.md`, `docs/monitoring.md`, and any ADR with a
-   placeholder or "not yet decided" left in it against what actually
-   shipped in the batch -- not just the CHANGELOG entry. That is step
-   4's list plus this file, and it cannot be shorter than step 4's:
+1. Check `README.md`, this file, [`AGENTS.md`](AGENTS.md),
+   `docs/architecture.md`, `docs/data-model.md`, `docs/monitoring.md`,
+   and any ADR with a placeholder or "not yet decided" left in it
+   against what actually shipped in the batch -- not just the CHANGELOG
+   entry. That is step 4's list exactly, and it cannot be shorter:
    with no per-PR review this is the only pass that catches what step 4
    skipped, and a backstop that reads fewer docs than the gate it backs
    up misses exactly what got through. A
@@ -464,6 +594,47 @@ to pile up alongside it. When it's time to cut one:
    rebuilt from the commit being released**, or what was tested is an
    older app. `Infra` bullets have nothing producer-visible to exercise
    and need none.
+
+   That rebuild is an instruction nobody can follow without the
+   commands, so here they are. What the producer opens today is the
+   Capacitor shell, so from `app/`, on the commit being released:
+
+   ```
+   npm ci && npm run build
+   npx cap sync ios
+   xcodebuild -project ios/App/App.xcodeproj -scheme App \
+     -configuration Debug -destination id=<device-udid> \
+     -allowProvisioningUpdates build
+   ```
+
+   (`xcrun xctrace list devices` prints the connected phone's UDID.)
+
+   `npx cap sync` is the step that carries the release: the iOS bundle
+   holds its own copy of `dist/`, so skipping it builds the previous
+   release's web assets and exercises the wrong app. Signing needs a
+   development team even for the simulator -- a free personal Apple ID
+   is enough, and `DEVELOPMENT_TEAM` is committed
+   ([`0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)).
+   Installing it means running that scheme onto the connected phone
+   from Xcode: there is no App Store listing and no TestFlight, so a
+   cable is the only way a build reaches the producer.
+
+   **Who does which half.** Whoever has the Mac produces the build; the
+   producer exercises it, because an agent has neither the phone nor
+   the vineyard. So an agent's part of step 2 is to build from the
+   commit being tagged, confirm the bundle actually carries this
+   batch's code, and write into the release PR a numbered list -- one
+   row per bullet, what to do and what should happen -- for the
+   producer to work down and reply to. Their replies are what gets
+   recorded below. `0.15.0` (#240) is the worked example, including two
+   bullets that came out of the release because nobody could exercise
+   them.
+
+   All of that describes the shell. When the SwiftUI client
+   ([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md)) is
+   what the producer opens, the commands change and this step changes
+   with them in the same PR; the rule above them does not change at
+   all.
 
    Record it in the release PR as one line per bullet, saying what was
    observed rather than that it was tested: not "streaming works" but

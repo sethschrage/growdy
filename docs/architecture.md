@@ -6,26 +6,35 @@ and [`docs/decisions/`](decisions) (why each piece exists) with the one
 view neither gives on its own: what's deployed where, and what deploys
 itself versus what has to be deployed on purpose.
 
+Two clients sit over one backend, and only one of them is written. See
+[`0038`](decisions/0038-the-phone-gets-its-own-client.md) for why, and
+["The API contract"](#the-api-contract-and-where-it-does-not-live-yet)
+below for what the second one will need that nothing currently writes
+down.
+
 ```mermaid
 flowchart TD
     GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
     CI["CI on every PR<br/>db-lint: fresh local Postgres + schema/doc checks<br/>web: tsc, oxlint, vitest"]
     Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
     Browser["Producer's browser"]
-    iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
+    iPhone["Producer's iPhone<br/>build installed from Xcode, no App Store listing"]
 
     GH -->|every PR touching migrations| CI
     GH -->|"push to main: auto-deploy"| Vercel
     Browser -->|loads| Vercel
-    GH -->|"cap sync + Xcode build, manual, unreleased"| iPhone
+    GH -->|"npx cap sync + Xcode build, by hand, per release"| iPhone
 
-    subgraph App["app/ -- React + Vite, no server of its own"]
+    subgraph App["app/ -- React + Vite, no server of its own<br/>FROZEN as a desktop surface (0038)"]
         Features["Features<br/>chat, observations, producer, releases"]
         DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
         Features --> DataLayer
     end
     Vercel --> App
-    iPhone -->|"runs a bundled copy of dist/ -- no Vercel at runtime"| App
+    iPhone -->|"Capacitor shell runs a bundled copy of dist/ -- no Vercel at runtime"| App
+
+    Native["SwiftUI client -- becomes the full-featured one (0038)<br/>NOT WRITTEN YET: no Swift target in this repo"]
+    iPhone -.->|"replaces the shell when it exists"| Native
 
     subgraph Supabase["Supabase project: growdybase"]
         Auth["Auth -- Google Sign-In<br/>web: OAuth redirect; iOS: native ID token"]
@@ -39,6 +48,8 @@ flowchart TD
         ScanFn["Edge Function: scan-conversations-for-observations"]
         EmbedFn["Edge Function: embed-scheduled-memory"]
     end
+
+    Native -.->|"the same auth, the same functions, the same RLS -- nothing below the UI changes"| Supabase
 
     GH -->|"migration files, applied manually after merge"| DB
     GH -->|"function code, deployed manually after merge"| ChatFn
@@ -77,8 +88,29 @@ flowchart TD
 
 ## Reading this diagram
 
-- **The client is one box here and six folders inside it.** `app/` is the
-  shell -- the router, the burger menu, the login and dead-end screens --
+- **Two client boxes, and only one of them has folders yet.** The
+  SwiftUI box is empty on purpose: no Swift target exists in this repo,
+  and nothing is recorded about where one would live, how it would be
+  branched, or how it reaches the phone. That is real work nobody has
+  done, not an omission from this diagram. What is settled is the line
+  the dotted arrow draws -- it goes to the same Supabase project, the
+  same six functions, the same RLS, because
+  [`0038`](decisions/0038-the-phone-gets-its-own-client.md) moves the
+  interface and nothing underneath it.
+
+  One consequence is easy to miss until a Swift PR goes green having
+  checked nothing in the diff: **every mechanical check this repo runs
+  over client code is scoped to the React tree.**
+  `scripts/check-docs.mjs` enforces the boundary drawn below -- no
+  `supabase.from`/`.rpc` outside `app/src/data/`, no `supabase.storage`
+  outside `app/src/lib/photo.ts` -- by matching paths under `app/src/`,
+  and the `web` workflow sets `working-directory: app` for all three of
+  `tsc`, `oxlint` and `vitest`. Neither has a Swift equivalent, so the
+  second client starts with none of the enforcement the first one
+  accumulated.
+
+- **The frozen client is one box and six folders inside it.** `app/` is
+  the shell -- the router, the burger menu, the login and dead-end screens --
   with the menu's own arithmetic beside it in `labelDrag.ts` and
   `menuOpenness.ts`, because a pointer gesture is miserable to test
   through a DOM and trivial to test as a function. Features (chat,
@@ -121,8 +153,21 @@ flowchart TD
   app is the fourth and least automated: `dist/` is copied into
   `app/ios/` by `npx cap sync` and built in Xcode by hand, so a web
   change that has already auto-deployed to Vercel is still stale on a
-  phone until someone syncs and rebuilds. Nothing about that path is
-  live yet -- see [`0029`](decisions/0029-ios-shell-and-native-sign-in.md).
+  phone until someone syncs and rebuilds. That path is not automated,
+  but it is live and it is load-bearing -- the release gate turns on
+  it. Every release bullet is exercised on a build rebuilt from the
+  commit being tagged ([`CONTRIBUTING.md`](../CONTRIBUTING.md),
+  Releases step 2), because that build is what the producer opens. What
+  there is no listing for is the App Store, which needs Sign in with
+  Apple alongside Google -- see
+  [`0029`](decisions/0029-ios-shell-and-native-sign-in.md).
+
+  A fifth path arrives with the SwiftUI client and is not designed yet.
+  What is already known about it: no `npx cap sync`, because a native
+  client bundles no `dist/` and a web change can no longer reach the
+  phone by being copied into it; and App Store review sits inside the
+  path rather than beside it, which is the first deploy step in this
+  project that someone else can refuse.
 - **Six Edge Functions now, not one**, each scoped to exactly what it
   needs: `chat`, `ingest-weather`, and `add-weather-source` all build
   their own per-request Postgres client from the caller's forwarded JWT,
@@ -249,12 +294,45 @@ flowchart TD
   still *true* is the author's, and it is the half that matters (see
   [`0035`](decisions/0035-what-the-docs-are-checked-against.md)). Neither
   touches the live `growdybase` project.
-- **Every open tab also polls one small status check** -- a build-time
-  version stamp plus a manually-toggleable `app_status.maintenance`
-  flag -- and hard-blocks itself if either says something changed that
-  it doesn't know about yet: a newer deploy, or a maintenance window
-  flipped on before risky direct work against production. See
-  [`docs/decisions/0017`](decisions/0017-app-status-forces-refresh.md).
+- **One status check, two halves, and only one of them is a backend
+  contract.** `useAppStatus` polls both every thirty seconds and
+  hard-blocks the app if either fires ([`0017`](decisions/0017-app-status-forces-refresh.md)),
+  but they are not the same kind of thing and the split matters now
+  that there are two clients.
+
+  The **maintenance flag** is a row in `app_status` that a human
+  toggles before running risky SQL against production, and it is the
+  mechanism [`CONTRIBUTING.md`](../CONTRIBUTING.md) relies on to stop
+  every client cold while that work happens. It is a backend contract:
+  any client that does not poll it takes the guarantee away from the
+  producer using that client. A SwiftUI client has to poll it, and
+  nothing enforces that.
+
+  The **version stamp** is web delivery only. `VITE_APP_VERSION` is
+  stamped into `index.html` at build time and compared against a fresh
+  fetch of `/`, which catches a browser tab left open across a Vercel
+  deploy. It cannot work on a phone and does not today: inside the
+  Capacitor shell `/` *is* the bundled `index.html`, so the check
+  compares a build against itself and can never fire. In SwiftUI there
+  is no `/` at all, and the App Store's own version is what replaces
+  it.
+
+- **Where spatial data actually stands, since the map is what `0038`
+  is aimed at.** PostGIS has been installed since the first week
+  (`20260912212221_enable_postgis.sql`) and exactly three columns use
+  it, all of them points: `planting.location`, and
+  `photo_location` on both `observations` and
+  `observation_candidates`. `parcels`, `plots` and `plot_rows` carry no
+  geometry at all -- the parcels migration says so in its own header,
+  and it was a deliberate wait rather than an oversight. So a map has
+  coordinates to put dots on and nothing to draw a boundary from, and
+  the first spatial question a second client asks is one this repo has
+  never answered. A column existing is also not the same as it being
+  filled: when `photo_location` was added on 2026-09-18, all 3,004
+  `planting.location` values were still NULL, which is why photos were
+  made to carry their own coordinates rather than wait. Nothing here
+  designs the spatial model; it records the starting point so the docs
+  stop being silent about it.
 - **A fourth surface exists outside this diagram entirely**: a Claude
   Code Remote session and a claude.ai Artifact dashboard, watching
   `growdybase` and Vercel and pushing a phone notification when
@@ -264,7 +342,167 @@ flowchart TD
   [`docs/monitoring.md`](monitoring.md#9-the-live-dashboard-and-scheduled-check----and-where-it-actually-lives)
   for exactly where it runs and its one real fragility.
 
+## The API contract, and where it does not live yet
+
+Every arrow in the diagram above that leaves a client box crosses an
+API this project has never written down. That was not a mistake while
+there was one client, because the client *was* the specification:
+`app/src/data/` is the only place the request and response shapes
+exist, `app/src/data/schema.ts` is the only description of the database
+the client has, and a TypeScript type in one of those files is checked
+by `tsc` on every PR. Two clients break that. A Swift client cannot
+import a TypeScript type, cannot be checked against one, and will
+rediscover each shape by reading React and guessing --
+[`0038`](decisions/0038-the-phone-gets-its-own-client.md) names this as
+the first real debt the decision creates and says it should be paid
+before SwiftUI work starts.
+
+This section is the tracked gap, not the specification. The
+specification goes in `docs/api.md`, which does not exist yet. What it
+has to cover, because each of these is currently recoverable only by
+reading code closely:
+
+- **Content negotiation on `chat`.** Whether a caller gets a stream or
+  one JSON object is decided off the `accept` header
+  (`supabase/functions/chat/index.ts`), and nothing outside that file
+  says so. A client that omits the header silently gets the buffered
+  path and no progress at all.
+- **The SSE event types.** Seven of them -- `turn`, `tool`, `text`,
+  `thinking`, `usage`, `done`, `error` -- declared once in the function
+  and again in `app/src/data/chat.ts`, kept in sync by hand. Two rules
+  travel with them and live only in code comments: `thinking` must
+  never be appended to the answer the producer is reading, and `done`
+  is authoritative while the `text` deltas are not.
+- **Three different error shapes, one of which arrives after a 200.**
+  A rejected caller gets `{error}` with a 401; a crash before the
+  stream opens gets `{type:"error",message}` with a 500; a crash
+  *inside* the stream cannot use a status code at all, because 200 has
+  already been sent, so it arrives as an `error` event. A client that
+  treats HTTP status as the failure signal drops the third one
+  silently.
+- **Request bodies, and why they are narrow.** `chat` takes
+  `{messages:[{role,content}], photoPath?, photoTakenOn?}` and nothing
+  else; `add-weather-source` takes `{provider_id, name, station_id,
+  secret}` and returns `{id}`; `ingest-weather` takes `{source_id}` and
+  expects the caller to re-invoke while `done` is false.
+- **The client-callable RPC signatures**, and the PostgREST
+  conventions a client not using `supabase-js` has to reproduce --
+  starting with `max_rows = 1000` in `supabase/config.toml`, which
+  silently truncates rather than erroring.
+- **The auth model**, which is the part that carries over cleanly:
+  three functions deploy with `verify_jwt: false` and resolve the
+  caller to a producer themselves, so a bearer token from any client
+  works identically. `signInWithIdToken` needs no redirect and no
+  custom scheme, which is why this half of
+  [`0029`](decisions/0029-ios-shell-and-native-sign-in.md) outlives the
+  shell it was written for.
+
+Two of these are obligations rather than shapes, and a client that
+misses either breaks a backend feature without failing:
+
+- **The client writes conversation history; the server never does.**
+  Per [`0011`](decisions/0011-conversation-history.md) the client
+  generates the conversation id and upserts the whole transcript after
+  each message, with no involvement from the `chat` function. Two
+  `pg_cron` jobs read that table --
+  `scan-conversations-for-observations` and `embed-scheduled-memory` --
+  so a client that talks to `chat` and never writes `conversations`
+  gets no history screen *and* silently switches off observation
+  scanning ([`0030`](decisions/0030-every-observation-through-one-queue.md))
+  and producer memory ([`0023`](decisions/0023-producer-memory-via-embeddings.md))
+  for whoever uses it.
+- **Every client polls `app_status.maintenance`**, for the reason in
+  the bullet above: it is the only thing that can stop a client while
+  someone works directly against production.
+
 ## History
+
+### 2026-09-21 -- before the phone got its own client ([0038](decisions/0038-the-phone-gets-its-own-client.md))
+
+One client, drawn once, with two ways of delivering it: Vercel served
+the React build to a browser, and `npx cap sync` copied the same
+`dist/` into a Capacitor shell on the phone. `0038` ends that. The
+phone gets a SwiftUI client written from scratch and becomes the
+full-featured surface; `app/` is frozen as a desktop one. So the
+diagram stops being one client over two delivery paths and becomes two
+clients over one backend -- a different shape, not a relabelled box,
+which is why this one is down here rather than edited in place.
+
+The old iPhone node was also wrong on its own terms, and it stayed
+wrong through four diagrams. "Not yet shipped" meant no App Store
+listing; it read as nothing on the phone. There has been a
+directly-installed build on the producer's phone for some time, and it
+is the build every release bullet is exercised on before the tag
+([`CONTRIBUTING.md`](../CONTRIBUTING.md), Releases step 2).
+
+```mermaid
+flowchart TD
+    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
+    CI["CI on every PR<br/>db-lint: fresh local Postgres + schema/doc checks<br/>web: tsc, oxlint, vitest"]
+    Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
+    Browser["Producer's browser"]
+    iPhone["Producer's iPhone<br/>growdy iOS app (not yet shipped)"]
+
+    GH -->|every PR touching migrations| CI
+    GH -->|"push to main: auto-deploy"| Vercel
+    Browser -->|loads| Vercel
+    GH -->|"cap sync + Xcode build, manual, unreleased"| iPhone
+
+    subgraph App["app/ -- React + Vite, no server of its own"]
+        Features["Features<br/>chat, observations, producer, releases"]
+        DataLayer["src/data/ -- typed query layer<br/>every table, view and RPC call"]
+        Features --> DataLayer
+    end
+    Vercel --> App
+    iPhone -->|"runs a bundled copy of dist/ -- no Vercel at runtime"| App
+
+    subgraph Supabase["Supabase project: growdybase"]
+        Auth["Auth -- Google Sign-In<br/>web: OAuth redirect; iOS: native ID token"]
+        DB["Postgres<br/>tables + views, RLS-scoped"]
+        Storage["Storage: observation-photos<br/>private bucket, tenancy on the object path"]
+        Cron["pg_cron + pg_net<br/>1 hourly + 2 six-hourly schedules"]
+        ChatFn["Edge Function: chat<br/>holds ANTHROPIC_GROWDY_KEY, VOYAGE_API_KEY"]
+        AddWeatherFn["Edge Function: add-weather-source"]
+        IngestFn["Edge Function: ingest-weather"]
+        SyncFn["Edge Function: sync-scheduled-weather"]
+        ScanFn["Edge Function: scan-conversations-for-observations"]
+        EmbedFn["Edge Function: embed-scheduled-memory"]
+    end
+
+    GH -->|"migration files, applied manually after merge"| DB
+    GH -->|"function code, deployed manually after merge"| ChatFn
+    GH --> AddWeatherFn
+    GH --> IngestFn
+    GH --> SyncFn
+    GH --> ScanFn
+    GH --> EmbedFn
+
+    App -->|sign in| Auth
+    App <-->|"RLS-scoped REST reads/writes -- profile lookup, conversation history, app-status check, parcels/plots/rows/plantings browsing, direct observation entry, Knowledge Categories sources"| DB
+    App <-->|"upload a photo on attach; read one back through a 5-minute signed URL"| Storage
+    ChatFn -->|"signed URL under the caller's own JWT, then the bytes"| Storage
+    App -->|"user message, accept: text/event-stream"| ChatFn
+    ChatFn -->|"the answer as it is composed -- SSE; one JSON object for a caller that didn't ask"| App
+    ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
+    ChatFn <-->|"messages + read-only SQL + write proposals + memory search + phenology + web access tools <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
+    ChatFn -->|"live grapevine phenology lookup"| USANPN["USA National Phenology<br/>Network API"]
+    ChatFn -->|"embed a search query"| Voyage["Voyage AI (via MongoDB)<br/>embeddings API"]
+    App -->|"add a Tempest source"| AddWeatherFn
+    AddWeatherFn <-->|"caller's forwarded JWT"| DB
+    AddWeatherFn -->|"resolve station ID -> device ID"| Tempest["Tempest Weather API"]
+    App -->|"manual sync"| IngestFn
+    IngestFn <-->|"caller's forwarded JWT"| DB
+    IngestFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, hourly"| SyncFn
+    SyncFn <-->|"service_role -- every enabled source at once"| DB
+    SyncFn -->|"fetch station history"| Tempest
+    Cron -->|"X-Cron-Secret, every 6h"| ScanFn
+    ScanFn <-->|"service_role -- every unscanned conversation"| DB
+    ScanFn -->|"classify transcript -> candidate observations"| Anthropic
+    Cron -->|"X-Cron-Secret, every 6h"| EmbedFn
+    EmbedFn <-->|"service_role -- every unembedded row"| DB
+    EmbedFn -->|"embed memory entries + conversation chunks"| Voyage
+```
 
 ### 2026-09-21 -- before the artifacts feature was removed ([0027](decisions/0027-public-artifact-links.md))
 

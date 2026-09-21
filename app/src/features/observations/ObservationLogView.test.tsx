@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Session } from '@supabase/supabase-js'
 import type { QueuedObservation } from '@/lib/observationQueue'
 import { ObservationLogView } from '@/features/observations/ObservationLogView'
+import { forgetUnpromptedDeliveries } from '@/features/observations/useObservationQueue'
 
 // The queued notice, which is the part of this screen with real
 // behaviour -- and where both of tonight's reports came from.
@@ -89,6 +90,14 @@ async function openWithNoSignal(items: QueuedObservation[]) {
 beforeEach(() => {
   held.queued = []
   createObservationCandidate.mockReset()
+  // The unprompted-delivery count lives at module level, outside React,
+  // so it survives unmount and is shared with every other test file in
+  // this worker -- including ObservationForm's, which mounts the same
+  // hook. A count left over from one of them renders the "Your signal
+  // came back" notice in a test that never delivered anything. This is
+  // what forgetUnpromptedDeliveries was written for; until now nothing
+  // called it, so the guard existed without being installed.
+  forgetUnpromptedDeliveries()
 })
 
 describe('the queued notice', () => {

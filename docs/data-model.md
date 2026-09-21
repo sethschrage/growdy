@@ -209,6 +209,17 @@ the actual drop left for its own later migration. Nothing reads it, and
 it holds two untitled records from the week the feature was built. It
 goes in a migration of its own, and this block goes with it.
 
+That migration has not been written yet. Until it lands the table is
+not inert: the rename carried its grants, its three `artifacts: member
+can ...` policies and its `audit_row_change` trigger across with it, so
+"nothing reads it" is a fact about the clients rather than about the
+schema: `authenticated` still holds `select`, `insert`, `delete` and
+`truncate` on it. `chat` hides it from the model's prompt, but
+`propose_write_query` takes free-form SQL, so the write path is open
+even though the description is not. [`docs/monitoring.md`](monitoring.md)
+carries both halves as an open item, because a rename window nobody is
+counting does not end on its own.
+
 ## Reading this diagram
 
 - **The hierarchy** (`producers > parcels > plots > plot_rows > planting`)
@@ -377,38 +388,66 @@ goes in a migration of its own, and this block goes with it.
   attached to. Both tables were live from 0022's first migration but
   missing from this diagram until now -- a real gap, not a deliberate
   omission like the derived views below. `audit_log.table_name` can
-  also name a table that no longer exists (`parcel_shares`,
-  `artifacts`): the log records what happened, so rows naming a dropped
-  table are left exactly as written rather than tidied away.
+  also name a table no query will find today (`parcel_shares`, dropped;
+  `artifacts`, renamed out from under those rows): the log records what
+  happened, so an entry naming a table that has since been dropped or
+  renamed is left exactly as written rather than tidied away.
 - **No table here is reachable without a session.** `artifacts` was,
   for four days -- not through an RLS policy granting `anon` access to
   the table, but through one narrow `get_public_artifact(id)` looked up
   by exact id, since a point lookup can't be turned into a listable
   collection the way a table grant could
-  ([0027](decisions/0027-public-artifact-links.md)). The table and the
-  function were dropped together on 2026-09-21 when the feature they
-  served was removed, so `anon` again holds no grant, policy or
-  function anywhere in this schema. The function shape is the part
-  worth reusing if something public is ever asked for again; the table
+  ([0027](decisions/0027-public-artifact-links.md)). The feature was
+  removed on 2026-09-21 and its two halves went separately: the
+  function was dropped outright, because a definition is not data and
+  the rename rule protects rows, while the table was renamed to
+  `artifacts_deprecated` and is still standing, waiting on the drop
+  migration described above the diagram. The function shape is the part
+  worth reusing if something public is ever asked for again; the feature
   is not coming back.
+- **`anon` holds no `execute` on anything defined here, but it does not
+  hold nothing.** With `get_public_artifact` gone, every function this
+  repo's migrations define is granted to `authenticated` or narrower --
+  `20260921060000_revoke_public_execute_on_rpcs.sql` closed the last
+  seven, which carried the PUBLIC grant `create function` hands out by
+  default. The one `public` function `anon` can still call is
+  `rls_auto_enable`, which is Supabase's own platform-injected event
+  trigger rather than growdy's, and is left alone deliberately.
+  Two things `anon` still holds are worth knowing before
+  writing the sentence "`anon` has nothing": `select` on `app_status`,
+  which is deliberate and is the whole point of
+  [0017](decisions/0017-app-status-forces-refresh.md); and `TRUNCATE`,
+  `REFERENCES`, `TRIGGER` and `MAINTAIN` on all nineteen tables above,
+  left by Supabase's own `grant all` at project creation and never
+  revoked by any migration here. Neither reaches a row through the API
+  -- PostgREST has no verb for any of those four, and a plain read
+  fails on the missing `SELECT` grant before RLS is ever consulted --
+  so the bullet above still holds. `TRUNCATE` is the one to keep an eye
+  on anyway, because RLS does not apply to it and the row-level audit
+  trigger would record nothing; see
+  [`docs/monitoring.md`](monitoring.md).
 
 ## History
 
 ### 2026-09-21 -- before the artifacts feature was removed ([0027](decisions/0027-public-artifact-links.md))
 
-The diagram above lost `artifacts`, four days after the 2026-09-17
-entry further down records it gaining one. It held one row per shared
-graphic, with the `id` doubling as the public link, and it was the
-only table in this schema a signed-out visitor could ever reach --
-through `get_public_artifact(id)`, dropped in the same migration.
+The diagram above stopped drawing `artifacts` as a live table four
+days after the 2026-09-17 entry further down records it arriving; what
+it draws now is the tombstone that table became. It held one row per
+shared graphic, with the `id` doubling as the public link, and it was
+the only table in this schema a signed-out visitor could ever reach --
+through `get_public_artifact(id)`, which the same migration dropped
+outright, since dropping a function destroys no data.
 
-Two rows existed and both went with it, rather than being renamed and
-dropped later the way this repo usually retires a table holding real
-data. That caution is there to protect data somebody still wants;
-these were untitled test records written while the feature was being
-built, and the producer whose data it was asked for them to go. Rows
-in `audit_log` naming the table stay exactly where they are -- the log
-records what happened, and a dropped table is part of what happened.
+The table itself was renamed to `artifacts_deprecated`, not dropped,
+because two real rows were in it and this repo retires a table holding
+real data by renaming it and scheduling the drop for its own later
+migration. The producer said those two -- untitled test records from
+the week the feature was being built -- could go, and that is a reason
+to schedule the drop rather than a reason to skip the window: the
+window exists precisely to catch "somebody said it was fine". Rows in
+`audit_log` naming `artifacts` stay exactly where they are; the log
+records what happened, and the rename is part of what happened.
 
 ```mermaid
 erDiagram

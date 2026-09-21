@@ -14,6 +14,13 @@ something changes. It lives outside this repo entirely (see section 9
 for exactly where and why) -- this document is still the one place that
 explains what each signal *means*.
 
+Section 10 is the exception to all of that. It is not an inventory of
+signals but of their absence: known, open weaknesses that no check
+anywhere reports, and that stay invisible until somebody goes looking.
+It is here because the three holes closed on 2026-09-21 were each found
+by somebody looking rather than by anything running, and a hazard that
+lives only in an audit transcript gets rediscovered instead of fixed.
+
 Three different audiences check different parts of this list: a
 producer sees their own pending items and feedback buttons in the app
 already; a maintainer (today, just Seth) is the only one who can see
@@ -295,9 +302,10 @@ catch it.
 - **Security/performance advisors** (`get_advisors`, or Dashboard ->
   Advisors). [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says to
   check these after every migration; nothing currently reminds anyone
-  outside of that moment. Real findings as of 2026-09-17, less the one
-  the 2026-09-21 removal took with it (re-check rather than trust this
-  list): `pg_net` extension installed in `public` schema (should move to
+  outside of that moment. Real findings -- the security advisors read
+  live on 2026-09-21, the performance ones not re-read since 2026-09-17
+  (re-check rather than trust this list): `pg_net` extension installed
+  in `public` schema (should move to
   `extensions`); one `SECURITY DEFINER` function callable by `anon` --
   `rls_auto_enable`, which is not defined by any migration in this repo
   at all (`pg_get_functiondef` shows it owned by `postgres`, not the
@@ -306,14 +314,52 @@ catch it.
   defense-in-depth default, not growdy's. Harmless if called directly
   outside its event-trigger context (`pg_event_trigger_ddl_commands()`
   only returns rows during a live DDL event), which is why the linter
-  still flags it as anon-callable; leaked-password protection disabled in
+  still flags it as anon-callable; six `SECURITY DEFINER` functions
+  callable by `authenticated` (`add_data_source`,
+  `confirm_observation_candidate`, `create_observation_candidate`,
+  `create_producer_and_profile`, `get_decrypted_source_secret`, plus
+  `rls_auto_enable` again) -- that lint describes the design rather than
+  a defect here, because each of those five derives the producer from
+  `auth.uid()` or checks `private.user_can_access_producer` before doing
+  anything privileged, which is the whole reason they are `DEFINER` and
+  not `INVOKER`; leaked-password protection disabled in
   Auth; 18 unused indexes (INFO-level, expected at this scale, not
   urgent). The second anon-callable function this list used to carry was
   growdy's own and deliberate -- `get_public_artifact`
-  ([`0027`](decisions/0027-public-artifact-links.md)) -- and it was
-  dropped with the artifacts feature. Nothing in this project grants
-  `anon` anything any more, so the next anon-callable finding naming a
-  function from these migrations is one to chase rather than to expect.
+  ([`0027`](decisions/0027-public-artifact-links.md)) -- and it went
+  when the artifacts feature did.
+
+  **This list is not coverage of grants, and cannot be made into it.**
+  On 2026-09-21 seven `public` functions were found holding `EXECUTE`
+  to PUBLIC, which means `anon`, because PostgREST publishes every
+  executable `public` function at `/rest/v1/rpc/<name>`. One was
+  `execute_readonly_query`, the chat's read tool, which takes a SQL
+  string: called as `anon` it returned 21 rows out of
+  `information_schema.tables`. RLS is why that disclosed the shape of
+  the database rather than a producer's rows. The advisors were green
+  the whole time those grants were live, across every release, and
+  they were not malfunctioning: the
+  `anon_security_definer_function_executable` lint fires on `SECURITY
+  DEFINER`, and all seven were `SECURITY INVOKER`, so by construction
+  the lint could not see a single one of them. "Check the advisors" --
+  [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s Migrations rule and
+  Releases step 1 -- is a backstop for one shape of this mistake and
+  was never a check on grants. Nothing in CI reads a `GRANT` either
+  (section 10). Until something does, the moment a migration creates or
+  replaces a function is the moment to read the ACL back by hand:
+
+  ```sql
+  select p.proname, p.prosecdef, p.proacl
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and (p.proacl is null
+          or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0));
+  ```
+
+  A null `proacl` means nobody has touched the grants, and the untouched
+  default is `EXECUTE` to PUBLIC; grantee `0` is PUBLIC named outright.
+  One row comes back today -- `rls_auto_enable`, which is Supabase's own
+  and is described above. A second row is growdy's and wants a `revoke`.
 - **pg_cron job health** -- `select * from cron.job_run_details order by
   start_time desc` for the *three* scheduled jobs
   (`sync-weather-sources-hourly`, `scan-conversations-for-observations-6h`,
@@ -508,3 +554,157 @@ next scheduled run.
   Supabase Edge Function or GitHub Action can reach on its own without
   a materially bigger credential (a Supabase Management API token, a
   Vercel API token) than anything else this project holds.
+
+## 10. Known hazards nothing watches
+
+Open weaknesses with no check behind them. Each entry says what is
+exposed and what is not, because "latent" and "live" deserve different
+urgency and flattening them is how a real one gets lost among the
+theoretical ones. All of these were verified against the live project on
+2026-09-21 by querying `pg_proc`, `pg_class`, `pg_policy` and
+`has_*_privilege` directly. Re-check before acting on one, and delete an
+entry when it closes rather than leaving it to rot -- a stale hazard list
+is read once and then never trusted again.
+
+**Why this section exists.** Three unauthenticated-access holes were
+found and closed on 2026-09-21, none of them by anything that runs on its
+own. `create_observation_candidate` had grown a PUBLIC-executable
+overload, because `create or replace function` with a changed argument
+list creates a second function rather than replacing the first, and a new
+function inherits Postgres's default grant instead of its predecessor's
+ACL (#236, `20260921040000`). `chat`, `ingest-weather` and
+`add-weather-source` reached Anthropic and the weather APIs on this
+project's keys for callers holding no credentials at all, because
+`verify_jwt: false` makes each function's own first statement the entire
+control and `chat` had none from the day it shipped (#238). And seven
+functions held `EXECUTE` to PUBLIC, `execute_readonly_query` among them
+(#243, `20260921060000`; see section 6 for why no advisor could report
+it). Three in one night, by three different routes, is a rate that says
+the next one exists too.
+
+- **The pg_cron trigger secrets pass through a table any signed-in
+  caller can read.** Live, on a published schedule. `cron.job` ids 2/3/4
+  build their `X-Cron-Secret` header from `vault.decrypted_secrets` and
+  hand it to `net.http_post`, and pg_net stores the whole `headers`
+  jsonb in `net.http_request_queue` until its background worker drains
+  the row. `anon` and `authenticated` both hold `USAGE` on `net` and
+  `SELECT` on `net.http_request_queue` and `net._http_response`, neither
+  of which has RLS enabled -- confirmed live, not inferred. Anyone
+  holding a session who polls the queue at the top of the hour captures
+  `weather_sync_trigger_secret`, and at the six-hour marks the other
+  two; holding one means being able to POST directly to
+  `sync-scheduled-weather`, `scan-conversations-for-observations` or
+  `embed-scheduled-memory`, which are the three `service_role` paths
+  that read every producer's rows at once. **What bounds it today is
+  that there is one producer**, so there is no second tenant to steal
+  from. What is not bounded is the chat model: `execute_readonly_query`
+  runs as `authenticated`, so a prompt injection arriving in a row, a
+  memory chunk or a web result can ask for that header. The queue drains
+  in about a second, so the window is narrow and it recurs on a
+  timetable anyone can read. The real fix is getting the secret out of a
+  pg_net header -- into the body, or replaced by a short-lived signed
+  token -- not only revoking the `net` grants.
+- **`web_fetch` has no domain allowlist, in the same tool loop that
+  reads the whole database.** Live.
+  [`chat/index.ts`](../supabase/functions/chat/index.ts)'s
+  `WEB_FETCH_TOOL` and `WEB_SEARCH_TOOL` carry only `max_uses: 5`; no
+  `allowed_domains`, no `blocked_domains`. The only thing between an
+  injected instruction and egress is a sentence in the system prompt,
+  which is an instruction to the model rather than a control. The
+  model's untrusted inputs now include rows from any table, past
+  conversation chunks, web search results and photo content, so any one
+  of them carrying injected text is one hop from
+  `web_fetch("https://…/?d=<data>")`. [`0024`](decisions/0024-web-access-as-a-provider.md)
+  argued the cost case for always-on search and bounded it with
+  `max_uses`; egress does not appear to have been considered.
+- **`artifacts_deprecated` still has a live write path, and its drop
+  migration has not been written.** Latent. The rename carried the
+  table's grants, policies and `audit_row_change` trigger along with it,
+  so `authenticated` holds `select`, `insert`, `delete` and `truncate`
+  on a table nothing reads (`relacl` is `authenticated=ardDxtm`,
+  confirmed live). `chat` hides it from the model's prompt, but
+  `propose_write_query` takes free-form SQL, so the description is not
+  the control. Two things are owed here and they are separate: revoke
+  the write surface now, and write the drop migration that
+  [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s rename rule always intended
+  to follow -- the rename buys a window to notice something still needed
+  the table, and a window nobody is counting never closes. See
+  [`docs/data-model.md`](data-model.md)'s note above the ER diagram.
+- **`anon` holds `TRUNCATE` on all nineteen public tables.** Latent, not
+  live, and worth stating in that order. Supabase's default `grant all`
+  at project creation left every `public` table reading `anon=Dxtm` --
+  `TRUNCATE`, `REFERENCES`, `TRIGGER`, `MAINTAIN` -- and no migration
+  ever revoked it; the migration that added the real grants
+  (`20260913054119`) only added. `TRUNCATE` is the one that matters,
+  because RLS does not apply to it and `audit_row_change` is a row-level
+  trigger, so a truncate arriving as `anon` would empty a table
+  regardless of tenancy and record nothing. No reachable path exists
+  today: PostgREST has no TRUNCATE verb, `execute_readonly_query` blocks
+  it with `transaction_read_only`, and `propose_write_query` wraps the
+  statement in `with t as (%s returning *)`, which TRUNCATE will not
+  parse. Exactly one `anon` table grant in this schema is deliberate,
+  `select` on `app_status` ([0017](decisions/0017-app-status-forces-refresh.md)).
+- **The `observations` SELECT policy still carries the parcel-sharing
+  branch, and parcel sharing is gone.** Latent. The live predicate is
+  `producer_id = (select private.current_producer_id())` **or**
+  `planting_id in (…plantings under one of my parcels…)`. That second
+  branch was added for sharing by `20260916185426_parcel_sharing.sql`;
+  [0028](decisions/0028-what-uat-removed.md) removed the feature and
+  stripped the branch out of `private.user_can_access_parcel` but not out
+  of here, and
+  [0036](decisions/0036-rls-predicates-are-evaluated-once.md) then
+  rewrote the policy mechanically and carried the dead branch forward.
+  `observations` is now the one producer table whose read rule is not
+  "`producer_id` is the tenancy key" -- the DELETE policy beside it
+  already is. Not exploitable today, because
+  `create_observation_candidate` sets `producer_id` from `auth.uid()` and
+  `confirm_observation_candidate` copies it, so the two columns always
+  agree. It becomes a cross-tenant read the day they can disagree, which
+  is the day [0028](decisions/0028-what-uat-removed.md)'s "the parcel is
+  the seat" gets built.
+- **Nothing in CI reads a `GRANT`, and the RLS checker only looks at one
+  schema.** Not an exposure; the gap that lets the others last.
+  [`scripts/check-rls-shape.mjs`](../scripts/check-rls-shape.mjs) scopes
+  its query to `nspname = 'public'`, and the three policies currently in
+  the per-row-helper shape it exists to reject are on `storage.objects`
+  (`private.user_can_access_producer(private.storage_object_producer(name))`,
+  evaluated per row), invisible because of that one line. More
+  consequential is what no checker looks at at all: whether RLS is on,
+  whether a table has any policy, whether a policy's role list is
+  `{public}`, and the table and function grants. Grants are the layer
+  Postgres evaluates *before* RLS, and this repo has now shipped five
+  migrations whose entire job was taking back a grant wider than
+  anyone intended: `20260915035815` (PUBLIC `EXECUTE` on the vault
+  helpers), `20260916175824` and then `20260916192106` -- two, because
+  the first `revoke` silently did nothing, having named a column
+  privilege that was never separately granted -- and `20260921040000`
+  and `20260921060000` from tonight. A rule rediscovered four times
+  and still not mechanically enforced is the schema-level version of
+  what [`CONTRIBUTING.md`](../CONTRIBUTING.md) says about process rules:
+  it stops being followed without anyone deciding to drop it. The check
+  is small and runs on the same local stack `check-rls-shape.mjs`
+  already uses -- fail on any `public` function with `EXECUTE` to
+  PUBLIC, and on any `public` table privilege held by `anon` outside an
+  explicit allowlist.
+- **`createAdminClient` reads a legacy env var, and the legacy key is
+  still enabled.** An availability trap rather than an exposure, and the
+  trap is the point.
+  [`_shared/supabaseClient.ts`](../supabase/functions/_shared/supabaseClient.ts)
+  reads the new-style `SUPABASE_PUBLISHABLE_KEYS` on one line and the
+  legacy `SUPABASE_SERVICE_ROLE_KEY` fifteen lines later, so one
+  thirty-line file straddles both key systems. The project also still has
+  the legacy `anon` JWT enabled alongside `sb_publishable_…`: two working
+  anonymous credentials. Disabling legacy keys -- the right move, and one
+  somebody will reach for before a native client ships -- takes all three
+  scheduled jobs down **silently**, because `createClient(url, undefined)`
+  throws inside the handler, `cron.job_run_details` still reads
+  `succeeded`, and the only evidence lands in `net._http_response.content`.
+  That is precisely the fire-and-forget trap section 5 already documents,
+  waiting on a routine piece of housekeeping to spring it. Move
+  `createAdminClient` onto `SUPABASE_SECRET_KEYS` *first*, then disable
+  the legacy key. [`0020`](decisions/0020-scheduled-weather-sync.md):17
+  describes neither accurately -- it says the admin client already builds
+  from `SUPABASE_SECRET_KEYS`, and that `sync-scheduled-weather` is the
+  only `service_role` user, which stopped being true when
+  `scan-conversations-for-observations` and `embed-scheduled-memory`
+  shipped.

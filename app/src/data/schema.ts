@@ -10,6 +10,24 @@
 // this first copy was produced -- the CLI needs a login the MCP server
 // doesn't).
 //
+// Except that right now it is hand-edited, and this paragraph is the
+// warning that it is. #241 removed the artifacts feature by deleting the
+// `artifacts` block and the `get_public_artifact` signature from this
+// file directly instead of regenerating it. The migration it shipped
+// with renamed `public.artifacts` to `artifacts_deprecated` rather than
+// dropping it, so the live database still carries that table, and a
+// regeneration produces an `artifacts_deprecated` block this file does
+// not have.
+//
+// That costs two things. Whoever next follows the line above gets a diff
+// they did not cause, inside a PR about something else, and has to work
+// out whether it is theirs. And until then this file is not evidence of
+// the live schema, which is the whole reason it exists.
+//
+// To put it right: regenerate, and commit the `artifacts_deprecated`
+// block that comes back. It leaves again by regenerating -- not by hand
+// -- in the same PR as the migration that really drops the table.
+//
 // This is the only description of the database the client has. Before
 // it, every hook carried its own hand-written row type, which agreed
 // with the schema only as long as someone remembered to update it: the
