@@ -165,6 +165,14 @@ erDiagram
         text message "nullable -- shown on the block screen"
     }
 
+    ARTIFACTS_DEPRECATED {
+        uuid id PK "dead -- nothing reads this table"
+        uuid producer_id FK "the producer the saved graphic belonged to"
+        uuid conversation_id FK "the chat turn it came out of"
+        text title "nullable -- neither surviving row has one"
+        text content "the SVG the model wrote"
+    }
+
     PRODUCERS ||--o{ PROFILES : "has members"
     PRODUCERS ||--o{ PARCELS : owns
     PRODUCERS ||--o{ OBSERVATION_CANDIDATES : "reviews"
@@ -189,6 +197,17 @@ erDiagram
     PRODUCERS ||--o{ AUDIT_LOG : "has writes logged (0022)"
     PENDING_WRITES |o--o{ AUDIT_LOG : "committed as (optional)"
 ```
+
+A note on `ARTIFACTS_DEPRECATED`, because a tombstone in a diagram
+invites the question. The artifacts feature -- the model drawing an SVG
+inline in a reply, the producer saving it, and a `/a/<id>` page a
+signed-out browser could open -- was removed entirely, and `0027` is
+withdrawn. The table is drawn here only because it still exists, and it
+still exists because [`CONTRIBUTING.md`](../CONTRIBUTING.md) requires a
+migration that would destroy real data to rename rather than drop, with
+the actual drop left for its own later migration. Nothing reads it, and
+it holds two untitled records from the week the feature was built. It
+goes in a migration of its own, and this block goes with it.
 
 ## Reading this diagram
 
