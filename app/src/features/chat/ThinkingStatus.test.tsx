@@ -13,6 +13,52 @@ describe('the steps behind the status line', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
+  it('opens for reasoning even when no tool ran', () => {
+    // An answer straight out of the model's head has reasoning and no
+    // steps, and it is still worth being able to read.
+    // The control is a chevron rather than a worded button (#230 moved it
+    // inside the status line, which is the only part always on screen),
+    // so what it calls itself is the accessible name.
+    render(<ThinkingStatus state={state({ reasoning: 'Checking the dates' })} since={1} />)
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe('Show the working so far')
+  })
+
+  it('names both when there is both', () => {
+    render(
+      <ThinkingStatus
+        state={state({ reasoning: 'Thinking it over', steps: [{ phrase: 'One', running: false }] })}
+        since={1}
+      />,
+    )
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe(
+      'Show the working and 1 step so far',
+    )
+  })
+
+  it('shows the reasoning above the steps that followed from it', () => {
+    render(
+      <ThinkingStatus
+        state={state({
+          reasoning: 'The frost question needs last week.',
+          steps: [{ phrase: 'Reading your vineyard data', running: false }],
+        })}
+        since={1}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByText('The frost question needs last week.')).toBeTruthy()
+  })
+
+  it('says nothing about reasoning against a function that does not send it', () => {
+    // An older deployed function never emits the event. The panel should
+    // be the steps and nothing else, not an empty paragraph.
+    render(
+      <ThinkingStatus state={state({ steps: [{ phrase: 'One', running: false }] })} since={1} />,
+    )
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.queryByText('', { selector: '.thinking-reasoning' })).toBeNull()
+  })
+
   it('stays shut until asked', () => {
     // Most answers do not need explaining, and a list that opened itself
     // would shove the conversation around on every send.
@@ -82,7 +128,7 @@ describe('the steps behind the status line', () => {
     expect(screen.getByText('Reading your vineyard data')).toBeTruthy()
     expect(screen.getByText('plantings, parcels')).toBeTruthy()
     expect(screen.getByText('Searching what it remembers')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Hide the steps so far' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hide the working so far' })).toBeTruthy()
   })
 
   it('marks the running step apart from the finished ones', () => {

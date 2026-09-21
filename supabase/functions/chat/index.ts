@@ -632,6 +632,10 @@ type ChatEvent =
   | { type: "turn"; index: number }
   | { type: "tool"; name: string; state: "start" | "done" | "error"; detail?: string }
   | { type: "text"; text: string }
+  // The model's own reasoning, summarized. A separate event from "text"
+  // because it is not the answer: it must never be appended to the
+  // message the producer is reading.
+  | { type: "thinking"; text: string }
   | {
     type: "usage";
     inputTokens: number;
@@ -664,6 +668,30 @@ type Emit = (event: ChatEvent) => void;
  * fragments of a JSON object, which is why the input is accumulated as
  * a string and parsed once at the end.
  */
+/**
+ * Ask for reasoning that can be read.
+ *
+ * This model reasons by default -- which is why the thinking_delta
+ * branch below exists at all -- but `thinking.display` defaults to
+ * "omitted", and with that default the blocks stream with an EMPTY
+ * thinking field. So forwarding them without this changes nothing: the
+ * producer gets a panel of blank lines.
+ *
+ * "summarized" rather than the full trace: the full trace is long,
+ * repetitive and priced as output tokens, and what the producer asked
+ * for is to see what it is doing, not to read every token of it.
+ *
+ * No budget_tokens. It is rejected with a 400 on this model -- depth is
+ * an output_config effort setting, not a token budget.
+ *
+ * Constant, and constant on purpose. Both request paths send exactly
+ * this, and nothing here varies per request or per producer. A thinking
+ * setting that changed between requests would break the prompt cache on
+ * every one of them, which is the shape docs/decisions/0033 forbids.
+ * Pinned like this it costs one cache rebuild, once, at deploy.
+ */
+const THINKING = { type: "adaptive", display: "summarized" } as const;
+
 async function streamAnthropic(
   conversation: unknown[],
   system: unknown[],
@@ -681,6 +709,7 @@ async function streamAnthropic(
       model: MODEL,
       max_tokens: 4096,
       system,
+      thinking: THINKING,
       ...(tools ? { tools } : {}),
       messages: conversation,
       stream: true,
@@ -739,16 +768,24 @@ async function streamAnthropic(
         } else if (delta.type === "input_json_delta") {
           partialToolInput[event.index] = (partialToolInput[event.index] ?? "") + (delta.partial_json ?? "");
         } else if (delta.type === "thinking_delta") {
-          // Reasoning, which this model produces by default. It is not
-          // shown to the producer, but it has to be reassembled
-          // faithfully: the block goes back to the API on the next turn
-          // of the tool loop, and a thinking block without its thinking
-          // is rejected -- "each thinking block must contain thinking",
-          // a 400 on the second turn of every conversation that used a
-          // tool. The buffered path never hit this because it passed
-          // the content array through untouched.
+          // Reasoning, which this model produces by default. It has to
+          // be reassembled faithfully: the block goes back to the API on
+          // the next turn of the tool loop, and a thinking block without
+          // its thinking is rejected -- "each thinking block must
+          // contain thinking", a 400 on the second turn of every
+          // conversation that used a tool. The buffered path never hit
+          // this because it passed the content array through untouched.
+          //
+          // The accumulation below is that reassembly and it is exactly
+          // as it was. The emit is additive: it forwards a copy to the
+          // producer and touches neither the block nor the signature.
+          // Read that as the safety property of this change -- the lines
+          // that caused #201 are unchanged, and a new line sits beside
+          // them.
           const block = blocks[event.index];
           if (block) block.thinking = String(block.thinking ?? "") + (delta.thinking ?? "");
+          const chunk = delta.thinking ?? "";
+          if (chunk) emit({ type: "thinking", text: chunk });
         } else if (delta.type === "signature_delta") {
           // The cryptographic signature over that reasoning. Anthropic
           // rejects a thinking block whose signature doesn't match its
@@ -803,6 +840,12 @@ async function callAnthropic(conversation: unknown[], system: unknown[], tools: 
       model: MODEL,
       max_tokens: 4096,
       system,
+      // The same THINKING as the streaming path, and it has to be. This
+      // is the live fallback for a stream that fails (data/chat.ts), so
+      // two different settings here would mean a retry answered under a
+      // different configuration than the attempt it is replacing -- and
+      // would keep two prompt caches warm instead of one.
+      thinking: THINKING,
       ...(tools ? { tools } : {}),
       messages: conversation,
     }),

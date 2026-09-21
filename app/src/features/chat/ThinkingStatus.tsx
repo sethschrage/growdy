@@ -30,9 +30,18 @@ function useElapsedSeconds(since: number) {
   return seconds
 }
 
-/** "3 steps", for the label a screen reader reads out. */
-function label(steps: number): string {
-  return `${steps} ${steps === 1 ? 'step' : 'steps'}`
+/**
+ * What the disclosure calls itself, for the label a screen reader reads.
+ *
+ * Named for what is behind it, which is not always the same thing: an
+ * answer straight out of the model's head has reasoning and no steps,
+ * and against a function deployed before reasoning was forwarded it is
+ * steps and no reasoning.
+ */
+function label(steps: number, hasReasoning: boolean): string {
+  if (steps === 0) return 'working'
+  const counted = `${steps} ${steps === 1 ? 'step' : 'steps'}`
+  return hasReasoning ? `working and ${counted}` : counted
 }
 
 export function ThinkingStatus({ state, since }: { state: ThinkingState; since: number }) {
@@ -48,7 +57,10 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
   // last one with and money on its own loses that.
   const cost = estimateThinkingCostUsd(state)
 
-  const hasSteps = state.steps.length > 0
+  // Either half can be missing. An answer straight out of the model's
+  // head has reasoning and no steps; a function deployed before
+  // reasoning was forwarded gives steps and none of it.
+  const hasWorking = state.steps.length > 0 || Boolean(state.reasoning)
 
   return (
     <div className="thinking-block">
@@ -57,9 +69,16 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
           compose bar floats over the bottom of that scroller, so anything
           rendered under the line is under the bar: the disclosure shipped
           and was never once reachable while an answer ran, which is the
-          only time it exists. Opening upward grows the list into the
+          only time it exists. Opening upward grows the working into the
           conversation, which is empty space at that moment anyway. */}
-      {open && hasSteps && (
+      {open && state.reasoning ? (
+        // The model's own reasoning, as prose, above the steps it took --
+        // above rather than below because it is what led to them, and the
+        // whole block is already inverted so that reading downward ends
+        // at the line it belongs to.
+        <p className="thinking-reasoning">{state.reasoning}</p>
+      ) : null}
+      {open && state.steps.length > 0 && (
         <ol className="thinking-steps">
           {state.steps.map((step, i) => (
             <li
@@ -98,16 +117,20 @@ export function ThinkingStatus({ state, since }: { state: ThinkingState; since: 
           <span className="thinking-cost"> · about {formatCostUsd(cost)}</span>
         ) : null}
       </span>
-      {/* The control lives inside the line, for the same reason the list
-          lives above it: the line is the one part of this that is always
-          on screen. */}
-      {hasSteps && (
+      {/* The control lives inside the line, for the same reason the
+          working lives above it: the line is the one part of this that is
+          always on screen. */}
+      {hasWorking && (
         <button
           type="button"
           className={`thinking-steps-toggle${open ? ' thinking-steps-toggle--open' : ''}`}
           onClick={() => setOpen((was) => !was)}
           aria-expanded={open}
-          aria-label={open ? 'Hide the steps so far' : `Show the ${label(state.steps.length)} so far`}
+          aria-label={
+            open
+              ? 'Hide the working so far'
+              : `Show the ${label(state.steps.length, Boolean(state.reasoning))} so far`
+          }
         >
           <ChevronIcon size={14} />
         </button>

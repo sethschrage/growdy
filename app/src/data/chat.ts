@@ -51,6 +51,12 @@ export type ChatStreamEvent =
   | { type: 'turn'; index: number }
   | { type: 'tool'; name: string; state: 'start' | 'done' | 'error'; detail?: string }
   | { type: 'text'; text: string }
+  /**
+   * The model's own reasoning, summarized, as the function forwards it.
+   * Deliberately not 'text': it is not the answer and must never be
+   * appended to the message being read.
+   */
+  | { type: 'thinking'; text: string }
   | {
       type: 'usage'
       inputTokens: number
