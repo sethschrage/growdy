@@ -17,6 +17,15 @@
 //
 // 15 ms, and an index condition rather than a filter.
 //
+// KNOWN GAP: this reads nspname = 'public' only, and two live policies
+// in `storage` are in exactly the banned shape --
+// "observation photos: read own producer's" and its delete twin both
+// call private.user_can_access_producer(private.storage_object_producer(name)).
+// They are not fixed here because rewriting a storage policy changes who
+// can read a photo, and that wants testing against a real upload rather
+// than a green checker. Recorded in docs/monitoring.md. Widening the
+// query without fixing them would just paint the board red.
+//
 // Nothing else in this repo can catch a regression here. `db lint` type-
 // checks PL/pgSQL bodies; Supabase's own performance advisor has an
 // initplan lint but it did not fire on these, because the expensive part

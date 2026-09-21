@@ -194,6 +194,16 @@ by admins) are blocked, and force-pushes/branch deletion are disabled.
   advisors for anything new -- a schema change is the most likely place
   a fresh finding shows up, and it's easy to miss since `execute_sql`
   and other elevated-access checks won't surface it.
+- **The advisors are a backstop for one shape of grant mistake, not for
+  grant mistakes.** The anon-callable lint is
+  `anon_security_definer_function_executable` and it fires on `SECURITY
+  DEFINER`. Every one of the seven functions found open to `anon` in
+  `#243` -- including `execute_readonly_query`, which takes a SQL string
+  -- was `SECURITY INVOKER`, so the lint could not see any of them, and
+  would not have in any release. `scripts/check-anon-reach.mjs` is what
+  covers that: it reads the resulting ACL out of the database rather than
+  the migration text, and keys on reachability by `anon` rather than on
+  how a function is declared.
 - **A migration that changes a table, view or function the client reads
   regenerates `app/src/data/schema.ts` in the same PR**
   (`supabase gen types typescript --project-id <id>`, or the Supabase
@@ -417,7 +427,7 @@ functions are held in place by nothing but memory -- and neither is
 the diff to look at.
 
 `.github/workflows/db-lint.yml` starts a local Supabase stack, applying
-every migration from scratch, and runs four checks against the database
+every migration from scratch, and runs five checks against the database
 that produces. A migration that fails to apply cleanly fails the PR on
 its own.
 
@@ -584,7 +594,9 @@ to pile up alongside it. When it's time to cut one:
    describing an earlier version of the project than the one about to
    be tagged; catch that here; don't let it accumulate. Check Supabase's
    security and performance advisors too, so a finding doesn't sit
-   unnoticed across a release.
+   unnoticed across a release -- remembering that the anon-callable lint
+   only sees `SECURITY DEFINER`, so a clean advisor report is not a
+   statement about who can reach what (see "Migrations").
 2. **Every bullet the Release will carry is exercised on the client a
    producer actually uses, before the tag.** A bullet is a claim that
    somebody can now do a thing; until somebody does that thing, nobody
