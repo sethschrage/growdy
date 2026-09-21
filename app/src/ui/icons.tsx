@@ -72,11 +72,21 @@ export function ExitIcon({ size = 18, className }: IconProps) {
 }
 
 /** New chat: a pencil over a page. */
+/**
+ * New chat: the square-and-pencil every assistant uses for this now.
+ *
+ * It was the same two shapes in worse proportions -- a square that
+ * stopped short and a pencil five units wide across it -- and at 20px
+ * the pencil swallowed the square, so the button read as "edit" rather
+ * than "new chat". The square is the bigger shape now and the pencil
+ * crosses the corner it leaves open, which is the composition that makes
+ * this glyph recognisable.
+ */
 export function ComposeIcon({ size = 20, className }: IconProps) {
   return (
     <Icon size={size} className={className}>
-      <path d="M12 5H5v14h14v-7" />
-      <path d="M15 4l5 5-8 8H8v-4z" />
+      <path d="M15 4H4v16h16v-11" />
+      <path d="M19 2l3 3-7 7h-3v-3z" />
     </Icon>
   )
 }
