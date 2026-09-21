@@ -48,7 +48,7 @@ union all select 'pending_writes stuck', count(*) from public.pending_writes whe
 
 ## 2. Chat feedback -- not a table, a jsonb search
 
-The 👍/👎 buttons ([`app/src/features/chat/Chat.tsx:319-378`](../app/src/features/chat/Chat.tsx)) write
+The 👍/👎 buttons ([`app/src/features/chat/Chat.tsx:569-625`](../app/src/features/chat/Chat.tsx)) write
 `feedback: 'up' | 'down'` onto a message object inside
 `conversations.transcript` (jsonb array) -- there is no `chat_feedback`
 table. Finding a bad rating means querying into the blob:
@@ -144,14 +144,14 @@ table, never anything polled. Real call sites:
 
 | File:line | What it logs | Reaches `data_sources.last_error`? |
 |---|---|---|
-| [`chat/index.ts:1157`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
-| [`chat/index.ts:1137`](../supabase/functions/chat/index.ts) | `chat stream crashed: ${err}` -- the request threw *after* the stream opened, so the producer sees a half-written answer stop | n/a |
-| [`chat/index.ts:881,978`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
+| [`chat/index.ts:1181`](../supabase/functions/chat/index.ts) | `chat crashed: ${err}` -- the whole request threw | n/a |
+| [`chat/index.ts:1161`](../supabase/functions/chat/index.ts) | `chat stream crashed: ${err}` -- the request threw *after* the stream opened, so the producer sees a half-written answer stop | n/a |
+| [`chat/index.ts:881,1002`](../supabase/functions/chat/index.ts) | Hit `MAX_TOOL_ITERATIONS` with no real answer -- producer silently gets "That took more searching than expected," not an error | n/a |
 | [`chat/index.ts:171,245`](../supabase/functions/chat/index.ts) | The schema-description / data-channel-context setup queries failed -- the model then reasons with no description of the database at all | n/a |
 | [`chat/index.ts:183`](../supabase/functions/chat/index.ts) | `NOT_DESCRIBED` names a relation that no longer exists ([0034](decisions/0034-a-schema-change-has-to-explain-itself.md)). CI fails on this too; the log covers a rename that reached production first | n/a |
-| [`chat/index.ts:934`](../supabase/functions/chat/index.ts) | One tool call threw. The model is handed the error text and usually recovers, so the producer may never see a problem | n/a |
-| [`scan-conversations-for-observations/index.ts:130`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
-| [`scan-conversations-for-observations/index.ts:98`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
+| [`chat/index.ts:958`](../supabase/functions/chat/index.ts) | One tool call threw. The model is handed the error text and usually recovers, so the producer may never see a problem | n/a |
+| [`scan-conversations-for-observations/index.ts:138`](../supabase/functions/scan-conversations-for-observations/index.ts) | One conversation failed to classify/insert/mark-scanned | n/a |
+| [`scan-conversations-for-observations/index.ts:106`](../supabase/functions/scan-conversations-for-observations/index.ts) | The whole batch's RPC call failed | n/a |
 | [`ingest-weather/index.ts:64`](../supabase/functions/ingest-weather/index.ts) | The user-driven sync crashed *before* reaching `syncWeatherSourceChunk` (bad request, RLS-denied source, missing secret) | **No** -- distinct from the narrower `try/catch` inside `_shared/weatherIngest.ts:207-212` that does set `last_error` |
 | [`app/src/data/chat.ts:24-42`](../app/src/data/chat.ts) | Nothing, now -- a failed call throws with the function's own message and the producer sees it in the chat. It used to `console.error` into the browser and stop there. | **No, and never can be** -- a total network failure calling the Edge Function never reaches any server-side log. Still a blind spot for anyone watching from the outside; the difference is that the producer is no longer the only one who notices *and* the only one who can't tell why. |
 

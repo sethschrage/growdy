@@ -55,8 +55,8 @@ flowchart TD
     PublicViewer -->|"get_public_artifact(id) -- the one anon-reachable RPC, see 0027"| DB
     App <-->|"upload a photo on attach; read one back through a 5-minute signed URL"| Storage
     ChatFn -->|"signed URL under the caller's own JWT, then the bytes"| Storage
-    App -->|"user message"| ChatFn
-    ChatFn -->|"composed reply"| App
+    App -->|"user message, accept: text/event-stream"| ChatFn
+    ChatFn -->|"the answer as it is composed -- SSE; one JSON object for a caller that didn't ask"| App
     ChatFn <-->|"caller's forwarded JWT -- RLS-scoped, never service role"| DB
     ChatFn <-->|"messages + read-only SQL + write proposals + memory search + phenology + web access tools <-> tool_use / text"| Anthropic["Anthropic API<br/>Claude Sonnet 5"]
     ChatFn -->|"live grapevine phenology lookup"| USANPN["USA National Phenology<br/>Network API"]
@@ -80,13 +80,24 @@ flowchart TD
 
 ## Reading this diagram
 
-- **The client is one box here and four layers inside it.** Features
-  (chat, observations, producer data, artifacts) hold the components and
-  their hooks; `app/src/data/` holds every table, view and RPC call the
-  client makes, typed against the generated schema in `data/schema.ts`;
-  `lib/` holds platform work (the Supabase client itself, native
-  sign-in, the camera and the photo bucket) and `ui/` shared
-  presentation. Two things deliberately sit outside `data/`: auth calls
+- **The client is one box here and six folders inside it.** `app/` is the
+  shell -- the router, the burger menu, the login and dead-end screens --
+  with the menu's own arithmetic beside it in `labelDrag.ts` and
+  `menuOpenness.ts`, because a pointer gesture is miserable to test
+  through a DOM and trivial to test as a function. Features (chat,
+  observations, producer data, artifacts) hold the components and their
+  hooks; `app/src/data/` holds every table, view and RPC call the client
+  makes, typed against the generated schema in `data/schema.ts`; `lib/`
+  is platform and pure logic both -- the Supabase client itself, native
+  sign-in, the camera and the photo bucket, and beside them the offline
+  observation queue, connectivity, the knowledge screen's vocabulary,
+  the native keyboard's accessory bar and how a glass control presses,
+  none of which any one feature owns; `ui/` shared presentation; and
+  `styles/` fifteen stylesheets whose import order in `styles/index.css`
+  *is* the cascade -- `liquid.css` is last because it replaces the wood
+  and the cream glass on the floating controls rather than adding to
+  them, so moving that line changes what the app looks like. Two things
+  deliberately sit outside `data/`: auth calls
   (`supabase.auth.*`), which are a different API rather than this
   project's data, and Storage reads and writes, which live in
   `lib/photo.ts` because the object path is the tenancy check there.
@@ -96,12 +107,20 @@ flowchart TD
   `main` with no manual step -- see
   [`docs/decisions/0008`](decisions/0008-app-as-research-tool.md). A
   migration or an Edge Function change is the opposite: written and
-  reviewed in a PR, then applied or deployed to Supabase by hand, only
-  after that PR merges, never before -- see
-  [`CONTRIBUTING.md`](../CONTRIBUTING.md). Both are correct for what they
-  are: the app has no secrets and nothing to lose by shipping instantly;
-  Supabase holds real producer data and the only API key this project
-  has, so nothing reaches it without a human merging first. The iOS
+  reviewed in a PR, then applied or deployed to Supabase by hand after
+  that PR merges. For a migration that is absolute -- a schema applied
+  ahead of review is a change nobody agreed to, and the one thing here
+  that cannot be undone by redeploying. A *function* may go first when
+  the live function is the only place the change can be verified: a
+  prompt cache reports hits only against the real API, a stream only
+  breaks against a real model, and this plan has no branch deploys to
+  reproduce a production failure on. Then the PR goes up the same
+  session carrying what the deploy measured, and says it was deployed
+  first -- [`CONTRIBUTING.md`](../CONTRIBUTING.md) step 7 has the four
+  conditions. Both are correct for what they are: the app has no secrets
+  and nothing to lose by shipping instantly; Supabase holds real
+  producer data and the only API key this project has, so nothing
+  reaches it that a person did not put there on purpose. The iOS
   app is the fourth and least automated: `dist/` is copied into
   `app/ios/` by `npx cap sync` and built in Xcode by hand, so a web
   change that has already auto-deployed to Vercel is still stale on a
@@ -115,6 +134,13 @@ flowchart TD
   [`docs/decisions/0016`](decisions/0016-chat-queries-directly.md) and
   the comment at the top of
   [`supabase/functions/_shared/supabaseClient.ts`](../supabase/functions/_shared/supabaseClient.ts)).
+  What that scoping costs depends entirely on how the policy is written:
+  every tenancy predicate compares against a producer id resolved once
+  per statement, because the obvious form -- a helper called with the
+  row's own column -- runs once per row and measured a hundred times
+  slower, enough to blow the chat's five-second statement timeout on a
+  weather question (see
+  [`docs/decisions/0036`](decisions/0036-rls-predicates-are-evaluated-once.md)).
   `sync-scheduled-weather` was once the one deliberate exception; it's
   now one of three `service_role` callers, alongside
   `scan-conversations-for-observations` and `embed-scheduled-memory` --
@@ -141,6 +167,24 @@ flowchart TD
   `embed-scheduled-memory` to embed memory entries/conversation chunks on
   its own 6-hourly clock, both through the same `_shared/voyage.ts` (see
   [`docs/decisions/0023`](decisions/0023-producer-memory-via-embeddings.md)).
+- **The answer arrives in pieces, and the prompt above it is cached.**
+  `chat` reads the request's `accept` header: a caller asking for
+  `text/event-stream` is sent each model turn, each tool call, each piece
+  of text and what the turn cost as they happen, and the client reads
+  them off `response.body.getReader()` in `app/src/data/chat.ts`. A
+  caller that doesn't ask gets the single JSON object this function has
+  always returned, and that path is kept rather than retired for two
+  reasons: the function is deployed by hand and the client by Vercel, so
+  either can be the newer one for a while, and a stream that dies with
+  nothing received is asked again buffered -- a second model turn is the
+  right price for the difference between a slow answer and none. The
+  instructions, the tool definitions and the schema description sit above
+  the messages under a cache breakpoint, with the producer's enabled
+  Knowledge sources under a second one, so a turn re-reads roughly 15,000
+  tokens instead of re-sending them -- which only holds while nothing
+  per-request sits in that prefix, since the cache matches exact text and
+  one volatile token makes every request a miss that also pays the write
+  premium (see [`0033`](decisions/0033-what-goes-in-the-cached-prompt.md)).
 - **The app has one signed-out-reachable surface now.** A shared artifact
   link (`/a/:id`) calls `get_public_artifact(id)` directly from the
   browser -- no Edge Function, no session -- the first and only place
@@ -152,13 +196,20 @@ flowchart TD
   than it used to** -- auth, the producer-id lookup, conversation-history
   logging (`docs/decisions/0011`), the `app_status` poll
   (`docs/decisions/0017`), Knowledge Categories' source management, and
-  now the sprout menu's two features: browsing the producer's own
+  now two features the burger menu opens: browsing the producer's own
   parcel/plot/row/planting structure read-only, and entering a structured
   observation directly -- both deliberately outside the chat/model path
-  entirely, going straight to Postgres under the producer's own RLS
-  session. Every actual *question* about vineyard data still goes through
-  `chat`, which writes and runs its own SQL against Postgres rather than
-  the client resolving a fixed set of query shapes.
+  entirely, going to Postgres under the producer's own RLS session. The
+  observation does not go straight there. Every capture is written to an
+  IndexedDB queue first, photo bytes and all, and delivered from it --
+  immediately where there is signal, and when the radio comes back where
+  there isn't -- so the code that runs in a block with no bars is the
+  same code that runs at a desk with five, rather than a fallback nobody
+  finds out is broken until they are standing in a vineyard (see
+  [`0037`](decisions/0037-what-happens-with-no-signal.md)). Every actual
+  *question* about vineyard data still goes through `chat`, which writes
+  and runs its own SQL against Postgres rather than the client resolving
+  a fixed set of query shapes.
 - **Storage holds photos, and the path is the tenancy check.**
   `observation-photos` is private: nothing is readable by URL alone, and
   every view mints a 5-minute signed URL first. `storage.objects` has no
@@ -171,9 +222,17 @@ flowchart TD
   [`0009`](decisions/0009-chat-based-observation-submission.md) and
   built by [`0030`](decisions/0030-every-observation-through-one-queue.md).
 - **CI is independent of every deploy path.** Two workflows run on every
-  PR: `web` typechecks, lints and tests the client, and `db-lint` builds
-  a disposable local Postgres from every migration and checks the schema
-  and the docs against it. Neither touches the live `growdybase` project.
+  PR: `web` typechecks, lints and tests the client, and `db-lint` checks
+  the docs against the repo -- links and anchors, ADR numbering, the Edge
+  Functions this diagram draws -- and, when the PR touches migrations,
+  builds a disposable local Postgres from all of them and checks the
+  schema's own comments, the shape of the RLS policies, and the tables
+  and scheduled jobs the docs name against that. A claim is checked only
+  where something else can contradict it without anyone exercising
+  judgement, which is the mechanical half; whether a paragraph here is
+  still *true* is the author's, and it is the half that matters (see
+  [`0035`](decisions/0035-what-the-docs-are-checked-against.md)). Neither
+  touches the live `growdybase` project.
 - **Every open tab also polls one small status check** -- a build-time
   version stamp plus a manually-toggleable `app_status.maintenance`
   flag -- and hard-blocks itself if either says something changed that

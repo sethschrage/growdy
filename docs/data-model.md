@@ -94,6 +94,7 @@ erDiagram
         text source "chat_scan, photo, producer, or chat_tool"
         text status "pending, confirmed, or dismissed"
         timestamptz reviewed_at "nullable"
+        uuid client_id "nullable, globally unique -- minted on the device before the server ever saw it"
     }
     DATA_PROVIDERS {
         uuid id PK
@@ -208,10 +209,21 @@ erDiagram
   `spacing_meters`, `end_post_count`) had no write path at all until
   recently** -- `authenticated` held `SELECT` only, so no form was ever
   built for them despite `length_meters`/`spacing_meters` existing since
-  early on. A column-scoped `UPDATE` grant plus an editor/owner-only
-  policy (reusing `user_can_edit_parcel`, `0025`) opened the first real
-  write path, and the tree view's row nodes got their first inline edit
-  form to use it.
+  early on. A column-scoped `UPDATE` grant opened the first real write
+  path, and the tree view's row nodes got their first inline edit form to
+  use it. The policy beside that grant took two goes: it reused
+  `private.user_can_edit_parcel`, which queried `parcel_shares`, and
+  [0028](decisions/0028-what-uat-removed.md) dropped that table out from
+  under it -- so every measurement update failed with "relation
+  parcel_shares does not exist" for two days, and nothing reported it
+  (see [`docs/monitoring.md`](monitoring.md)).
+  [0036](decisions/0036-rls-predicates-are-evaluated-once.md) dropped the
+  function and rewrote the policy the way the rest of the schema now
+  reads -- "`plot_rows`: member can update their producer's rows",
+  resolving the row's plot up to a parcel whose `producer_id` is
+  `(select private.current_producer_id())`. There is no editor/owner
+  distinction left to draw: [0028](decisions/0028-what-uat-removed.md)
+  removed sharing, so an editor is just the owner.
 - **`plant_types` is the one table that isn't producer-scoped.** It's a
   shared, global vocabulary -- `planting` references it three separate
   ways (`variety_id`, `scion_variety_id`, `rootstock_variety_id`)
@@ -331,7 +343,16 @@ erDiagram
   candidate, so confirming again duplicated the row. It is idempotent on
   anything not `pending`. `create_observation_candidate()` is the mirror
   image, taking the producer from the caller's profile rather than an
-  argument so a caller cannot file against somebody else's producer.
+  argument so a caller cannot file against somebody else's producer. Its
+  eleventh argument, `p_client_id`, is what makes the offline queue
+  ([0037](decisions/0037-what-happens-with-no-signal.md)) safe to retry:
+  a candidate whose client id is already filed returns that row's id and
+  inserts nothing, so a flush interrupted half way costs a duplicate
+  request rather than a duplicate observation. It returns the id either
+  way rather than quietly doing nothing, because a caller that cannot
+  tell a successful replay from a failure will keep trying forever. The
+  lookup is scoped to the caller's producer as well as the id, so a
+  stray id can never hand back somebody else's row.
 - **`pending_writes` and `audit_log` back the chat's write tool** -- see
   [0022](decisions/0022-chat-writes-data-with-audit-and-rollback.md).
   `pending_writes` is a proposed DML statement (already dry-run

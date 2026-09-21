@@ -19,19 +19,30 @@ and [`docs/decisions/0016`](docs/decisions/0016-chat-queries-directly.md).
 Early. The core hierarchy (producer/parcel/plot/row/planting) is in
 place, and a companion app now exists with a Google-authenticated,
 AI-guided chat for asking questions about the data, plus a browsable
-history of every past conversation. The chat can also pull in outside
-context -- weather, device location, grapevine phenology -- through a
-Knowledge Categories screen where a producer manages what's connected
+history of every past conversation. An answer arrives as it is
+written, under a status line that counts the seconds and opens into the
+steps behind it, since a twenty-second wait otherwise looks the same
+whether the chat is running its ninth query or stuck; a finished answer
+reports what it looked at and roughly what it cost, because a token
+count on its own is not a number a producer can price. The chat can also
+pull in outside context -- weather, device location, grapevine
+phenology -- through a Knowledge screen where a producer manages what's
+connected
 (see [`docs/decisions/0019`](docs/decisions/0019-external-data-channels.md)).
 A separate, non-chat part of the app handles the producer's own
 day-to-day data directly: a form for writing down an observation, and a
 read-only browser over their own parcels/plots/rows/plantings. An
 observation can also start as a photograph -- attached in chat, read
 with the producer's own vineyard in view, and dated from the photo's own
-capture time rather than the moment it was uploaded. Nothing reaches the
-permanent record without a producer confirming it: every path, typed or
-photographed or suggested by the chat, files a candidate into one review
-queue (see
+capture time rather than the moment it was uploaded. An observation
+captured with no signal is held on the phone and sent when the
+connection returns -- every capture goes through that queue, not just a
+failed one, so the code that runs in a block with no bars is the code
+that runs at a desk with five (see
+[`docs/decisions/0037`](docs/decisions/0037-what-happens-with-no-signal.md)).
+Nothing reaches the permanent record without a producer confirming it:
+every path, typed or photographed or suggested by the chat, files a
+candidate into one review queue (see
 [`docs/decisions/0030`](docs/decisions/0030-every-observation-through-one-queue.md)).
 See open and merged PRs for current progress, and
 [`docs/decisions/`](docs/decisions) for the reasoning behind each
@@ -84,6 +95,11 @@ failures that are logged but that nothing currently watches.
 - [0030 -- Every observation enters through one review queue](docs/decisions/0030-every-observation-through-one-queue.md) -- photo attachment in chat, and the decision it forced. `observation_candidates` becomes the only way into `observations` -- not a second status column, which is what 0028 correctly killed, but the queue that already had a screen a producer could reach. Recorded as a preference for curation rather than as a safety claim, since the drift argument only covers what a model wrote.
 - [0031 -- What this project tests, and what it doesn't](docs/decisions/0031-what-this-project-tests.md) -- Vitest and Testing Library, CI on every PR, and rules written as obligations on specific kinds of code rather than as a coverage threshold, which rewards testing what is easy to reach over what is expensive to get wrong.
 - [0032 -- The client is organised by feature, over a shared data layer](docs/decisions/0032-client-organised-by-feature.md) -- thirty flat files become feature folders with every table, view and RPC call behind one typed layer, so the GIS map that comes next is a folder rather than fifteen more files in a pile.
+- [0033 -- What goes in the cached prompt, and what must never](docs/decisions/0033-what-goes-in-the-cached-prompt.md) -- two cache breakpoints split by how fast each half changes: the instructions, tool definitions and schema description in the first, since that text is identical for every producer, and what this producer has switched on in the second. Nothing that varies per request may go in either -- one volatile token makes every request a miss *and* charges the write premium, which costs more than not caching at all.
+- [0034 -- A schema change has to explain itself](docs/decisions/0034-a-schema-change-has-to-explain-itself.md) -- the model was handed twelve hand-listed tables, none of the fourteen foreign keys, and 115 uncommented columns. Every public relation is now described by default with `NOT_DESCRIBED` holding the exclusions and their reasons; a migration that creates a table or adds a column answers six questions in its header, refused by a hook before it can even be written; and the column backlog is a ratchet that fails in both directions, since a ceiling left too high after the work is done grows back.
+- [0035 -- What the docs are checked against, and what cannot be](docs/decisions/0035-what-the-docs-are-checked-against.md) -- of 44 candidate checks over the base docs and the ADRs, the ten that survived are the ones something else in the repo can contradict without anyone exercising judgement: links and anchors, ADR numbering, the Edge Functions a diagram draws, tables, cron jobs. Four were already failing. Nothing here can tell whether a paragraph is still true, which is why calling it documentation CI would be the dangerous reading.
+- [0036 -- A tenancy check runs once per statement, not once per row](docs/decisions/0036-rls-predicates-are-evaluated-once.md) -- `private.user_can_access_producer(producer_id)` takes the row's own column, so a `SECURITY DEFINER` call ran per row: 1,500 ms on a five-row weather query, against 15 ms for `producer_id = (select private.current_producer_id())`, which Postgres resolves once as an InitPlan. Thirty policies across fourteen tables rewritten, provably the same test, and a check fails the next one written the old way.
+- [0037 -- What happens with no signal](docs/decisions/0037-what-happens-with-no-signal.md) -- a producer standing in a block with no bars got WebKit's `Load failed` and lost the question. The app now names the situation rather than the mechanism, keeps a failed send whole and retries it, and writes every observation capture to an IndexedDB queue that is flushed immediately -- one path rather than a fallback only ever exercised where nobody is watching it.
 
 ## Stack
 
