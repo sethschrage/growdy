@@ -29,6 +29,13 @@
      message. */
   padding: calc(4px + env(safe-area-inset-top)) 16px 12px;
   pointer-events: none;
+  /* The room under the closed burger that the grab bar lives in. It is
+     up here rather than in .app-menu because the button on the other
+     side of the header has to know about it: the burger is centred in
+     its head LESS this padding, which puts its middle half of this
+     above the middle of its box, and anything paired with it has to
+     come up by the same amount or the two are not level. */
+  --grab-room: 4px;
 }
 
 .app-header > * {
@@ -51,6 +58,10 @@
 .new-chat {
   width: 44px;
   height: 44px;
+  /* Its own entrance, on top of the material's transition in liquid.css
+     -- the button grows in from a little smaller when the first message
+     goes, rather than blinking into existence. */
+  transform-origin: center;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -60,10 +71,26 @@
      it is and how big. */
 }
 
+/* Nothing to offer yet: an empty chat is already a new chat. The box
+   stays -- the header's measured height feeds --header-height, which the
+   conversation's top padding reads, so a button that left the layout
+   would shunt the whole conversation up and down. */
+.new-chat.new-chat--gone {
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
+}
+
 .app-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Level with the burger, which means level with the DRAWING of the
+     burger rather than with the box around it. The two were 2px apart:
+     the header centres both boxes, and the burger then sits high inside
+     its own by half of --grab-room. This gives the new-chat button the
+     same bias so the pair reads as one row. */
+  transform: translateY(calc(var(--grab-room) / -2));
 }
 
 .app-icon {
@@ -140,7 +167,7 @@
      assumption that the bun ended there, drew its first slice straight
      over the bun. That is the missing top bun: it was never missing, it
      was underneath (the stack carries z-index 2). */
-  padding: var(--burger-top) 0 4px;
+  padding: var(--burger-top) 0 var(--grab-room);
   justify-content: flex-start;
 }
 
@@ -218,7 +245,7 @@
   --menu-head: 36px;
   --burger-size: 44px;
   --burger-height: calc(var(--burger-size) * 0.7);
-  --burger-top: calc((var(--menu-head) - 4px - var(--burger-height)) / 2);
+  --burger-top: calc((var(--menu-head) - var(--grab-room) - var(--burger-height)) / 2);
   --bun-height: calc(var(--menu-button) / 5);
   /* Where the stack hangs from, which is also how far the first item
      has to travel to be back inside the burger. */

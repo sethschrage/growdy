@@ -60,6 +60,23 @@ export function ArrowIcon({ size = 18, className }: IconProps) {
   )
 }
 
+/**
+ * Send: up, not right.
+ *
+ * Rightward is "next" -- it belongs on a button that advances through
+ * something. Every message app draws send as an arrow going up, because
+ * what it does is push this line up into the conversation above it,
+ * which is literally where the message goes.
+ */
+export function ArrowUpIcon({ size = 18, className }: IconProps) {
+  return (
+    <Icon size={size} className={className}>
+      <path d="M12 19V5" />
+      <path d="M6 11l6-6 6 6" />
+    </Icon>
+  )
+}
+
 /** Sign out: a door, and the way out of it. */
 export function ExitIcon({ size = 18, className }: IconProps) {
   return (

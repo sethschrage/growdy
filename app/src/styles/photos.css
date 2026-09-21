@@ -94,27 +94,98 @@
   padding: 8px 12px;
 }
 
-/* The camera/library chooser, stacked above the compose bar so it shares
-   the same floating group and can't be pushed off-screen by it. */
+/* Two bubbles out of the button that opened them.
+   It was a panel -- a soil-coloured box with a 3px leaf border and two
+   rows in it -- sitting in the compose column, so opening it shoved the
+   whole bar up the screen. Two choices is not a menu. They are two
+   things, they come out of the corner they belong to, and they float
+   over the conversation rather than pushing it.
+   Absolute against .chat-compose, which is the fixed element, so they
+   ride up with the bar when the keyboard arrives without any further
+   arrangement. */
 .chat-photo-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  background: var(--soil);
-  border: 3px solid var(--leaf);
-  border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.chat-photo-menu button {
+.photo-bubble {
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-content: flex-start;
-  min-height: 44px;
-  font-size: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
   text-align: left;
+  /* Out of the dot, not out of the middle of the row: the dot is the
+     thing that was the camera button a moment ago. */
+  transform-origin: 24px 24px;
+  animation: photo-bubble-pop 420ms cubic-bezier(0.22, 1.5, 0.36, 1) backwards;
+}
+
+/* The near one first. The lower bubble is the one closest to the finger
+   that just tapped, so it is the one that answers first and the other
+   follows it out. */
+.photo-bubble:nth-child(2) {
+  animation-delay: 0ms;
+}
+
+.photo-bubble:nth-child(1) {
+  animation-delay: 70ms;
+}
+
+@keyframes photo-bubble-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2) translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.photo-bubble-dot {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-bubble-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: var(--text-md);
+  white-space: nowrap;
+}
+
+/* A transform is the whole animation, so somebody who asked for less of
+   it gets the bubbles without the pop rather than without the bubbles. */
+@media (prefers-reduced-motion: reduce) {
+  .photo-bubble {
+    animation-name: photo-bubble-fade;
+  }
+
+  @keyframes photo-bubble-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 .chat-pending-photo-location {

@@ -688,7 +688,11 @@
   flex-direction: row;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1);
+  /* More on the ends than the top. The send button was 4px from the
+     right edge of the capsule and read as jammed into the corner;
+     Safari's own field keeps about 6pt there. The 5px top and bottom is
+     what makes 34 + 10 = the 44px capsule. */
+  padding: 5px 6px;
   /* Half of any height it ends up, which is what makes it a capsule
      rather than a rounded rectangle. Everything else it looks like --
      the glass, the film, the catchlight -- is in liquid.css. */
@@ -771,6 +775,22 @@
   content: '';
   position: absolute;
   inset: -9px;
+}
+
+/* The one control in the bar with two states, so it is drawn twice.
+   At 26px it was a grey arrow in a grey well inside a bar of the same
+   glass, and there was nothing to say the message was ready to go --
+   "not visible enough when ready to send". 34px of the capsule's 44 is
+   the proportion the phone's own message field uses, and the target
+   still clears 44 because the ::after grows with it. */
+.chat-input .icon-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.chat-input .icon-button::after {
+  inset: -5px;
 }
 
 .icon-button:active {

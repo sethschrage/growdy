@@ -11,7 +11,7 @@ import {
 } from '@/lib/photo'
 import { streamChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
-import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
+import { ArrowUpIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
 import { PixelCloud } from '@/ui/pixelArt'
 import { onKeyboardInset } from '@/lib/keyboard'
 import { describeSendFailure, onBackOnline } from '@/lib/connectivity'
@@ -36,10 +36,23 @@ export function Chat({
   session,
   initialMessages,
   conversationId,
+  onStarted,
 }: {
   session: Session
   initialMessages?: ChatMessage[]
   conversationId?: string
+  /**
+   * The first thing a producer says, and nothing after it. The header
+   * hangs the new-chat button on this: an empty chat already IS a new
+   * chat, so a button offering to start one has nothing to offer.
+   *
+   * Reported from the send rather than watched from an effect on
+   * messages.length. It is an event -- a person pressed a key -- and
+   * routing it through a render and back out again would be a setState
+   * in an effect for something that already had a perfectly good
+   * callsite.
+   */
+  onStarted?: () => void
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [input, setInput] = useState('')
@@ -449,6 +462,7 @@ export function Chat({
     const text = input.trim() || (pendingPhoto ? 'I took a photo.' : '')
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
+    onStarted?.()
     // Not awaited, and allowed to fail: with no signal this cannot
     // write, and the next turn logs the whole transcript again anyway,
     // so a missed write heals itself rather than needing its own retry.
@@ -660,12 +674,25 @@ export function Chat({
           together whatever the strip's height turns out to be. */}
       <div className="chat-compose" ref={composeRef}>
       {photoMenuOpen && canUseNativeCamera && (
+        // Bubbles, out of the button that opened them. It was a panel --
+        // a bordered box with two rows in it, stacked into the compose
+        // column so that opening it shoved the whole bar upward. Two
+        // choices is not a menu; it is two things, and two things can
+        // just appear. They pop from the camera button's own corner,
+        // the near one first, and they float over the conversation
+        // instead of pushing it.
         <div className="chat-photo-menu">
-          <button type="button" onClick={() => attachPhoto('camera')}>
-            <CameraIcon size={18} /> Take a photo
+          <button type="button" className="photo-bubble" onClick={() => attachPhoto('camera')}>
+            <span className="photo-bubble-dot">
+              <CameraIcon size={20} />
+            </span>
+            <span className="photo-bubble-label">Take a photo</span>
           </button>
-          <button type="button" onClick={() => attachPhoto('library')}>
-            <PictureIcon size={18} /> Choose from library
+          <button type="button" className="photo-bubble" onClick={() => attachPhoto('library')}>
+            <span className="photo-bubble-dot">
+              <PictureIcon size={20} />
+            </span>
+            <span className="photo-bubble-label">Choose from library</span>
           </button>
         </div>
       )}
@@ -781,7 +808,7 @@ export function Chat({
           disabled={sending || attaching || (!input.trim() && !pendingPhoto)}
           aria-label="Send"
         >
-          <ArrowIcon size={18} />
+          <ArrowUpIcon size={20} />
         </button>
       </form>
       </div>

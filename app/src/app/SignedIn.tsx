@@ -23,6 +23,12 @@ export function SignedIn({ session }: { session: Session }) {
   const [observationCandidatesOpen, setObservationCandidatesOpen] = useState(false)
   const [artifactsOpen, setArtifactsOpen] = useState(false)
   const [resumed, setResumed] = useState<Conversation | null>(null)
+  // Whether this chat has anything in it. Held here rather than in Chat
+  // because the button that reads it lives in the header, and Chat is
+  // remounted by key every time the subject changes -- so the two things
+  // that reset it, starting over and resuming something, are both right
+  // here already.
+  const [chatStarted, setChatStarted] = useState(false)
   const shellRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLElement>(null)
 
@@ -65,6 +71,7 @@ export function SignedIn({ session }: { session: Session }) {
   // -- so this is a change of subject, not a delete.
   function startNewChat() {
     setResumed(null)
+    setChatStarted(false)
     setChatKey((k) => k + 1)
   }
 
@@ -72,7 +79,7 @@ export function SignedIn({ session }: { session: Session }) {
     <div className="app-shell" ref={shellRef}>
       <header className="app-header" ref={headerRef}>
         <div className="app-header-left">
-          <NewChatButton onNewChat={startNewChat} />
+          <NewChatButton onNewChat={startNewChat} shown={chatStarted} />
         </div>
         <AccountMenu
           email={session.user.email ?? ''}
@@ -92,6 +99,7 @@ export function SignedIn({ session }: { session: Session }) {
         session={session}
         initialMessages={resumed?.transcript}
         conversationId={resumed?.id}
+        onStarted={() => setChatStarted(true)}
       />
       {historyOpen && (
         <HistoryDrawer
@@ -99,6 +107,9 @@ export function SignedIn({ session }: { session: Session }) {
           onClose={() => setHistoryOpen(false)}
           onContinue={(conversation) => {
             setResumed(conversation)
+            // Resuming arrives with a transcript already in it, so it is
+            // started by definition and never passes through send().
+            setChatStarted(true)
             setChatKey((k) => k + 1)
             setHistoryOpen(false)
           }}
