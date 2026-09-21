@@ -100,3 +100,4 @@ jobs:
           node scripts/check-schema-docs.mjs
           node scripts/check-docs-db.mjs
           node scripts/check-rls-shape.mjs
+          node scripts/check-anon-reach.mjs

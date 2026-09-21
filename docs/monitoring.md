@@ -737,3 +737,28 @@ migration to write carefully rather than at the end of a long night.
 The narrow version -- `revoke truncate, references, trigger on all tables
 in schema public from authenticated` -- touches nothing the app uses and
 is probably the right first step.
+
+### Two storage policies are in the shape 0036 banned (open, performance)
+
+`scripts/check-rls-shape.mjs` reads `nspname = 'public'` only, so it has
+never looked at `storage`. Two live policies there are in exactly the
+shape it exists to catch:
+
+- `storage.objects` / "observation photos: read own producer's"
+- `storage.objects` / "observation photos: delete own producer's"
+
+Both are
+`private.user_can_access_producer(private.storage_object_producer(name))`
+--- a `SECURITY DEFINER` call taking a value derived from the row, so it
+runs once per object in the bucket rather than once per statement. That
+is [`0036`](decisions/0036-rls-predicates-are-evaluated-once.md)'s whole
+subject, and the reason it matters is the same: it is free at four photos
+and it is a timeout at forty thousand.
+
+Not fixed alongside the `public` policies because rewriting these changes
+who can read a photo, and that wants testing against a real upload and
+download rather than a green checker. The checker was not widened either
+--- doing that without fixing them would just paint the board red.
+
+The corrected shape is the same one every other policy now uses:
+`private.storage_object_producer(name) = (select private.current_producer_id())`.
