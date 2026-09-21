@@ -77,6 +77,10 @@
   --berry-dark: #8a3009;
   --cream: #fff8ea;
   --soil: #3d2b1a;
+  /* The line work on the glass controls. Deep enough to read against a
+     bright frosted pane, and blue rather than black so it belongs to the
+     sky it is floating in. */
+  --glass-ink: #10334f;
   --sky: linear-gradient(180deg, #2b6cb0 0%, #4f9fdb 35%, #a8d8f0 70%, #e8f6ff 100%);
   font: 16px/1.5 var(--font-ui);
 }
