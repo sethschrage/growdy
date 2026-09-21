@@ -728,7 +728,7 @@ async function streamAnthropic(
   const blocks: Record<string, unknown>[] = [];
   const partialToolInput: Record<number, string> = {};
   let text = "";
-  let usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -750,6 +750,14 @@ async function streamAnthropic(
       const payload = dataLine.slice(5).trim();
       if (!payload || payload === "[DONE]") continue;
 
+      // `any` and not `unknown`, deliberately. This is one SSE frame from
+      // the Anthropic API, read with deep optional chaining a few lines
+      // down -- event.delta?.usage?.output_tokens, event.content_block,
+      // event.index. Under `unknown` every one of those needs a narrowing
+      // step for a shape the API owns and can extend, which would be more
+      // code asserting a type we do not control than the code doing the
+      // work. The try/catch around the parse is the real guard.
+      // deno-lint-ignore no-explicit-any
       let event: Record<string, any>;
       try {
         event = JSON.parse(payload);
@@ -1036,7 +1044,12 @@ async function runAgentLoop(conversation: unknown[], supabase: SupabaseClient, s
     const toolResults = await Promise.all(
       toolUses.map(async (toolUse: { id: string; name: string; input: Record<string, unknown> }) => {
         console.log(`chat tool call (iteration ${i + 1}): ${toolUse.name} ${JSON.stringify(toolUse.input)}`);
-        return runTool(supabase, toolUse);
+        // `return await` rather than dropping the async: inside
+        // Promise.all the two are equivalent for a resolved value, but a
+        // synchronous throw in this body would propagate out of .map()
+        // instead of arriving as a rejection. Same semantics, and the
+        // rule is satisfied honestly.
+        return await runTool(supabase, toolUse);
       }),
     );
 
