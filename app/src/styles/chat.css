@@ -578,18 +578,31 @@
   z-index: 2;
   left: 0;
   right: 0;
-  /* Snug into the corner. The bar used to float 6px above the home
-     indicator's inset, which on a phone reads as a bar hovering rather
-     than a bar that belongs to the bottom of the screen. Sitting on the
-     inset itself puts it where the phone's own bottom controls sit, and
-     the capsule's radius then echoes the corner curve instead of
-     arguing with it. */
-  bottom: env(safe-area-inset-bottom);
-  /* Fills the bottom. 8px a side rather than 12, so the bar reads as
-     belonging to the edge of the phone instead of floating in from it.
+  /* How far off the bottom it rests, and it is lower than the safe-area
+     inset. Measuring Safari's own bottom bar on this phone: its capsule
+     stops about 13pt off the bottom of the screen, where the inset here
+     is 34pt. So the phone does not sit its bars ON the inset -- it
+     reaches down past it, over the home indicator's margin, and that is
+     what "the boxes fit down nicely in the shape of the phone" is
+     describing. Sitting on the full inset was still hovering.
+     A named property because the keyboard transform below has to undo
+     exactly this number, and the two going out of step is how the bar
+     ends up either overlapping the keyboard or floating above it.
+     The floor is for a phone with no inset at all, where the subtraction
+     would otherwise put the bar off the bottom edge. */
+  --compose-bottom: max(10px, calc(env(safe-area-inset-bottom) - 20px));
+  bottom: var(--compose-bottom);
+  /* Pulled in from the edges, which is what makes it short.
+     It ran almost the full width at 6px a side, and a shallow bar that
+     long reads as a thin line rather than as a control. Safari's own
+     bottom bar is the reference here and it is inset about 34pt each
+     side on this phone -- a long way in. 24px is most of the way there
+     and as far as this one can go before the field it has to hold gets
+     cramped, and it is enough to change the proportion, which is the
+     thing that was wrong.
      The cap is still here for a wide window, where a chat bar stretched
      to 1200px is not a chat bar. */
-  width: calc(100% - 12px);
+  width: calc(100% - 68px);
   max-width: 560px;
   margin: 0 auto;
   display: flex;
@@ -605,8 +618,24 @@
      inset. Without subtracting it the bar overshoots by the height of
      the indicator. max() keeps it from going negative when the keyboard
      is down and the inset is the larger of the two. */
+  /* Where the bar's bottom edge has to end up is the top of the keyboard
+     plus a seam; where it already is is --compose-bottom; the difference
+     is how far to move it.
+     The seam is the second term and it is what stops the bar crashing
+     into the keyboard -- without it the two surfaces meet exactly, which
+     is arithmetically right and looks like a fault. min() rather than a
+     constant so the seam disappears with the keyboard: --keyboard-inset
+     is 0 when it is down, which makes the whole expression 0 and leaves
+     the bar resting on --compose-bottom. */
   transform: translateY(
-    calc(-1 * max(0px, var(--keyboard-inset, 0px) - env(safe-area-inset-bottom)))
+    calc(
+      -1 *
+        max(
+          0px,
+          var(--keyboard-inset, 0px) + min(10px, var(--keyboard-inset, 0px)) -
+            var(--compose-bottom)
+        )
+    )
   );
   transition: transform 250ms cubic-bezier(0.17, 0.59, 0.4, 1);
 }
@@ -624,11 +653,12 @@
    you came here to do, and attaching a photo is not that. */
 .chat-extras {
   flex: none;
-  /* Matched to the capsule beside it, which is 38px now. The two are a
-     set; a circle taller than the pill it sits next to reads as two
-     controls that arrived separately. */
-  width: 38px;
-  height: 38px;
+  /* Taller than the capsule beside it, which is the part that looks
+     wrong written down and right on the screen. Safari draws its two
+     round buttons at 48 against a 44 pill, so the circle standing a
+     little proud of the pill is not crowding, it is the arrangement. */
+  width: 48px;
+  height: 48px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -672,14 +702,20 @@
   flex: 1;
   min-width: 0;
   /* What sets the height of the whole bar, so it is set here and only
-     here. 16px of text on a 1.25 line in 5px of padding is a 35px field
-     in a 38px capsule -- slim enough to sit down in the corner of the
-     phone the way the phone's own bars do, where 48px was a slab that
-     had to float above it. The font size itself does not go below 16px:
-     iOS zooms the page when a field smaller than that takes focus. */
+     here. 16px of text on a 1.25 line in 8px of padding is a 36px field
+     in a 44px capsule, which is Safari's number on this phone.
+     38px was tried first and it was too thin -- a bar that shallow, run
+     nearly the full width of the phone, reads as a line rather than as
+     something you tap into. Safari's bottom bar is 44pt of capsule on
+     this phone and it reads as chunky because of how far in from the
+     edges it sits, not because of the number. The original 48px slab was
+     full width AND floating 6px up, which is a different thing
+     altogether.
+     The font size itself does not go below 16px: iOS zooms the page when
+     a field smaller than that takes focus. */
   font-size: 16px;
   line-height: 1.25;
-  padding: 5px var(--space-3);
+  padding: 8px var(--space-3);
   border: none;
   background: none;
   border-radius: 999px;
@@ -710,9 +746,13 @@
    of the thing they sit in -- two green slabs with the field squeezed
    between them. They are secondary: the bar is for typing in, and the
    camera and the arrow are there when wanted. 30px reads as that.
-   The target does not shrink with them. ::after pads each one back out
-   past 44px, so what changed is how much green there is, not how easy
-   they are to hit. */
+   The target does not shrink with them: ::after pads each one back out
+   to 44px, so what changed is how much of it is drawn, not how easy it
+   is to hit. The pad was -7px and the claim here was that it cleared 44
+   -- it did not. The button measures 26px (4px of padding round an 18px
+   icon), so -7 made a 40px target and this comment had been describing
+   something that was never true. -9px is the number that makes it 44,
+   which is also exactly the height of the capsule it sits in. */
 .icon-button {
   padding: var(--space-1);
   /* Round, to sit in a capsule. At 10px on a 30px button they were
@@ -730,7 +770,7 @@
 .icon-button::after {
   content: '';
   position: absolute;
-  inset: -7px;
+  inset: -9px;
 }
 
 .icon-button:active {

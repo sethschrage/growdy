@@ -73,12 +73,29 @@ describe('setUpPress', () => {
     const other = document.createElement('button')
     other.className = 'new-chat'
     document.body.append(other)
-    other.dispatchEvent(pointer('pointerdown', { id: 2 }))
+    // Non-primary is what a concurrent touch actually is: the spec makes
+    // only the first of a sequence primary.
+    other.dispatchEvent(pointer('pointerdown', { id: 2, primary: false }))
     expect(other.classList.contains(PRESSED)).toBe(false)
     // and the second finger's travel does not drop the first
     under = null
     window.dispatchEvent(pointer('pointermove', { id: 2, x: 500 }))
     expect(button.classList.contains(PRESSED)).toBe(true)
+  })
+
+  it('recovers when a pointerup never arrives', () => {
+    // iOS can swallow the end of a press -- backgrounding the app mid-
+    // press is the easy way to see it. Nothing else clears the state:
+    // the app does not keep the detach, and there is no timeout. So the
+    // next press has to be what clears it, or every glass control in the
+    // app is dead until a reload.
+    button.dispatchEvent(pointer('pointerdown'))
+    const other = document.createElement('button')
+    other.className = 'new-chat'
+    document.body.append(other)
+    other.dispatchEvent(pointer('pointerdown', { id: 2 }))
+    expect(other.classList.contains(PRESSED)).toBe(true)
+    expect(button.classList.contains(PRESSED)).toBe(false)
   })
 
   it('ignores a non-primary pointer', () => {

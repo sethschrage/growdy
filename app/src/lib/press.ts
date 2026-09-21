@@ -35,9 +35,11 @@ export const PRESSED = 'pressed'
  * Returns the detach, for tests and for symmetry.
  */
 export function setUpPress(scope: Document = document): () => void {
-  // The one pointer we are following. A second finger arriving on
-  // another button while the first is still down is a case the phone
-  // itself ignores, and following a single id is how we ignore it too.
+  // The one pointer we are following. A second finger arriving while the
+  // first is still down is non-primary by definition -- the spec makes
+  // only the first touch of a concurrent sequence primary -- so the
+  // isPrimary check below is already the whole of that case, and the id
+  // is what keeps a stray move or up from another pointer out.
   let held: HTMLElement | null = null
   let following = -1
 
@@ -48,7 +50,15 @@ export function setUpPress(scope: Document = document): () => void {
   }
 
   function down(event: PointerEvent) {
-    if (held || !event.isPrimary) return
+    if (!event.isPrimary) return
+    // A press we never heard the end of. If iOS swallows a pointerup --
+    // the app going to the background mid-press is the easy way to see
+    // it -- then `held` is still set and nothing else will ever clear
+    // it, because the detach is not wired up in the app and there is no
+    // timeout. Refusing the new press there would leave every glass
+    // control dead until a reload. A new primary press means the last
+    // one is over whatever we were told, so this is where it ends.
+    if (held) drop()
     const target = event.target
     if (!(target instanceof Element)) return
     const button = target.closest(PRESSABLE)

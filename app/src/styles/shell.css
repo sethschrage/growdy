@@ -41,12 +41,16 @@
    they should look like they belong to the same app. It takes the slot
    the sprout toggle had, which is why the header's own geometry did not
    have to move.
-   36px rather than the menu's --menu-button, so that it matches the
-   toggle's 36px head opposite it and the header keeps the height that
-   --header-height is measured from. */
+   44px. It was 36, matched to the burger's 36px head opposite it so that
+   the header kept the height --header-height is measured from -- but the
+   burger is a drawing of a burger and this is a single thin glyph in a
+   circle, so the same box does not buy the same presence, and at 36 it
+   read as small. The header's height is measured with offsetHeight in
+   App.tsx and the conversation's top padding reads it, so growing this
+   moves the whole thing down by itself; nothing here has to be told. */
 .new-chat {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   display: inline-flex;
   align-items: center;
