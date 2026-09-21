@@ -356,7 +356,41 @@ function listFiles(dir) {
 }
 
 function main() {
-  const markdown = git(['ls-files', '*.md']).split('\n').filter(Boolean)
+  // Both directions of "the index and the disk disagree", because this
+  // check reports a pass and a pass has to mean something.
+  //
+  // A tracked file can be gone from disk for as long as it takes to
+  // stage a deletion, and an untracked one can exist for as long as it
+  // takes to `git add` a new doc. CI never sees either -- everything
+  // there is committed -- so both only bite somebody verifying locally
+  // before pushing, which is exactly when a silent skip is worst. A new
+  // ADR written and not yet added used to be link-checked by nothing
+  // while the run still printed "Documentation check passed. 51 markdown
+  // files."
+  const trackedMarkdown = git(['ls-files', '*.md']).split('\n').filter(Boolean)
+  const untrackedMarkdown = git(['ls-files', '--others', '--exclude-standard', '*.md'])
+    .split('\n')
+    .filter(Boolean)
+  const goneFromDisk = trackedMarkdown.filter((file) => !existsSync(file))
+  const markdown = [...trackedMarkdown.filter((file) => existsSync(file)), ...untrackedMarkdown]
+
+  if (goneFromDisk.length > 0) {
+    console.warn(
+      `  note: ${goneFromDisk.length} tracked markdown file(s) are deleted but not staged, so they ` +
+        `were not checked. Run \`git add -A\` for a complete check.\n` +
+        goneFromDisk.map((file) => `    ${file}`).join('\n') +
+        '\n',
+    )
+  }
+  if (untrackedMarkdown.length > 0) {
+    console.warn(
+      `  note: ${untrackedMarkdown.length} untracked markdown file(s) were checked but are not in ` +
+        `git yet -- CI will not see them until they are added.\n` +
+        untrackedMarkdown.map((file) => `    ${file}`).join('\n') +
+        '\n',
+    )
+  }
+
   const failures = []
 
   failures.push(...auditLinks(markdown.map((file) => [file, readFileSync(file, 'utf8')])))
