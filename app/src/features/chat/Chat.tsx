@@ -706,7 +706,36 @@ export function Chat({
           interactive does not reliably produce a click on iOS. And it is
           a real user gesture, which is what iOS requires before it will
           bring the keyboard up for a programmatic focus. */}
-      <div className="chat-compose-row">
+      {/* Dragging up on the bar itself asks for the keyboard, the same
+          as dragging up on the conversation. It is the easier of the two
+          to reach -- it is already under the thumb -- and a tap does the
+          same thing, so this is the forgiving version of a control that
+          already works rather than a new one to learn.
+          Its own listeners rather than the scroller's: this element is
+          not scrollable, so nothing can take the gesture away from it
+          part way through, and the move alone is enough. */}
+      <div
+        className="chat-compose-row"
+        onPointerDown={(event) => {
+          const startY = event.clientY
+          const field = inputRef.current
+          if (!field || document.activeElement === field) return
+          const raise = (move: PointerEvent) => {
+            if (move.pointerId !== event.pointerId) return
+            if (startY - move.clientY < PULL) return
+            stop()
+            field.focus()
+          }
+          const stop = () => {
+            window.removeEventListener('pointermove', raise)
+            window.removeEventListener('pointerup', stop)
+            window.removeEventListener('pointercancel', stop)
+          }
+          window.addEventListener('pointermove', raise)
+          window.addEventListener('pointerup', stop)
+          window.addEventListener('pointercancel', stop)
+        }}
+      >
         {/* Outside the capsule, on its own, the way the phone's own
             message bar puts it there. It was the left end of a single
             bordered box holding everything; a round button beside a

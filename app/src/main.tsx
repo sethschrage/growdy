@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import '@/styles/index.css'
 import App from '@/app/App'
 import { setKeyboardInset, setUpKeyboard } from '@/lib/keyboard'
+import { setUpPress } from '@/lib/press'
 
 // The web's answer to the same question the plugin answers natively:
 // how much of the screen is the keyboard covering.
@@ -34,6 +35,10 @@ if (!Capacitor.isNativePlatform()) {
 // Native only, and nothing waits on it: the app should render whether or
 // not the shell has a keyboard plugin to talk to.
 void setUpKeyboard()
+
+// Every platform, and before the first render: the listener is delegated
+// off the document, so it does not care whether the buttons exist yet.
+setUpPress()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

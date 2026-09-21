@@ -1,245 +1,166 @@
-/* Liquid glass: the bubble.
+/* Liquid glass, the way the phone draws it.
  *
- * Every floating control in the chat is one shell -- the new-chat
+ * Every floating control in the chat is one material: the new-chat
  * button, the attachment button, the send arrow and the compose capsule.
- * They are a soap bubble in the sky rather than a frosted pane: nearly
- * transparent through the middle so the sky and the conversation come
- * through, with thin-film colour in the rim where the film is thinnest,
- * and one hard catchlight that makes a circle read as a sphere.
  *
- * Deliberately photoreal against the app's pixel art. That contrast is
- * the point -- the burger and the sprout are drawn on a ten-unit grid,
- * and the things you touch are wet.
+ * LIGHT glass with dark line work, because the ground it sits on is
+ * light. Two versions were tried before this one and both were wrong in
+ * the same way. The first was white glass with a conic iridescent fringe
+ * round the rim, which read as a sticker of glass rather than as glass:
+ * "too much rainbow, too much lsd". The second followed the iOS
+ * references literally -- a dark neutral pane with white symbols -- and
+ * came out as a grey slab, because those references are of a dark app.
+ * Growdy's sky runs to near-white exactly where these controls live, and
+ * a uniform darkening of a uniform near-white ground is grey paint; no
+ * rim and no gradient rescues it, and white symbols on it are washed.
+ * The phone itself does not do that either: over a light ground it
+ * switches to bright glass and dark glyphs, and that is what this is.
  *
- * Last in the cascade (see index.css) because it replaces the flat wood
- * on .new-chat and the plainer cream glass the compose bar had, rather
- * than adding to them.
+ * What makes it read as a material is the light in it, not the tint: a
+ * gradient down the face that is brightest where the light lands, a hard
+ * white catchlight one pixel tall along the top edge, and a saturate
+ * above 1 so the blue it is floating in comes through the frost rather
+ * than being drained out of it.
+ *
+ * Last in the cascade (index.css) because it replaces the flat wood on
+ * .new-chat and the cream glass the compose bar had, rather than adding
+ * to them.
  */
-
-/* A bubble floating in the sky.
-   Thin-film interference on a nearly-transparent shell: you see the sky
-   through the middle, the colour lives in the rim where the film is
-   thinnest, and one hard specular catches the light. */
-
-@property --film {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes film-drift {
-  to {
-    --film: 360deg;
-  }
-}
 
 .new-chat,
 .chat-extras,
+.chat-input,
 .chat-input .icon-button {
-  position: relative;
-  isolation: isolate;
   border: none;
-  color: var(--ink);
-  background:
-    radial-gradient(
-      124% 124% at 30% 22%,
-      rgba(255, 255, 255, 0.62) 0%,
-      rgba(255, 255, 255, 0.14) 16%,
-      rgba(255, 255, 255, 0.03) 38%,
-      rgba(255, 255, 255, 0) 62%
-    ),
-    radial-gradient(80% 80% at 74% 86%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 52%),
-    rgba(255, 255, 255, 0.04);
-  /* Barely any blur: a bubble distorts what is behind it, it does not
-     frost it. The saturation is what makes the sky through it read as
-     wet rather than as a grey disc. */
-  backdrop-filter: blur(2px) saturate(210%) brightness(1.07);
-  -webkit-backdrop-filter: blur(2px) saturate(210%) brightness(1.07);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
-    inset 0 1px 2px rgba(255, 255, 255, 0.95),
-    inset 0 -7px 12px rgba(255, 255, 255, 0.12),
-    0 3px 12px rgba(20, 60, 110, 0.16);
-}
-
-/* The film. A hue wheel confined to an annulus, so the colour is in the
-   wall of the bubble and the middle stays clear. */
-.new-chat::before,
-.chat-extras::before,
-.chat-input .icon-button::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--film),
-    rgba(255, 255, 255, 0.85),
-    rgba(126, 203, 255, 0.55),
-    rgba(255, 255, 255, 0.9),
-    rgba(186, 160, 255, 0.45),
-    rgba(255, 255, 255, 0.85),
-    rgba(150, 250, 226, 0.4),
-    rgba(255, 255, 255, 0.9)
+  color: var(--glass-ink);
+  /* Two layers, and the top one is the whole trick.
+     One flat tint is what made this read as grey paint: growdy's sky
+     runs to near-white at the bottom, which is exactly where the compose
+     bar lives, so a uniform darkening of a uniform ground gives a
+     uniform grey and there is nothing in it for the eye to read as
+     glass. What the phone actually draws has light in it -- brighter
+     along the top where the light lands, falling away down the face --
+     and that gradient is what says the thing has a surface. The tint
+     underneath is only there to hold the white symbols up. */
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.58) 0%,
+    rgba(255, 255, 255, 0.34) 55%,
+    rgba(255, 255, 255, 0.26) 100%
   );
-  -webkit-mask: radial-gradient(closest-side, transparent 48%, #000 72%, #000 97%, transparent 100%);
-  mask: radial-gradient(closest-side, transparent 48%, #000 72%, #000 97%, transparent 100%);
-  mix-blend-mode: screen;
-  opacity: 0.55;
-  filter: blur(1.4px) saturate(125%);
-  animation: film-drift 34s linear infinite;
-  pointer-events: none;
-}
-
-/* The catchlight, hard and small and off to one side, which is the thing
-   that makes a sphere read as wet rather than as a circle. */
-.new-chat::after,
-.chat-extras::after,
-.chat-input .icon-button::after {
-  content: '';
-  position: absolute;
-  top: 12%;
-  left: 20%;
-  width: 34%;
-  height: 24%;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
-  filter: blur(0.4px);
-  pointer-events: none;
+  background-color: rgba(255, 255, 255, 0.22);
+  /* Enough blur to soften what passes underneath, not enough to flatten
+     it: a cloud crossing behind the bar should still read as a cloud
+     going past. */
+  backdrop-filter: blur(22px) saturate(1.9);
+  -webkit-backdrop-filter: blur(22px) saturate(1.9);
+  /* The settle: slower than the lift and with no bounce at the end. */
+  transition:
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 340ms ease,
+    box-shadow 340ms ease;
+  /* Holding a control is now a real interaction, so the two things iOS
+     does to a long press -- the selection callout and the text
+     selection -- have to stop happening on top of it. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  box-shadow:
+    /* The lit top edge. Bright and one pixel tall -- this is the
+       catchlight, and at the size these controls are it is most of what
+       tells you the material has a thickness. */
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    /* The far edge, in shadow, because the light only comes from one
+       place. Without it the shape is a sticker. */
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    /* the containing hairline, all the way round and very quiet */
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.7),
+    /* it sits on the screen rather than in it */
+    0 2px 16px rgba(20, 60, 100, 0.16);
 }
 
 .new-chat > svg,
 .chat-extras > svg,
 .chat-input .icon-button > svg {
-  position: relative;
-  z-index: 1;
-  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.55));
+  /* White line work, as the reference draws it. The symbols are the only
+     thing with any brightness in these controls, which is what makes
+     them the thing you see. */
+  color: var(--glass-ink);
 }
 
-.new-chat:active,
-.chat-extras:active,
-.chat-input .icon-button:active {
-  transform: scale(0.94);
+/* The press. It lifts; it does not sink.
+   Pushing a button into the page is the web's convention and it is what
+   every other button in growdy does. A glass control does the opposite:
+   it grows under the thumb, as though the finger were pulling it up out
+   of the screen, and it holds there until the finger goes. Slide off and
+   it settles back; slide on again and it lifts again. lib/press.ts is
+   what decides that, because :active cannot -- WebKit takes it away when
+   the finger leaves and never gives it back.
+   Two curves, because the two halves are not the same movement. Going up
+   is quick and overshoots a little, which is what reads as springy.
+   Coming back down is slower and lands without a bounce, so a finger
+   lifting off does not leave the thing wobbling. */
+.new-chat.pressed:not(:disabled),
+.chat-extras.pressed:not(:disabled),
+.chat-input .icon-button.pressed:not(:disabled) {
+  transform: scale(1.16);
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 1.5, 0.45, 1);
+  /* It lifts toward the light as well as toward the finger. */
+  background-color: rgba(255, 255, 255, 0.42);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
-    inset 0 1px 2px rgba(255, 255, 255, 0.95),
-    0 1px 5px rgba(20, 60, 110, 0.2);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.85),
+    0 6px 22px rgba(20, 60, 100, 0.26);
 }
 
 .chat-extras:disabled,
 .chat-input .icon-button:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
-/* The capsule is the same bubble stretched, with one trade: it holds
-   text, so the blur goes up and the film comes down. A high blur is what
-   makes --ink readable over a green bubble passing underneath -- it
-   smears the ground rather than tinting it -- and it buys the tint back
-   down to something you can still see the sky through. */
-.chat-input {
-  position: relative;
-  isolation: isolate;
-  border: none;
-  background:
-    radial-gradient(
-      140% 220% at 18% 0%,
-      rgba(255, 255, 255, 0.42) 0%,
-      rgba(255, 255, 255, 0.1) 28%,
-      rgba(255, 255, 255, 0.03) 60%
-    ),
-    rgba(255, 255, 255, 0.13);
-  backdrop-filter: blur(22px) saturate(200%) brightness(1.08);
-  -webkit-backdrop-filter: blur(22px) saturate(200%) brightness(1.08);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9),
-    inset 0 -10px 18px rgba(255, 255, 255, 0.1),
-    0 4px 16px rgba(20, 60, 110, 0.16);
-}
-
-.chat-input::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--film),
-    rgba(255, 255, 255, 0.85),
-    rgba(126, 203, 255, 0.55),
-    rgba(255, 255, 255, 0.9),
-    rgba(186, 160, 255, 0.45),
-    rgba(255, 255, 255, 0.85),
-    rgba(150, 250, 226, 0.4),
-    rgba(255, 255, 255, 0.9)
-  );
-  /* An edge only, and a soft one: across a 350px capsule the film has to
-     stay out of the middle third where the glyphs are. */
-  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
-  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  padding: 2.5px;
-  mix-blend-mode: screen;
-  opacity: 0.45;
-  filter: blur(1.4px) saturate(120%);
-  animation: film-drift 40s linear infinite;
-  pointer-events: none;
-}
-
-/* The long catchlight a capsule gets: a streak, not a dot. */
-.chat-input::after {
-  content: '';
-  position: absolute;
-  top: 8%;
-  left: 5%;
-  right: 42%;
-  height: 26%;
-  border-radius: 999px;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.75),
-    rgba(255, 255, 255, 0.12) 60%,
-    rgba(255, 255, 255, 0)
-  );
-  filter: blur(1px);
-  pointer-events: none;
-}
-
-.chat-input input,
+/* The send arrow sits inside the capsule, which is already blurred, and
+   iOS WebKit will not run a backdrop-filter inside a backdrop-filter.
+   So it is a plain tint rather than a second pane -- a solid object
+   dropped in the glass, which is what the reference's mic button is. */
 .chat-input .icon-button {
-  position: relative;
-  z-index: 1;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-image: none;
+  background-color: rgba(31, 68, 104, 0.12);
+  box-shadow: none;
 }
 
-/* The app's own face, said out loud rather than left to inheritance.
-   The field is glass now and everything about it is set here; a
-   placeholder that quietly fell back to a UA font would be the one piece
-   of the app not speaking in the app's voice. */
-.chat-input input,
-.chat-input input::placeholder {
+/* The arrow keeps the plain tint when it lifts: it is an object in the
+   glass, so it brightens rather than growing an edge of its own. */
+.chat-input .icon-button.pressed:not(:disabled) {
+  background-color: rgba(31, 68, 104, 0.2);
+  box-shadow: none;
+}
+
+.chat-input input {
+  color: var(--glass-ink);
   font-family: var(--font-ui);
 }
 
 .chat-input input::placeholder {
-  color: var(--ink);
-  opacity: 0.6;
+  color: var(--glass-ink);
+  opacity: 0.55;
+  font-family: var(--font-ui);
 }
 
 .chat-input:focus-within {
-  background:
-    radial-gradient(
-      140% 220% at 18% 0%,
-      rgba(255, 255, 255, 0.5) 0%,
-      rgba(255, 255, 255, 0.14) 28%,
-      rgba(255, 255, 255, 0.05) 60%
-    ),
-    rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
+/* Asked for less movement: the control still answers, it just answers
+   with light instead of with size. */
 @media (prefers-reduced-motion: reduce) {
-  .new-chat::before,
-  .chat-extras::before,
-  .chat-input .icon-button::before,
-  .chat-input::before {
-    animation: none;
+  .new-chat.pressed:not(:disabled),
+  .chat-extras.pressed:not(:disabled),
+  .chat-input .icon-button.pressed:not(:disabled) {
+    transform: none;
   }
 }
