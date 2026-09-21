@@ -585,32 +585,123 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* Rides up with the keyboard, and nothing else in the layout moves.
+     A transform is a compositor job: no relayout, no repaint of the
+     conversation, and the duration and curve are ours rather than the
+     plugin's.
+     The safe-area term is load-bearing. `bottom` already lifts the bar
+     clear of the home indicator, and the keyboard height UIKit reports
+     is measured from the bottom of the screen, so it contains that same
+     inset. Without subtracting it the bar overshoots by the height of
+     the indicator. max() keeps it from going negative when the keyboard
+     is down and the inset is the larger of the two. */
+  transform: translateY(
+    calc(-1 * max(0px, var(--keyboard-inset, 0px) - env(safe-area-inset-bottom)))
+  );
+  transition: transform 250ms cubic-bezier(0.17, 0.59, 0.4, 1);
 }
 
+/* The attachment button and the capsule, side by side. */
+.chat-compose-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Its own circle, in the same glass as the capsule beside it, so the two
+   read as one set of controls rather than a button that escaped from
+   somewhere else. Not green: green is what the app uses for the thing
+   you came here to do, and attaching a photo is not that. */
+.chat-extras {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--cream) 74%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.chat-extras:active {
+  background: color-mix(in srgb, var(--cream) 88%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transform: none;
+}
+
+.chat-extras:disabled {
+  opacity: 0.5;
+}
+
+/* Glass, and a pill.
+   It was a solid slab of --soil with a --leaf border and a 14px radius:
+   a rectangle with corners, sitting in the rounded corner of the phone
+   and not agreeing with it. A capsule agrees with it -- the radius is
+   half the height, the way the phone's own bottom controls are drawn.
+   Translucent for the same reason the menu's rail is, and with the same
+   blur and saturate. The difference is how much tint: the rail carries
+   14% white because it only has to be seen, and this has to be read
+   through. Over a green message bubble scrolling behind it, 14% leaves
+   dark brown text on a dark green ground. 74% cream keeps the app's own
+   warmth and keeps the text legible over anything that passes under. */
 .chat-input {
   display: flex;
   flex-direction: row;
-  gap: 8px;
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
-  background: var(--soil);
-  border: var(--line) solid var(--leaf);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: color-mix(in srgb, var(--cream) 74%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  /* Half of any height it ends up, which is what makes it a capsule
+     rather than a rounded rectangle. */
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 6px 20px rgba(0, 0, 0, 0.18);
 }
 
+/* No box of its own. The field used to be a second, lighter rectangle
+   inside the first; on glass there is nothing for it to be lighter
+   than, and one shape reads as one control. */
 .chat-input input {
   flex: 1;
+  min-width: 0;
   padding: var(--space-2) var(--space-3);
   border: none;
-  border-radius: var(--radius-md);
+  background: none;
+  border-radius: 999px;
+  color: var(--ink);
+}
+
+.chat-input input::placeholder {
+  color: var(--ink);
+  opacity: 0.55;
 }
 
 /* The bar itself is the field's edge; a border on the input as well put
    two lines 6px apart, and the focus ring landed between them. Focus
    lifts the field instead. */
+/* The whole capsule answers, not a ring inside it. A second outline
+   drawn around the field would be a pill inside a pill; brightening the
+   glass says the same thing with the shape there already is. */
 .chat-input input:focus {
   border: none;
-  box-shadow: inset 0 0 0 var(--line) var(--leaf);
+  box-shadow: none;
+}
+
+.chat-input:focus-within {
+  background: color-mix(in srgb, var(--cream) 86%, transparent);
+  border-color: rgba(255, 255, 255, 0.8);
 }
 
 /* The two buttons in the compose bar.
@@ -624,6 +715,10 @@
    they are to hit. */
 .icon-button {
   padding: var(--space-1);
+  /* Round, to sit in a capsule. At 10px on a 30px button they were
+     squircles, which is the one shape that agrees with nothing else
+     down here. */
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
