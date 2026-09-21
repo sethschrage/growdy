@@ -78,6 +78,107 @@
     0 2px 16px rgba(20, 60, 100, 0.16);
 }
 
+/* The fringe, and it only really exists while you are touching it.
+ *
+ * Read off a screen recording of the iOS Clock tab bar, frame by frame.
+ * At rest the selected lozenge carries a thin band of hue along the
+ * curved part of its rim and almost nothing along the straight edges --
+ * easy to miss, which is the point. The moment it is dragged the band
+ * blooms along the leading edge into a full spectrum: red through violet,
+ * bright, unmistakable, and gone again the instant it settles.
+ *
+ * That is why the first attempt at this was wrong. A conic hue wheel
+ * turning all the time read as "too much rainbow, too much lsd", and it
+ * was -- not because the colour was wrong but because it was there when
+ * nothing was happening. Chromatic aberration is what a lens does to
+ * light that is MOVING through it. Tie it to the press and the same
+ * colour that looked like a sticker reads as physics.
+ *
+ * press.ts already tracks exactly the state this needs, for free: the
+ * class is on while the finger is down and off the moment it slides away.
+ *
+ * A masked ring rather than a border, so it follows border-radius with no
+ * per-shape arithmetic -- a 44px circle and a 999px capsule get the same
+ * declaration. plus-lighter because a fringe adds light to what is behind
+ * it; source-over would paint over it.
+ */
+.new-chat,
+.chat-extras,
+.chat-input,
+.photo-bubble-dot {
+  position: relative;
+}
+
+.new-chat::before,
+.chat-extras::before,
+.chat-input::before,
+.photo-bubble-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* the ring: paint the whole box, then punch the middle out */
+  padding: 1.5px;
+  background: linear-gradient(
+    104deg,
+    rgba(255, 90, 90, 0.9) 0%,
+    rgba(255, 190, 70, 0.85) 9%,
+    rgba(255, 255, 255, 0.75) 19%,
+    rgba(120, 240, 160, 0.8) 32%,
+    rgba(255, 255, 255, 0.7) 44%,
+    rgba(90, 200, 255, 0.85) 58%,
+    rgba(170, 140, 255, 0.85) 72%,
+    rgba(255, 255, 255, 0.7) 84%,
+    rgba(255, 140, 200, 0.8) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  /* multiply, and this is the one decision here that had to be measured
+     rather than reasoned. plus-lighter is what Apple's effect behaves
+     like -- but Apple's bar sits on a black screen, where adding
+     coloured light shows colour. Over growdy's pale sky the same
+     declaration clips straight to white and the fringe becomes a plain
+     bright ring with no hue in it at all. Five blend modes were rendered
+     side by side on the device; normal and multiply were the only two
+     that carried any chroma, and multiply is the right physics for a
+     light ground anyway -- looking through a prism at a bright field is
+     subtractive, not additive. */
+  mix-blend-mode: multiply;
+  /* At rest: present, and you would have to go looking for it. */
+  opacity: 0.16;
+  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Under the thumb. Faster in than out, the same asymmetry the lift has:
+   the colour arrives with the finger and drains after it. */
+.new-chat.pressed::before,
+.chat-extras.pressed::before,
+.photo-bubble.pressed .photo-bubble-dot::before,
+.chat-input:focus-within::before {
+  opacity: 0.8;
+  transition-duration: 180ms;
+}
+
+/* Colour is the whole effect, so there is nothing to soften here -- but
+   a fringe that snaps on and off is a flash, and that is the part worth
+   not doing to somebody who asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .new-chat::before,
+  .chat-extras::before,
+  .chat-input::before,
+  .photo-bubble-dot::before {
+    transition-duration: 0ms;
+    opacity: 0.16;
+  }
+}
+
 /* Only the buttons, and this is why the list is written out again rather
    than folded into the block above: holding a control is a real
    interaction now, so the two things iOS does to a long press -- the
