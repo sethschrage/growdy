@@ -510,14 +510,25 @@ leaving to be discovered. Not checked by anything: that
 `app/src/data/schema.ts` was regenerated with the migration that made
 it stale (the file is generated, so a stale copy type-checks happily
 against a schema that no longer exists); that a destructive migration
-renamed instead of dropping; that a new table has RLS turned on at all,
-or what is granted to `anon`; that a function deploy carried
-`--no-verify-jwt`; that the PR title is a conventional commit, which
+renamed instead of dropping; that a new table has RLS turned on at all;
+that a function deploy carried `--no-verify-jwt`; that the PR title is a
+conventional commit, which
 squash merge turns into `main`'s commit subject; that auto-merge was
 actually requested; that a migration waited for the merge; that the
 release body has the shape Releases step 4 describes. Most of those are
 mechanizable and some should be mechanized. Until they are, a green
 board means the mechanical half passed, and nothing more.
+
+Two things that used to be on that list are off it, and the way they came
+off is the point. **What is granted to `anon`** is now
+`scripts/check-anon-reach.mjs`, which reads the resulting ACL out of the
+database rather than the migration text -- because the mistake it exists
+to catch was a migration that said `create or replace function` and meant
+it while Postgres created something else. And **the Edge Functions** are
+now typechecked, linted and tested by the `functions` job in
+`web.yml`, with `scripts/check-function-guards.mjs` reading the one thing
+a test cannot: that each handler still resolves its caller *before* it
+does anything that costs money.
 
 ## Architecture Decision Records (ADRs)
 

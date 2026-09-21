@@ -1,5 +1,8 @@
-name: Web app
+name: Code
 
+# Two jobs, because this repo has two bodies of TypeScript and until
+# 2026-09-21 only one of them was checked.
+#
 # The client had no CI at all until this file: `db-lint` runs on every
 # PR and checks the schema, so a PR touching only `app/` was merged --
 # auto-merge, no human review -- on the strength of a green check that
@@ -42,3 +45,56 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # supabase/functions/ -- 2,248 lines that nothing looked at.
+  #
+  # `web` above runs with working-directory: app, db-lint.yml covers the
+  # database, and no workflow ran Deno. That left the Edge Functions
+  # unchecked at the exact moment they became the only access control
+  # there is: verify_jwt is false on all six so each can answer its own
+  # CORS preflight, so the Supabase gateway checks nothing, and the guard
+  # #238 added is what stands between an anonymous POST and a billed
+  # model call. A typo in it, a bad import, or a refactor that moved it
+  # below the first fetch would have shipped on a fully green board.
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Types and imports first: a bad specifier is the failure most
+      # likely to reach production here, because nothing resolves these
+      # until the function is deployed and called.
+      #
+      # --node-modules-dir=auto rather than a deno.json inside
+      # supabase/functions/, deliberately. A config file there is read by
+      # the Supabase bundler at deploy time as well, and changing how
+      # these six functions resolve their imports is not a thing to do as
+      # a side effect of adding CI.
+      - name: Typecheck
+        run: deno check --node-modules-dir=auto supabase/functions/*/index.ts supabase/functions/_shared/*.ts
+
+      # no-import-prefix and no-unversioned-import are excluded because
+      # `jsr:` and `npm:` specifiers are the documented way to write a
+      # Supabase Edge Function and are what the runtime resolves. Every
+      # other rule is on, and the three real findings it had -- a let
+      # that was never reassigned, an unnecessary async, and an `any` --
+      # were fixed rather than baselined.
+      - name: Lint
+        run: deno lint --rules-exclude=no-import-prefix,no-unversioned-import supabase/functions
+
+      - name: Test
+        run: deno test --node-modules-dir=auto --allow-env supabase/functions/
+
+      # Not a test: an ordering. The regression that matters is the guard
+      # still present, still correct, and moved below the first thing
+      # that spends money -- which is what #238 actually was.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Guards
+        run: node scripts/check-function-guards.mjs

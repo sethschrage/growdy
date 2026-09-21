@@ -102,3 +102,46 @@ blocks it forever.
   and the four `set-state-in-effect` warnings on `main` today are not
   errors. Turning them into failures is a separate decision about those
   four call sites, not something to smuggle in with the harness.
+
+## Update (2026-09-21): the Edge Functions have a runner now
+
+This ADR argued entirely from `app/src`, because that was the only
+TypeScript anybody was proposing to test. `supabase/functions/` -- 2,248
+lines -- went unmentioned, and so went unchecked: `web.yml` runs with
+`working-directory: app`, `db-lint.yml` covers the database, and nothing
+ran Deno at all.
+
+That became the wrong silence on 2026-09-21. `#238` added a
+`resolveProducerId` guard to the three browser-facing functions, because
+all three were reaching Anthropic and Tempest for callers with no
+credentials. `verify_jwt` is deliberately `false` on all six so each can
+answer its own CORS preflight, which means the gateway checks nothing and
+those few lines are the entire access control. A typo in them would have
+shipped green.
+
+So the rules here apply to `supabase/functions/` too, with one addition
+that the `app/src` half does not need.
+
+**The guard is tested where it is testable.** `resolveProducerId` and
+`unauthorizedResponse` are pure enough to test against a stubbed client,
+and are, in
+[`supabase/functions/_shared/supabaseClient.test.ts`](../../supabase/functions/_shared/supabaseClient.test.ts):
+a permission error, an empty result, a null `producer_id` and a good row,
+plus that the refusal is a 401 carrying CORS headers under the key the
+clients already unpack. Deno's own runner, no new dependency.
+
+**And the part that is not reachable from a test is checked by a script
+instead.** The regression that matters is not the guard being absent --
+a test catches that. It is the guard being present, correct, and moved
+below the first thing that spends money, which is what `#238` actually
+was. No unit test sees an ordering.
+[`scripts/check-function-guards.mjs`](../../scripts/check-function-guards.mjs)
+reads it: that each browser-facing handler answers `OPTIONS` first, then
+resolves a producer, then works; that the cron three send a trigger token
+and never try to resolve a producer they do not have; and that a function
+in neither list fails rather than passing silently.
+
+That is the same move this ADR already makes for layout defects -- when
+the honest answer is "no unit test would have caught this", write down
+what would have, rather than writing a test that asserts the code back at
+itself. A checker is that written down and made to run.

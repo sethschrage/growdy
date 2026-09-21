@@ -32,3 +32,11 @@ app/public/zz-*
 *.MP4
 *.mp4
 *.mov
+
+# Written by `deno check --node-modules-dir=auto` when the functions lane
+# runs. Not committed: CI regenerates it every run, the function imports
+# carry their own version specifiers, and a lockfile sitting at the repo
+# root is one more thing the Supabase bundler might read at deploy time.
+# Pinning these deps properly is worth doing -- but with a deploy tested
+# afterwards, not as a side effect of adding CI.
+deno.lock
