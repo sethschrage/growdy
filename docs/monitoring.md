@@ -320,26 +320,39 @@ catch it.
   error (429): ... no payment method on file ...` on most entries -- a
   Voyage AI billing gap, not a growdy bug).
 - **Which Edge Functions accept an unauthenticated request, and what
-  each one does before it finds out.** Three deploy with
-  `verify_jwt: false` so they can answer their own CORS preflight
-  (`chat`, `ingest-weather`, `add-weather-source` -- see
-  [`supabase/functions/_shared/cors.ts`](../supabase/functions/_shared/cors.ts)),
-  which means the gateway checks nothing and the function's own first
-  statement is the entire control. Nothing watches this: the setting
-  lives in the Supabase dashboard rather than in this repo, it is a
-  deploy-time flag rather than anything a migration or CI can see, and
-  the advisors above do not look at Edge Functions at all. `chat` spent
-  from its first deploy until 2026-09-21 calling Anthropic on this
-  project's key for anyone who sent it a POST. The check that catches
-  this is a `curl` with no credentials, per function, which is cheap:
+  each one does before it finds out.** All six deploy with
+  `verify_jwt: false` -- confirmed against the live project on
+  2026-09-21, not assumed -- so the gateway checks nothing for any of
+  them and each function's own first statement is the entire control.
+  Two unrelated reasons, and it is worth not collapsing them: `chat`,
+  `ingest-weather` and `add-weather-source` need it to answer their own
+  CORS preflight (see
+  [`supabase/functions/_shared/cors.ts`](../supabase/functions/_shared/cors.ts))
+  and authorize with `resolveProducerId`; `sync-scheduled-weather`,
+  `scan-conversations-for-observations` and `embed-scheduled-memory`
+  need it because `pg_cron` is not a signed-in user, and authorize
+  against a Vault-stored `X-Cron-Secret`
+  ([0020](decisions/0020-scheduled-weather-sync.md)).
+
+  Nothing watches this. The setting lives in the Supabase dashboard
+  rather than in this repo, it is a deploy-time flag rather than
+  anything a migration or CI can see, `supabase functions deploy`
+  silently turns it back *on* for any function deployed without
+  `--no-verify-jwt`, and the advisors above do not look at Edge
+  Functions at all. `chat` spent from its first deploy until 2026-09-21
+  calling Anthropic on this project's key for anyone who sent it a POST.
+  The check that catches it is a `curl` with no credentials, per
+  function, which is cheap:
 
   ```
   curl -sS -X POST https://fostmbhpnhjzhulphxzp.supabase.co/functions/v1/<name> \
     -H "content-type: application/json" -d '{}'
   ```
 
-  A 401 is the right answer for all three. Anything else means the
-  handler ran, and the question is what it did before it noticed.
+  A 401 is the right answer for all six. Anything else means the handler
+  ran, and the question is what it did before it noticed. The flag
+  itself reads back via the Supabase API (`list_edge_functions`), which
+  is the only way to see it without deploying.
 - **No backups exist.** Free tier, stated directly in
   [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s "Working directly against the
   live database" section -- a manual `supabase db dump` before any

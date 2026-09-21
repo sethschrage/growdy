@@ -137,6 +137,10 @@ flowchart TD
   Those same three deploy with `verify_jwt: false`, because Supabase's
   gateway check can't be exempted for the CORS preflight alone, so each
   one resolves its caller to a producer itself before doing any work.
+  (All six carry that flag, in fact -- the other three for the unrelated
+  reason below, that `pg_cron` is not a signed-in user. No function in
+  this project has a gateway check; what differs is which self-check it
+  runs.)
   That second half is not a detail of the first: RLS bounds what a
   request can read, and `chat`'s expensive part is an Anthropic call
   rather than a query, so for six days an anonymous `POST` to it got a
