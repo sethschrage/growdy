@@ -13,6 +13,7 @@ import { streamChatMessage } from '@/data/chat'
 import { exifObservedDate } from '@/lib/exif'
 import { ArrowIcon, CameraIcon, CheckIcon, CloseIcon, PictureIcon } from '@/ui/icons'
 import { PixelCloud } from '@/ui/pixelArt'
+import { onKeyboardInset } from '@/lib/keyboard'
 import { describeSendFailure, onBackOnline } from '@/lib/connectivity'
 import { AnswerMeta } from '@/features/chat/AnswerMeta'
 import { estimateThinkingCostUsd } from '@/features/chat/cost'
@@ -23,12 +24,13 @@ import { useConversationLog } from '@/features/chat/useConversationLog'
 import type { ChatMessage } from '@/features/chat/types'
 
 /**
- * How far the conversation has to be pulled down before the keyboard is
- * put away. Far enough to be a decision: an upward flick often starts
- * with a few pixels the other way, and dismissing on that would take the
- * keyboard from somebody mid-sentence.
+ * How far the conversation has to be pulled before it counts as a
+ * request about the keyboard -- down to put it away, up to ask for it
+ * back. Far enough to be a decision: a flick in either direction often
+ * starts with a few pixels the other way, and acting on that would take
+ * the keyboard from somebody mid-sentence.
  */
-const DISMISS_PULL = 40
+const PULL = 40
 
 export function Chat({
   session,
@@ -138,6 +140,24 @@ export function Chat({
   // scrolling it themselves.
   const touchingRef = useRef(false)
 
+  // The keyboard covers the bottom of a conversation that no longer
+  // shrinks to make room. Scrolling by the same number keeps the last
+  // message where it was on screen.
+  //
+  // Only for somebody who was already at the bottom. Someone reading
+  // back through history asked to be where they are, and yanking them
+  // forward because a keyboard appeared would be the app taking the
+  // conversation off them.
+  useEffect(
+    () =>
+      onKeyboardInset((inset) => {
+        const node = messagesRef.current
+        if (!node || inset <= 0 || !pinnedToBottomRef.current) return
+        node.scrollTop += inset
+      }),
+    [],
+  )
+
   useEffect(() => {
     const node = messagesRef.current
     if (!node) return
@@ -172,9 +192,19 @@ export function Chat({
     // same reason -- scrolling up to re-read is not a request to close
     // anything.
     //
-    // blur() rather than the Keyboard plugin's hide(), so this works on
-    // the deployed web app as well as in the shell. Nothing here is
-    // native.
+    // And pulling it up the other way asks for the keyboard back, which
+    // is the same gesture read the other way round.
+    //
+    // Only when there is nothing left to scroll. On a conversation with
+    // history, dragging up is scrolling and must stay scrolling; at the
+    // bottom of it -- or on an empty chat, where every drag is at the
+    // bottom -- there is nowhere further to go, and a finger still
+    // pushing upward is asking for the thing that lives below the
+    // bottom. That is the keyboard.
+    //
+    // blur() and focus() rather than the Keyboard plugin's hide() and
+    // show(), so both halves work on the deployed web app as well as in
+    // the shell. Nothing here is native.
     let pullFrom: number | null = null
     const onTouchStart = (event: TouchEvent) => {
       pullFrom = event.touches[0]?.clientY ?? null
@@ -183,10 +213,31 @@ export function Chat({
       if (pullFrom === null) return
       const y = event.touches[0]?.clientY
       if (y === undefined) return
-      if (y - pullFrom < DISMISS_PULL) return
-      pullFrom = null
+      const moved = y - pullFrom
       const field = inputRef.current
-      if (field && document.activeElement === field) field.blur()
+      if (!field) return
+
+      if (moved >= PULL) {
+        pullFrom = null
+        if (document.activeElement === field) field.blur()
+        return
+      }
+
+      if (-moved >= PULL) {
+        // Nowhere left to scroll. The slack is read from the
+        // stylesheet, which is where it is declared -- a second copy of
+        // it here is exactly the thing chat.css's own comment warns
+        // about, and the two would only have to agree until somebody
+        // changed one.
+        const slack = Number.parseFloat(getComputedStyle(node).getPropertyValue('--scroll-slack')) || 0
+        const atBottom = node.scrollHeight - node.scrollTop - node.clientHeight <= slack + 1
+        if (!atBottom || document.activeElement === field) return
+        pullFrom = null
+        // Called during the touch rather than after it: iOS will only
+        // raise the keyboard for a focus that happens inside a real
+        // gesture, and a touchmove is one.
+        field.focus()
+      }
     }
     const forgetPull = () => {
       pullFrom = null
@@ -630,6 +681,22 @@ export function Chat({
           interactive does not reliably produce a click on iOS. And it is
           a real user gesture, which is what iOS requires before it will
           bring the keyboard up for a programmatic focus. */}
+      <div className="chat-compose-row">
+        {/* Outside the capsule, on its own, the way the phone's own
+            message bar puts it there. It was the left end of a single
+            bordered box holding everything; a round button beside a
+            capsule reads as "and also this", which is what it is -- the
+            attachment, not part of typing. */}
+        <button
+          type="button"
+          className="chat-extras"
+          onClick={() => (canUseNativeCamera ? setPhotoMenuOpen((open) => !open) : attachPhoto('library'))}
+          disabled={attaching || sending}
+          aria-label="Attach a photo"
+          aria-expanded={canUseNativeCamera ? photoMenuOpen : undefined}
+        >
+          <CameraIcon size={20} />
+        </button>
       <form
         className="chat-input"
         onSubmit={send}
@@ -638,21 +705,6 @@ export function Chat({
           inputRef.current?.focus()
         }}
       >
-        {/* One button, not two. Camera and library are the same intent --
-            attach a photo -- and the compose row has to leave room for
-            the buttons that come after this one. On web there is nothing
-            to choose between: the browser's own file dialog already
-            offers the camera on a phone. */}
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => (canUseNativeCamera ? setPhotoMenuOpen((open) => !open) : attachPhoto('library'))}
-          disabled={attaching || sending}
-          aria-label="Attach a photo"
-          aria-expanded={canUseNativeCamera ? photoMenuOpen : undefined}
-        >
-          <CameraIcon size={18} />
-        </button>
         {/* Prose about a vineyard, so capitalisation and autocorrect stay
             on -- unlike the identifier fields elsewhere in the app. Only
             the Return key is labelled: it already submits the form, and
@@ -674,6 +726,7 @@ export function Chat({
           <ArrowIcon size={18} />
         </button>
       </form>
+      </div>
       </div>
     </div>
   )

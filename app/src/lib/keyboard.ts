@@ -42,6 +42,36 @@ export async function hideKeyboardAccessoryBar(
 }
 
 /**
+ * How much of the screen the keyboard is covering, in pixels, as a
+ * custom property on the document.
+ *
+ * One number, one writer per platform, read by the stylesheet. The
+ * compose bar rides up on it; nothing else in the layout moves, which is
+ * the point -- a transform on one element is a compositor job, and
+ * resizing the viewport is a relayout of everything.
+ */
+const insetListeners = new Set<(pixels: number) => void>()
+
+export function setKeyboardInset(pixels: number): void {
+  const inset = Math.max(0, pixels)
+  document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`)
+  for (const listener of insetListeners) listener(inset)
+}
+
+/**
+ * For the one thing that needs to know in JavaScript rather than CSS.
+ *
+ * The conversation does not shrink when the keyboard arrives -- nothing
+ * does, which is the point -- so the last message would be left
+ * underneath it. Whoever is showing the conversation scrolls by the same
+ * number instead, which is a scroll rather than a layout.
+ */
+export function onKeyboardInset(listener: (pixels: number) => void): () => void {
+  insetListeners.add(listener)
+  return () => void insetListeners.delete(listener)
+}
+
+/**
  * Loads the plugin only where it can do anything.
  *
  * A dynamic import, so the web bundle does not carry a native plugin it
@@ -53,7 +83,14 @@ export async function setUpKeyboard(): Promise<void> {
   try {
     const { Keyboard } = await import('@capacitor/keyboard')
     await hideKeyboardAccessoryBar(Keyboard)
+    // The WILL events, not the DID ones. willShow is raised from
+    // UIKeyboardWillShowNotification -- the same frame UIKit starts its
+    // own animation -- so the bar begins moving with the keyboard rather
+    // than after it has arrived.
+    await Keyboard.addListener('keyboardWillShow', (info) => setKeyboardInset(info.keyboardHeight))
+    await Keyboard.addListener('keyboardWillHide', () => setKeyboardInset(0))
   } catch {
-    // No plugin in this shell. The keyboard still works.
+    // No plugin in this shell. The keyboard still works; the bar simply
+    // does not ride up, which is what it did before any of this.
   }
 }

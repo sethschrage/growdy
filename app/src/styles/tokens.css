@@ -86,22 +86,35 @@ body {
   height: 100%;
 }
 
+/* A solid colour under the gradient, on both.
+   --sky's stops are percentages of the box, so every pixel of it is a
+   function of the box height and any height change invalidates the whole
+   thing -- there is no partial repaint to be had. The solid underneath
+   is what the compositor can fall back to while that happens, and it is
+   the same colour the web view itself is set to in capacitor.config.ts.
+   Shorthand would have thrown it away, so these are written long. */
 html {
-  background: var(--sky);
+  background-color: #4f9fdb;
+  background-image: var(--sky);
   overflow: hidden;
   overscroll-behavior: none;
 }
 
 body {
   margin: 0;
-  background: var(--sky);
+  background-color: #4f9fdb;
+  background-image: var(--sky);
   color: var(--ink);
   overflow: hidden;
   overscroll-behavior: none;
 }
 
+/* 100%, not a measured height. --app-height existed to mirror the
+   visual viewport into the layout, which mattered while the web view was
+   being resized under us; nothing resizes it now, so the one owner of
+   the app's height is .app-shell's 100dvh. */
 #root {
-  height: var(--app-height, 100%);
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
