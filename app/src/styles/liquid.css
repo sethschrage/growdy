@@ -172,15 +172,29 @@
   box-shadow: none;
 }
 
+/* What a producer types stays in the reading face. A question about a
+   vineyard can run to two lines and it has to be scannable while it is
+   being written; that is the whole argument tokens.css makes for the
+   system font, and it does not stop applying inside a glass capsule. */
 .chat-input input {
   color: var(--glass-ink);
   font-family: var(--font-ui);
 }
 
+/* The empty box is the app talking, not the producer, so it speaks in
+   the app's own face. "grow" is one word, always the same word, and
+   never read under any pressure -- which is exactly the case the display
+   face is for and exactly what makes it safe here when it would not be
+   on a label somebody has to parse.
+   Pixelify sits smaller on the line than system-ui at the same size, so
+   it gets a step up and a touch more weight to land at the same optical
+   size as the text that replaces it. */
 .chat-input input::placeholder {
   color: var(--glass-ink);
-  opacity: 0.55;
-  font-family: var(--font-ui);
+  opacity: 0.6;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
 }
 
 .chat-input:focus-within {

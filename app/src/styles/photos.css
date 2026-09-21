@@ -161,13 +161,22 @@
   justify-content: center;
 }
 
+/* The app's own face. These are two fixed labels on two bubbles that
+   float out of a glass button -- the most decorative surface in the app,
+   and the one place a producer is choosing between two obvious pictures
+   rather than reading anything. The reading face stays everywhere it is
+   actually doing work.
+   A step up in size for the same reason the placeholder gets one:
+   Pixelify draws smaller on the line than system-ui does. */
 .photo-bubble-label {
   display: inline-flex;
   align-items: center;
   min-height: 36px;
-  padding: 0 14px;
+  padding: 0 15px;
   border-radius: 999px;
-  font-size: var(--text-md);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
   white-space: nowrap;
 }
 
