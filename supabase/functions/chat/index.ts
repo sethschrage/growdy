@@ -22,7 +22,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createUserScopedClient } from "../_shared/supabaseClient.ts";
+import {
+  createUserScopedClient,
+  resolveProducerId,
+  unauthorizedResponse,
+} from "../_shared/supabaseClient.ts";
 import { embedTexts, toVectorLiteral } from "../_shared/voyage.ts";
 
 const MODEL = "claude-sonnet-5";
@@ -1057,6 +1061,26 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // First, and specifically before anything that costs money.
+    //
+    // This function deploys with verify_jwt: false so it can answer its
+    // own CORS preflight (_shared/cors.ts), which means the gateway
+    // checks nothing and these three lines are the whole of what stands
+    // between an anonymous POST and a billed Anthropic call. They were
+    // missing until 2026-09-21: `curl -d '{}'` with no Authorization
+    // header and no apikey reached the model on this project's key and
+    // came back carrying a real Anthropic request id. RLS is why that
+    // went unnoticed rather than why it was safe -- every query the
+    // request made returned nothing and the model answered regardless.
+    //
+    // Never construct a client with a secret/service-role key here --
+    // forwarding the caller's own JWT is what keeps every query
+    // RLS-scoped to exactly the signed-in producer, the same as if the
+    // browser ran it directly (see _shared/supabaseClient.ts).
+    const supabase = createUserScopedClient(req);
+    const producerId = await resolveProducerId(supabase);
+    if (!producerId) return unauthorizedResponse();
+
     const wantsStream = (req.headers.get("accept") ?? "").includes("text/event-stream");
     const { messages, photoPath, photoTakenOn } = await req.json();
 
@@ -1071,12 +1095,6 @@ Deno.serve(async (req: Request) => {
     const conversationMessages: { role: string; content: unknown }[] = (messages ?? []).map(
       ({ role, content }: { role: string; content: string }) => ({ role, content }),
     );
-
-    // Never construct a client with a secret/service-role key here --
-    // forwarding the caller's own JWT is what keeps every query RLS-scoped
-    // to exactly the signed-in producer, the same as if the browser ran it
-    // directly (see _shared/supabaseClient.ts).
-    const supabase = createUserScopedClient(req);
 
     // A photo is shown to the model for this one request and never
     // stored in the transcript. The client keeps sending plain text; the

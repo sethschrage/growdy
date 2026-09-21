@@ -1,6 +1,6 @@
 # 0020. Scheduled weather sync: pg_cron + one narrowly-scoped service_role function
 
-**Status:** accepted
+**Status:** accepted. One sentence in the Decision below was wrong about a sibling function when it was written, and stayed wrong for six days -- see "Update (2026-09-21)".
 
 ## Context
 
@@ -30,3 +30,37 @@ This isn't a reversal of 0019 as a whole -- the taxonomy, the Vault-per-source-c
 - This is the only Edge Function in the project with cross-producer blast radius if it has a bug -- mitigated by doing exactly one thing (sync eligible weather sources, never arbitrary writes), the Vault-mediated caller check, and reusing the identical validated/structured-column ingestion path the user-driven function already uses, so its correctness bar is the same, not lower.
 - A future second weather provider needs no changes here -- the scheduled function loops `data_sources` generically; provider-specific logic lives entirely in `_shared/weatherIngest.ts` and whatever a second provider adds alongside it.
 - If Tempest's real rate limits (still unconfirmed per 0019's open items) turn out to be tight, hourly sync across many producers' stations could need throttling or staggering -- not addressed here, deferred until real multi-producer, multi-station use makes it a real problem rather than a hypothetical one.
+
+## Update (2026-09-21): `chat` was not, in fact, authorizing itself
+
+The Decision above ends a sentence with "the same reason `chat` and
+`ingest-weather` already do." The first half of that was not true. It
+described a pattern this ADR was following rather than a check those two
+functions had, and `chat` had no such check: its handler answered
+`OPTIONS`, then went straight to building a prompt and calling Anthropic.
+A `POST` carrying no `Authorization` header and no `apikey` got a real
+model call, billed to this project's key. Reproduced against the live
+deployment on 2026-09-21, six days after this ADR was accepted.
+
+The reason nobody noticed is worth keeping, because it will recur:
+`createUserScopedClient` forwards whatever `Authorization` header
+arrived, including none, so every RLS-scoped query an anonymous request
+made came back empty -- and the model answered anyway, from an empty
+database, with no error at any layer. Reading the code, "every query is
+RLS-scoped" looks like the control. It is not. It bounds what a caller
+can *read*; it does not decide whether the request should have been
+served, and for a function whose expensive part is an external API call
+rather than a query, it bounds nothing that costs anything.
+
+What this ADR got right is unchanged: `verify_jwt: false` plus
+self-authorization is the correct shape, and `sync-scheduled-weather`
+implemented it correctly the day it shipped. What changed is that the
+"authorizes itself" half is now a real, shared step every
+browser-callable function performs before anything else --
+`resolveProducerId` in `supabase/functions/_shared/supabaseClient.ts`,
+applied in `chat`, `ingest-weather` and `add-weather-source`. The two
+weather functions already failed closed by accident, because the first
+thing each did was a query or a call with the caller's own credentials;
+that is the function declining to be useful rather than a control, which
+is the same distinction migration `20260921040000` drew about a `PUBLIC`
+grant one day earlier.

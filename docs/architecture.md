@@ -134,6 +134,15 @@ flowchart TD
   [`docs/decisions/0016`](decisions/0016-chat-queries-directly.md) and
   the comment at the top of
   [`supabase/functions/_shared/supabaseClient.ts`](../supabase/functions/_shared/supabaseClient.ts)).
+  Those same three deploy with `verify_jwt: false`, because Supabase's
+  gateway check can't be exempted for the CORS preflight alone, so each
+  one resolves its caller to a producer itself before doing any work.
+  That second half is not a detail of the first: RLS bounds what a
+  request can read, and `chat`'s expensive part is an Anthropic call
+  rather than a query, so for six days an anonymous `POST` to it got a
+  real model answer on this project's key out of an empty database (see
+  [`0020`](decisions/0020-scheduled-weather-sync.md)'s 2026-09-21
+  update).
   What that scoping costs depends entirely on how the policy is written:
   every tenancy predicate compares against a producer id resolved once
   per statement, because the obvious form -- a helper called with the

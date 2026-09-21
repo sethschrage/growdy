@@ -23,7 +23,11 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createUserScopedClient } from "../_shared/supabaseClient.ts";
+import {
+  createUserScopedClient,
+  resolveProducerId,
+  unauthorizedResponse,
+} from "../_shared/supabaseClient.ts";
 import { syncWeatherSourceChunk } from "../_shared/weatherIngest.ts";
 
 Deno.serve(async (req: Request) => {
@@ -32,8 +36,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { source_id } = await req.json();
+    // verify_jwt: false here too, so the caller gets resolved before
+    // anything else happens. This function already failed closed for an
+    // anonymous caller -- the data_sources read below is RLS-scoped and
+    // returns nothing, so the Tempest call was never reached -- but that
+    // is the function declining to be useful, not a control, which is
+    // the same distinction 20260921040000 drew about a PUBLIC grant.
     const supabase = createUserScopedClient(req);
+    const producerId = await resolveProducerId(supabase);
+    if (!producerId) return unauthorizedResponse();
+
+    const { source_id } = await req.json();
 
     // RLS already scopes this to the caller's own source -- selecting
     // producer_id here (rather than a separate profiles lookup) is enough
