@@ -644,9 +644,28 @@ to pile up alongside it. When it's time to cut one:
    development team even for the simulator -- a free personal Apple ID
    is enough, and `DEVELOPMENT_TEAM` is committed
    ([`0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)).
-   Installing it means running that scheme onto the connected phone
-   from Xcode: there is no App Store listing and no TestFlight, so a
-   cable is the only way a build reaches the producer.
+   Installing it does not need Xcode and does not need a cable, which
+   this file claimed for longer than it was true:
+
+   ```
+   xcrun devicectl device install app --device <device-udid> \
+     ~/Library/Developer/Xcode/DerivedData/App-*/Build/Products/Debug-iphoneos/App.app
+   ```
+
+   The phone is reachable over Wi-Fi once it has been paired --
+   `xcrun devicectl list devices --json-output -` reports
+   `transportType: localNetwork` and `tunnelState: connected` when it
+   is, which is what to check first when an install cannot find it.
+   There is still no App Store listing and no TestFlight, because a free
+   personal team has neither; what a cable is actually required for is
+   the first pairing, not each install.
+
+   The free team is also why the installed app stops launching after
+   seven days: its provisioning profile is issued for exactly that long
+   (`security cms -D -i <App.app>/embedded.mobileprovision` prints the
+   dates). Rebuilding and reinstalling is the whole fix, and it is the
+   recurring cost of not paying for a developer account rather than
+   anything being wrong.
 
    **Who does which half.** Whoever has the Mac produces the build; the
    producer exercises it, because an agent has neither the phone nor
