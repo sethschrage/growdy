@@ -709,7 +709,7 @@ the next one exists too.
   `scan-conversations-for-observations` and `embed-scheduled-memory`
   shipped.
 
-### `authenticated` still holds TRUNCATE on every table (open, latent)
+### `authenticated` held TRUNCATE on every table (closed 2026-09-21)
 
 `20260921090000` took `TRUNCATE`, `REFERENCES` and `TRIGGER` away from
 `anon`, which left it holding exactly one privilege in `public`: `SELECT`
@@ -726,6 +726,18 @@ It is latent for the same three reasons `anon`'s was: PostgREST has no
 `with t as (%s returning *)`, where `TRUNCATE` does not parse. None of
 those was put there for this reason.
 
+**Closed by `20260921100000`**, which revokes exactly those three and
+nothing else. Verified in a rolled-back transaction first and re-read
+afterwards: zero dangerous grants remain, and every deliberate grant the
+policies assume -- `conversations` INSERT/UPDATE, `data_sources`
+UPDATE/DELETE, `weather_observations` INSERT/UPDATE, `pending_writes` and
+`producer_memory` INSERT, `observations` DELETE -- still answers true.
+`scripts/check-anon-reach.mjs`'s baseline went 60 to 0 with it, so the
+board fails if any of this comes back.
+
+What is left of the original note is why it waited, which is still the
+useful part:
+
 It was not fixed alongside `anon` because the two are not the same job.
 `anon` needed exactly one grant kept and the rest could go in one line.
 `authenticated` is the role the whole app runs as: every policy assumes a
@@ -735,8 +747,11 @@ enumerating what each table actually needs and re-granting it, which is a
 migration to write carefully rather than at the end of a long night.
 
 The narrow version -- `revoke truncate, references, trigger on all tables
-in schema public from authenticated` -- touches nothing the app uses and
-is probably the right first step.
+in schema public from authenticated` -- touches nothing the app uses, and
+is what shipped. The wider question it was distinguished from is still
+open and still deliberate: `authenticated` holds SELECT on every table in
+the schema, which RLS makes safe and which nobody has enumerated against
+what the client actually reads.
 
 ### Two storage policies are in the shape 0036 banned (open, performance)
 
