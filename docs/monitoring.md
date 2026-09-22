@@ -753,11 +753,13 @@ open and still deliberate: `authenticated` holds SELECT on every table in
 the schema, which RLS makes safe and which nobody has enumerated against
 what the client actually reads.
 
-### Two storage policies are in the shape 0036 banned (open, performance)
+### Three storage policies were in the shape 0036 banned (closed 2026-09-21)
 
-`scripts/check-rls-shape.mjs` reads `nspname = 'public'` only, so it has
-never looked at `storage`. Two live policies there are in exactly the
-shape it exists to catch:
+`scripts/check-rls-shape.mjs` read `nspname = 'public'` only, so it had
+never looked at `storage`. **Three** live policies there were in exactly
+the shape it exists to catch --- not two: the upload policy carries the
+call in its `WITH CHECK` rather than its `USING`, which is what reading
+`pg_policy.polqual` alone misses.
 
 - `storage.objects` / "observation photos: read own producer's"
 - `storage.objects` / "observation photos: delete own producer's"
@@ -770,10 +772,17 @@ is [`0036`](decisions/0036-rls-predicates-are-evaluated-once.md)'s whole
 subject, and the reason it matters is the same: it is free at four photos
 and it is a timeout at forty thousand.
 
-Not fixed alongside the `public` policies because rewriting these changes
-who can read a photo, and that wants testing against a real upload and
-download rather than a green checker. The checker was not widened either
---- doing that without fixing them would just paint the board red.
+**Closed by `20260921110000`**, which hoists all three, and by widening
+the checker to `('public', 'storage')` in the same PR so the gap cannot
+reopen.
+
+The reason it waited was that rewriting these changes who can read a
+photo. That turned out to be testable without an upload: against the nine
+real objects in the bucket, with a real profile's uid in
+`request.jwt.claims`, the old predicate matched 9, the new matched 9, and
+the rows where they disagreed were 0. With a uid belonging to no profile
+both matched 0, and on a path whose first segment is not a uuid both
+returned false.
 
 The corrected shape is the same one every other policy now uses:
 `private.storage_object_producer(name) = (select private.current_producer_id())`.
