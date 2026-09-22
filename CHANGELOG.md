@@ -15,6 +15,109 @@ GitHub Release published alongside each entry here carries its own,
 separate short bullet list written for the producer using the app; that's
 what actually shows up as "What's new."
 
+## [0.16.0] - 2026-09-21
+
+The half that survives a rewrite.
+
+[`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md) decided
+that the phone gets a native SwiftUI client and the React app is frozen
+as a desktop surface, and it decided it on measurement rather than
+preference: 436 lines of client code exist for no reason except that a
+`WKWebView` will not do what a phone does, six of `0.15.0`'s forty-two
+commits were keyboard, gesture or touch fixes, and a probe on the device
+proved `backdrop-filter` silently ignores an SVG filter -- so the edge
+refraction a producer asked for is unreachable in CSS rather than merely
+difficult. The alternatives are recorded there with their real arguments,
+including the scoped native compose bar that was recommended first and
+withdrawn the same evening, because a map is coming and that option
+leaves a React chat wedged between two native surfaces.
+
+What that decision does to this release is decide what matters. The
+schema, the Edge Functions and the auth model are the half that does not
+get rewritten --- roughly two thirds of the system by the only measure
+that counts --- and they are about to be the only thing two clients
+share. So this batch is almost entirely them, and the work is less
+"build" than "find out what nothing was checking."
+
+The answer turned out to be: quite a lot, and the same thing five times.
+A migration that says `create or replace function` and changes the
+argument list does not replace a function; Postgres creates a second one,
+and a new function inherits no ACL, so it gets the default, which is
+`EXECUTE` to `PUBLIC`. That had happened to the Vault helpers
+(`20260915040133`), to the parcel share audit trigger (`20260917164242`),
+to `create_observation_candidate` (`#236`), and then to seven functions
+at once (`#243`) --- including `execute_readonly_query`, the chat's read
+tool, which takes a SQL string. Verified rather than inferred: `set local
+role anon` and a call enumerated twenty-one tables out of
+`information_schema`. RLS is why that was a disclosure and not a breach;
+no producer row came back, because every policy compares against a
+`current_producer_id()` that is null for `anon`. What did come back was
+`pg_catalog` --- every table and column, every function body, every policy
+expression --- which is a map of the database and of the defences on it.
+
+Five times, and five times it was a person noticing, which is the part
+worth fixing. The Supabase advisor structurally cannot see this class:
+its anon-callable lint fires on `SECURITY DEFINER` and all seven of those
+functions were `SECURITY INVOKER`, so "check the advisors" at release time
+would not have surfaced any of it, in any release, past or future.
+`scripts/check-anon-reach.mjs` (`#249`) closes it by reading the resulting
+ACL out of the database rather than the migration text --- because the
+gap between what a migration says and what Postgres does is precisely
+where this lives. It found one thing within minutes of merging: the
+GraphQL entrypoint, in no migration in this repo because it is Supabase's,
+which no amount of reading `supabase/migrations/` would ever have
+mentioned (`#250`).
+
+Three other doors closed with it. The three browser-facing Edge Functions
+were reaching Anthropic and Tempest for callers carrying no credentials at
+all (`#238`/`#239`, merged during `0.15.0` and deployed here), which
+matters because `verify_jwt` is deliberately false on all six so each can
+answer its own CORS preflight --- the gateway checks nothing, and those
+few lines are the whole of the access control. The `pg_cron` trigger
+secrets were travelling in a `pg_net` header that every signed-in user can
+read for about a second, three times a day, which made `0020`'s "never
+seen by a human" true of the Vault row and false of the header; `pg_net`'s
+queue is owned by `supabase_admin` and refused a revoke, so the fix was to
+make the captured value expire --- an HMAC over a five-minute bucket, so a
+token lifted out of the queue is worth minutes instead of forever
+(`#246`). And `anon` and `authenticated` both held `TRUNCATE` on every
+table from Supabase's platform default, which RLS does not apply to and
+which `audit_row_change`, being a row-level trigger, would not have
+recorded (`#247`, `#252`).
+
+The checks went in alongside, because a finding that only a person can
+catch is a finding that comes back. `supabase/functions/` --- 2,248 lines,
+and now the only access control there is --- had no typecheck, no lint and
+no tests at all; it has all three plus a structural check that reads the
+one thing a test cannot, which is whether each handler still resolves its
+caller *before* it does anything that costs money (`#251`). That ordering
+is what `#238` actually was: the guard was not missing, it was late.
+`check-rls-shape.mjs`, written in `0036` to stop a per-row tenancy check
+coming back, had been reading `nspname = 'public'` only --- so the last
+three instances of the shape it exists to prevent, all in `storage`, were
+invisible to it (`#253`).
+
+The one producer-visible change is a removal. The artifacts feature ---
+the model drawing an SVG inline in a reply, the producer saving it, and
+the `/a/<id>` page a signed-out browser could open --- is gone entirely,
+and `0027` is withdrawn (`#241`). The share link decided it: it is a web
+page reached from a browser, and the client a producer actually opens will
+soon have no way to carry it. The drawings could have stayed, and did not,
+because the verdict on the two saved ones was that they were not good and
+a capability nobody has reached for in two weeks is not one to carry into
+a rewrite. `public.artifacts` is renamed rather than dropped, because
+`CONTRIBUTING` requires that of a drop that would destroy real data, and
+the drop waits for the window that rule exists to provide.
+
+And the documentation stopped describing a project that no longer exists.
+`AGENTS.md` --- the file a new agent reads first --- never mentioned that
+growdy has a client, let alone two, and its rule that claims get checked
+against `app/src/` had quietly become an instruction to verify native
+behaviour by reading React (`#244`). Sixteen drift items went with it,
+the worst being `architecture.md` still describing "the sprout menu's two
+features" for a menu deleted in `#224`, and a diagram still showing one
+composed reply for a chat that has streamed since `#200`.
+
 ## [0.15.0] - 2026-09-21
 
 Every complaint in this batch is the same one in a different register:
