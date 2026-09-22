@@ -1,5 +1,5 @@
 {
   "dangerousByRole": {
-    "authenticated": 60
+    "authenticated": 0
   }
 }
