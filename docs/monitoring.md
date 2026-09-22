@@ -617,97 +617,14 @@ the next one exists too.
   `web_fetch("https://…/?d=<data>")`. [`0024`](decisions/0024-web-access-as-a-provider.md)
   argued the cost case for always-on search and bounded it with
   `max_uses`; egress does not appear to have been considered.
-- **`artifacts_deprecated` still has a live write path, and its drop
-  migration has not been written.** Latent. The rename carried the
-  table's grants, policies and `audit_row_change` trigger along with it,
-  so `authenticated` holds `select`, `insert`, `delete` and `truncate`
-  on a table nothing reads (`relacl` is `authenticated=ardDxtm`,
-  confirmed live). `chat` hides it from the model's prompt, but
-  `propose_write_query` takes free-form SQL, so the description is not
-  the control. Two things are owed here and they are separate: revoke
-  the write surface now, and write the drop migration that
-  [`CONTRIBUTING.md`](../CONTRIBUTING.md)'s rename rule always intended
-  to follow -- the rename buys a window to notice something still needed
-  the table, and a window nobody is counting never closes. See
-  [`docs/data-model.md`](data-model.md)'s note above the ER diagram.
-- **`anon` holds `TRUNCATE` on all nineteen public tables.** Latent, not
-  live, and worth stating in that order. Supabase's default `grant all`
-  at project creation left every `public` table reading `anon=Dxtm` --
-  `TRUNCATE`, `REFERENCES`, `TRIGGER`, `MAINTAIN` -- and no migration
-  ever revoked it; the migration that added the real grants
-  (`20260913054119`) only added. `TRUNCATE` is the one that matters,
-  because RLS does not apply to it and `audit_row_change` is a row-level
-  trigger, so a truncate arriving as `anon` would empty a table
-  regardless of tenancy and record nothing. No reachable path exists
-  today: PostgREST has no TRUNCATE verb, `execute_readonly_query` blocks
-  it with `transaction_read_only`, and `propose_write_query` wraps the
-  statement in `with t as (%s returning *)`, which TRUNCATE will not
-  parse. Exactly one `anon` table grant in this schema is deliberate,
-  `select` on `app_status` ([0017](decisions/0017-app-status-forces-refresh.md)).
-- **The `observations` SELECT policy still carries the parcel-sharing
-  branch, and parcel sharing is gone.** Latent. The live predicate is
-  `producer_id = (select private.current_producer_id())` **or**
-  `planting_id in (…plantings under one of my parcels…)`. That second
-  branch was added for sharing by `20260916185426_parcel_sharing.sql`;
-  [0028](decisions/0028-what-uat-removed.md) removed the feature and
-  stripped the branch out of `private.user_can_access_parcel` but not out
-  of here, and
-  [0036](decisions/0036-rls-predicates-are-evaluated-once.md) then
-  rewrote the policy mechanically and carried the dead branch forward.
-  `observations` is now the one producer table whose read rule is not
-  "`producer_id` is the tenancy key" -- the DELETE policy beside it
-  already is. Not exploitable today, because
-  `create_observation_candidate` sets `producer_id` from `auth.uid()` and
-  `confirm_observation_candidate` copies it, so the two columns always
-  agree. It becomes a cross-tenant read the day they can disagree, which
-  is the day [0028](decisions/0028-what-uat-removed.md)'s "the parcel is
-  the seat" gets built.
-- **Nothing in CI reads a `GRANT`, and the RLS checker only looks at one
-  schema.** Not an exposure; the gap that lets the others last.
-  [`scripts/check-rls-shape.mjs`](../scripts/check-rls-shape.mjs) scopes
-  its query to `nspname = 'public'`, and the three policies currently in
-  the per-row-helper shape it exists to reject are on `storage.objects`
-  (`private.user_can_access_producer(private.storage_object_producer(name))`,
-  evaluated per row), invisible because of that one line. More
-  consequential is what no checker looks at at all: whether RLS is on,
-  whether a table has any policy, whether a policy's role list is
-  `{public}`, and the table and function grants. Grants are the layer
-  Postgres evaluates *before* RLS, and this repo has now shipped five
-  migrations whose entire job was taking back a grant wider than
-  anyone intended: `20260915035815` (PUBLIC `EXECUTE` on the vault
-  helpers), `20260916175824` and then `20260916192106` -- two, because
-  the first `revoke` silently did nothing, having named a column
-  privilege that was never separately granted -- and `20260921040000`
-  and `20260921060000` from tonight. A rule rediscovered four times
-  and still not mechanically enforced is the schema-level version of
-  what [`CONTRIBUTING.md`](../CONTRIBUTING.md) says about process rules:
-  it stops being followed without anyone deciding to drop it. The check
-  is small and runs on the same local stack `check-rls-shape.mjs`
-  already uses -- fail on any `public` function with `EXECUTE` to
-  PUBLIC, and on any `public` table privilege held by `anon` outside an
-  explicit allowlist.
-- **`createAdminClient` reads a legacy env var, and the legacy key is
-  still enabled.** An availability trap rather than an exposure, and the
-  trap is the point.
-  [`_shared/supabaseClient.ts`](../supabase/functions/_shared/supabaseClient.ts)
-  reads the new-style `SUPABASE_PUBLISHABLE_KEYS` on one line and the
-  legacy `SUPABASE_SERVICE_ROLE_KEY` fifteen lines later, so one
-  thirty-line file straddles both key systems. The project also still has
-  the legacy `anon` JWT enabled alongside `sb_publishable_…`: two working
-  anonymous credentials. Disabling legacy keys -- the right move, and one
-  somebody will reach for before a native client ships -- takes all three
-  scheduled jobs down **silently**, because `createClient(url, undefined)`
-  throws inside the handler, `cron.job_run_details` still reads
-  `succeeded`, and the only evidence lands in `net._http_response.content`.
-  That is precisely the fire-and-forget trap section 5 already documents,
-  waiting on a routine piece of housekeeping to spring it. Move
-  `createAdminClient` onto `SUPABASE_SECRET_KEYS` *first*, then disable
-  the legacy key. [`0020`](decisions/0020-scheduled-weather-sync.md):17
-  describes neither accurately -- it says the admin client already builds
-  from `SUPABASE_SECRET_KEYS`, and that `sync-scheduled-weather` is the
-  only `service_role` user, which stopped being true when
-  `scan-conversations-for-observations` and `embed-scheduled-memory`
-  shipped.
+- **`artifacts_deprecated` is inert, and its drop is pending a window.**
+  The write path closed with `20260921070000`: zero policies, zero grants
+  to `anon` or `authenticated`, two rows, and an `audit_row_change`
+  trigger that can no longer fire. What remains is the wait CONTRIBUTING
+  requires before a drop that would destroy real data --- deliberately
+  not measured in hours. The four coupled edits a drop has to make are
+  listed in [`docs/data-model.md`](data-model.md), next to the diagram
+  block that is one of them.
 
 ### `authenticated` held TRUNCATE on every table (closed 2026-09-21)
 

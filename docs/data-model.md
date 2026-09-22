@@ -209,16 +209,35 @@ the actual drop left for its own later migration. Nothing reads it, and
 it holds two untitled records from the week the feature was built. It
 goes in a migration of its own, and this block goes with it.
 
-That migration has not been written yet. Until it lands the table is
-not inert: the rename carried its grants, its three `artifacts: member
-can ...` policies and its `audit_row_change` trigger across with it, so
-"nothing reads it" is a fact about the clients rather than about the
-schema: `authenticated` still holds `select`, `insert`, `delete` and
-`truncate` on it. `chat` hides it from the model's prompt, but
-`propose_write_query` takes free-form SQL, so the write path is open
-even though the description is not. [`docs/monitoring.md`](monitoring.md)
-carries both halves as an open item, because a rename window nobody is
-counting does not end on its own.
+That migration has not been written yet, and should not be written yet.
+The point of the rename is the window --- time for something that still
+needed the table to say so --- and a drop that follows the rename by a
+few hours is the rename-then-drop dance rather than the rule.
+
+The table is inert in the meantime, which it was not at first. The rename
+carried its grants, its three `artifacts: member can ...` policies and
+its `audit_row_change` trigger across with it, so for a day
+"nothing reads it" was a fact about the clients and not about the schema:
+`propose_write_query` takes free-form SQL, so the write path was open
+even though the model's prompt hid the table. `20260921070000` dropped
+the policies and revoked the grants, and the live state now reads zero
+policies, zero grants to `anon` or `authenticated`, and two rows. The
+`audit_row_change` trigger is still attached and now never fires, because
+nothing can write.
+
+**Whoever writes that migration has four coupled edits to make, and
+missing one leaves debris a checker will find later:**
+
+1. `drop table public.artifacts_deprecated` --- the trigger goes with it.
+2. This file: the `ARTIFACTS_DEPRECATED` block in the diagram above, and
+   this note.
+3. [`scripts/schema-docs-baseline.json`](../scripts/schema-docs-baseline.json)
+   --- the `"artifacts_deprecated": 5` entry. `check-schema-docs.mjs`
+   fails when the backlog shrinks and the baseline does not, so this one
+   announces itself rather than rotting.
+4. [`supabase/functions/chat/index.ts`](../supabase/functions/chat/index.ts)
+   --- the `NOT_DESCRIBED` entry. `check-schema-docs.mjs` also fails on an
+   entry naming a relation that no longer exists.
 
 ## Reading this diagram
 
