@@ -671,18 +671,15 @@ to pile up alongside it. When it's time to cut one:
    with them in the same PR; the rule above them does not change at
    all.
 
-   **What was observed still gets written down, in git.** One line per
-   bullet, saying what was observed rather than that it was tested: not
+   Say back what was observed rather than that it was tested -- not
    "streaming works" but "sent a question from the phone, the status
    line said it was reading vineyard data, the answer arrived a word at
-   a time." Those lines go into the `CHANGELOG.md` entry step 3 is
-   about, which is the engineering record and is already the thing a
-   later reader opens. A session transcript is not: it is not in the
-   repo, it is not linkable from an ADR, and it is gone the moment the
-   window is. Moving the conversation out of GitHub is not a reason to
-   stop keeping the evidence -- it is the reason to be deliberate about
-   where the evidence lands. A bullet that cannot be exercised does not
-   ship in that release -- it waits for the one where it can.
+   a time." That distinction is the whole value of the step, and it is
+   worth just as much said out loud as written down; the point is to
+   have looked, not to have a record of having looked. **None of it is
+   logged** -- not in the PR, not in `CHANGELOG.md`, not anywhere. A
+   bullet that cannot be exercised does not ship in that release -- it
+   waits for the one where it can.
 
    This is here because skipping it nearly shipped a lie. `0.15.0` was
    drafted with "replies now arrive as they're written" while the iOS
@@ -691,11 +688,7 @@ to pile up alongside it. When it's time to cut one:
    saw `Load failed`. **Server logs are not evidence that a producer got
    an answer.** The only evidence is someone using the app.
 
-3. A version section is added to [`CHANGELOG.md`](CHANGELOG.md), and it
-   carries step 2's observations -- what the producer actually saw on
-   the phone, one line per bullet, in their words rather than
-   paraphrased into a claim. That is the durable half of step 2 and the
-   only place it now lives. Then: prose
+3. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): prose
    that leads with the theme -- why this batch of changes happened --
    and keeps that why running through every paragraph, not just the
    opening line. A paragraph that only lists what changed, without

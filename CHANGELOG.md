@@ -118,30 +118,23 @@ the worst being `architecture.md` still describing "the sprout menu's two
 features" for a menu deleted in `#224`, and a diagram still showing one
 composed reply for a chat that has streamed since `#200`.
 
-One process rule changed with this release, and the `0.15.0` entry above
-now describes it wrongly --- deliberately left as written, because it
-records what was true then and the near-miss that made the rule
-necessary is the whole point of it. That entry says the release
-checklist is "recorded in the release PR". It no longer is. Every
-substantive part of Releases step 2 stands: each bullet is still
-exercised on the client a producer opens, from a build of the commit
-being tagged, and a bullet nobody can exercise still does not ship. What
-moved is only where the exchange happens --- the working session rather
-than the PR, because a checklist and its replies are a conversation
-between two people, not review of a diff, and nobody reopens a merged
-PR's comments to read one.
-
-The risk in that move is losing the evidence, since a session transcript
-is not in the repo and does not survive the window closing. So step 3
-now carries it: what the producer actually saw goes into this file, one
-line per bullet, in their words. That also settles a tension it would
-have been easy to walk into --- `AGENTS.md` says a rule that is not in
-git is not a rule, and the answer is that the decision and the evidence
-both land in git even though the conversation does not. The release PR
-pays for it in one way worth naming: with no checklist in its body, a
-green release PR looks finished when nothing has been opened on a phone
-yet, which is now written beside the auto-merge carve-out that depends
-on it.
+One process rule changed with this release. `0.15.0` had just earned the
+rule that every Release bullet is exercised on the client a producer
+opens before the tag, and wrote the checklist and the replies into the
+release PR. The exercising stays exactly as it was; the writing down
+goes. A checklist and its answers are a conversation between two people
+over a few minutes, not review of a diff, and turning the PR into the
+place to hold one gets the medium wrong in both directions -- nobody
+reopens a merged PR's comments, and a reviewer reading the diff has to
+scroll past a phone checklist to find it. So step 2 happens in the
+working session now and leaves no record, which is the point rather than
+a cost: the value was always in somebody having opened the app, never in
+the artifact proving they did. `#240` stays the worked example for its
+outcome -- two bullets came out of that release because nobody could
+exercise them -- and no longer for where the list was written. The one
+real loss is that a green release PR now looks finished when nothing has
+been opened on a phone yet, so that is written beside the auto-merge
+carve-out that depends on it.
 
 ## [0.15.0] - 2026-09-21
 
