@@ -307,11 +307,33 @@ Supabase reports "Nonces mismatch".
 Session refresh is implicit in the client defaults; no growdy source calls it.
 
 **Bundle-bound, and therefore not portable as-is:** Google binds iOS OAuth
-clients to a bundle identifier, and the reversed client id is a URL scheme in
-`Info.plist`. A native client under a new bundle id needs its own OAuth
-client. The web client id is not bundle-bound and carries over. Sign in with
-Apple needs a paid Apple Developer team and is unavailable today
+clients to a bundle identifier --- the console offers exactly one Bundle ID
+field per client, with no way to add a second --- and the reversed client id
+is a URL scheme in `Info.plist`. A native client under a new bundle id needs
+its own OAuth client. The web client id is not bundle-bound and carries over,
+because it is passed as `iOSServerClientId` for the Supabase exchange rather
+than to identify the app. Sign in with Apple needs a paid Apple Developer team
+and is unavailable today
 ([`0029`](decisions/0029-ios-shell-and-native-sign-in.md)).
+
+The two iOS clients, both in Google Cloud project `growdy`
+(`composed-circle-508504-c8`, project number `839193339289`):
+
+| Bundle id | Client | Client id |
+|---|---|---|
+| `com.growdy.app` | Growdy iOS client | `839193339289-8vcgecqrrbbvh5npa8j4v3qquk25hr9s` |
+| `com.growdy.native` | Growdy native iOS client | `839193339289-suqq9v531undphp47aknjrgvtgrricup` |
+
+Each one's URL scheme is its client id reversed onto
+`com.googleusercontent.apps.`. **These are not secrets** --- an iOS OAuth
+client has no secret, which is the whole reason the nonce dance above exists,
+and both already ship inside an app bundle any user can unzip.
+
+**The consent screen is in Testing**, so only listed test users can sign in at
+all --- today `seth@` and `sara@sethsara.com`, against a lifetime cap of 100.
+Test users are a property of the consent screen and not of a client, so a new
+client inherits the list and needs nothing done to it. Publishing would
+require completing the Branding page, and nothing needs that yet.
 
 ---
 
