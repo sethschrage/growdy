@@ -56,6 +56,13 @@ any PR, ask of each:
   omission is a fix, and copying 180 lines into `## History` to record
   that a box was missing buries the epochs that entry exists to mark.
 - `docs/data-model.md` -- does it still match the schema?
+- [`docs/api-contract.md`](docs/api-contract.md) -- did this change
+  anything a second client depends on? A request or response shape, an
+  SSE event, an RPC signature, a storage policy, an error key. This one
+  drifts differently from the others: the React client and the contract
+  can disagree for weeks without anything failing, because the React
+  client is not checked against it -- it is checked against itself. The
+  native client is what finds out.
 - `docs/monitoring.md` -- did this add something that can fail quietly?
 - `docs/decisions/` -- does this contradict or amend an existing ADR?
 - `AGENTS.md` (this file) and [`CONTRIBUTING.md`](CONTRIBUTING.md) --
