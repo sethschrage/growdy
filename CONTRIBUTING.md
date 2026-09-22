@@ -81,7 +81,13 @@ the honest state of that is "not decided", not "the same as `app/`".
    behaviour, not about a file. **The release PR is the exception** and
    is merged by hand, because Releases step 2 puts a producer in front
    of the running app before anything is tagged, and that is the one
-   review this process has. Review happens
+   review this process has. Since that exchange happens in the working
+   session, **a release PR that is green and clean is not a release PR
+   that is ready** -- nothing in its body or checks reports whether
+   anybody has opened the app yet, and there is no longer a checklist
+   sitting in the description to make the wait visible. Auto-merge on a
+   release PR would tag an unexercised build without anyone deciding
+   to. Review happens
    at the release step instead (see "Releases") -- the CHANGELOG entry
    is where a mistake actually gets caught, not a manual look at every
    individual PR. That makes step 4 load-bearing rather than tidy-up:
@@ -646,12 +652,18 @@ to pile up alongside it. When it's time to cut one:
    producer exercises it, because an agent has neither the phone nor
    the vineyard. So an agent's part of step 2 is to build from the
    commit being tagged, confirm the bundle actually carries this
-   batch's code, and write into the release PR a numbered list -- one
-   row per bullet, what to do and what should happen -- for the
-   producer to work down and reply to. Their replies are what gets
-   recorded below. `0.15.0` (#240) is the worked example, including two
-   bullets that came out of the release because nobody could exercise
-   them.
+   batch's code, and hand the producer a numbered list -- one row per
+   bullet, what to do and what should happen -- for them to work down.
+
+   **That exchange happens in the working session, not in the release
+   PR.** It is a conversation between two people over a few minutes,
+   and GitHub is a bad place to hold one: the checklist and the replies
+   are not review of the diff, nobody comes back to a merged PR's
+   comments to read them, and posting them there turns the PR into a
+   chat window that also has to be moderated. `0.15.0` (#240) was done
+   the other way and is still the worked example for the *outcome* --
+   two bullets came out of that release because nobody could exercise
+   them -- but not for where the list was written.
 
    All of that describes the shell. When the SwiftUI client
    ([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md)) is
@@ -659,12 +671,18 @@ to pile up alongside it. When it's time to cut one:
    with them in the same PR; the rule above them does not change at
    all.
 
-   Record it in the release PR as one line per bullet, saying what was
-   observed rather than that it was tested: not "streaming works" but
-   "sent a question from the phone, the status line said it was reading
-   vineyard data, the answer arrived a word at a time." A bullet that
-   cannot be exercised does not ship in that release -- it waits for the
-   one where it can.
+   **What was observed still gets written down, in git.** One line per
+   bullet, saying what was observed rather than that it was tested: not
+   "streaming works" but "sent a question from the phone, the status
+   line said it was reading vineyard data, the answer arrived a word at
+   a time." Those lines go into the `CHANGELOG.md` entry step 3 is
+   about, which is the engineering record and is already the thing a
+   later reader opens. A session transcript is not: it is not in the
+   repo, it is not linkable from an ADR, and it is gone the moment the
+   window is. Moving the conversation out of GitHub is not a reason to
+   stop keeping the evidence -- it is the reason to be deliberate about
+   where the evidence lands. A bullet that cannot be exercised does not
+   ship in that release -- it waits for the one where it can.
 
    This is here because skipping it nearly shipped a lie. `0.15.0` was
    drafted with "replies now arrive as they're written" while the iOS
@@ -673,7 +691,11 @@ to pile up alongside it. When it's time to cut one:
    saw `Load failed`. **Server logs are not evidence that a producer got
    an answer.** The only evidence is someone using the app.
 
-3. A version section is added to [`CHANGELOG.md`](CHANGELOG.md): prose
+3. A version section is added to [`CHANGELOG.md`](CHANGELOG.md), and it
+   carries step 2's observations -- what the producer actually saw on
+   the phone, one line per bullet, in their words rather than
+   paraphrased into a claim. That is the durable half of step 2 and the
+   only place it now lives. Then: prose
    that leads with the theme -- why this batch of changes happened --
    and keeps that why running through every paragraph, not just the
    opening line. A paragraph that only lists what changed, without
