@@ -34,10 +34,10 @@ runs on the producer's phone is still the Capacitor shell from
 [`0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md) wrapping
 the React build. The decision and the measurements behind it are in
 [`docs/decisions/0038`](docs/decisions/0038-the-phone-gets-its-own-client.md).
-The first thing it asks for is not Swift: the API contract has never
+The first thing it asked for was not Swift: the API contract had never
 been written down, because one client could be its own specification and
-two cannot -- see
-[`docs/architecture.md`](docs/architecture.md#the-api-contract-and-where-it-does-not-live-yet).
+two cannot. It is now --
+[`docs/api-contract.md`](docs/api-contract.md).
 
 ## Status
 

@@ -342,63 +342,26 @@ flowchart TD
   [`docs/monitoring.md`](monitoring.md#9-the-live-dashboard-and-scheduled-check----and-where-it-actually-lives)
   for exactly where it runs and its one real fragility.
 
-## The API contract, and where it does not live yet
+## The API contract
 
-Every arrow in the diagram above that leaves a client box crosses an
-API this project has never written down. That was not a mistake while
-there was one client, because the client *was* the specification:
-`app/src/data/` is the only place the request and response shapes
-exist, `app/src/data/schema.ts` is the only description of the database
-the client has, and a TypeScript type in one of those files is checked
-by `tsc` on every PR. Two clients break that. A Swift client cannot
-import a TypeScript type, cannot be checked against one, and will
-rediscover each shape by reading React and guessing --
-[`0038`](decisions/0038-the-phone-gets-its-own-client.md) names this as
-the first real debt the decision creates and says it should be paid
-before SwiftUI work starts.
+Every arrow in the diagram above that leaves a client box crosses an API
+that, until 2026-09-22, this project had never written down. That was not a
+mistake while there was one client, because the client *was* the
+specification: `app/src/data/` was the only place the request and response
+shapes existed. Two clients break that --- a Swift client cannot import a
+TypeScript type, cannot be checked against one, and would rediscover each
+shape by reading React and guessing.
 
-This section is the tracked gap, not the specification. The
-specification goes in `docs/api.md`, which does not exist yet. What it
-has to cover, because each of these is currently recoverable only by
-reading code closely:
+[`0038`](decisions/0038-the-phone-gets-its-own-client.md) named that as the
+first real debt the decision creates and said it should be paid before
+SwiftUI work starts. It is paid: **[`api-contract.md`](api-contract.md)** is
+the specification, covering 51 calls across the Edge Functions, PostgREST,
+storage and auth --- the `chat` stream's seven event types and wire format,
+the three error shapes, the RPC signatures, and the contracts that are not
+requests at all.
 
-- **Content negotiation on `chat`.** Whether a caller gets a stream or
-  one JSON object is decided off the `accept` header
-  (`supabase/functions/chat/index.ts`), and nothing outside that file
-  says so. A client that omits the header silently gets the buffered
-  path and no progress at all.
-- **The SSE event types.** Seven of them -- `turn`, `tool`, `text`,
-  `thinking`, `usage`, `done`, `error` -- declared once in the function
-  and again in `app/src/data/chat.ts`, kept in sync by hand. Two rules
-  travel with them and live only in code comments: `thinking` must
-  never be appended to the answer the producer is reading, and `done`
-  is authoritative while the `text` deltas are not.
-- **Three different error shapes, one of which arrives after a 200.**
-  A rejected caller gets `{error}` with a 401; a crash before the
-  stream opens gets `{type:"error",message}` with a 500; a crash
-  *inside* the stream cannot use a status code at all, because 200 has
-  already been sent, so it arrives as an `error` event. A client that
-  treats HTTP status as the failure signal drops the third one
-  silently.
-- **Request bodies, and why they are narrow.** `chat` takes
-  `{messages:[{role,content}], photoPath?, photoTakenOn?}` and nothing
-  else; `add-weather-source` takes `{provider_id, name, station_id,
-  secret}` and returns `{id}`; `ingest-weather` takes `{source_id}` and
-  expects the caller to re-invoke while `done` is false.
-- **The client-callable RPC signatures**, and the PostgREST
-  conventions a client not using `supabase-js` has to reproduce --
-  starting with `max_rows = 1000` in `supabase/config.toml`, which
-  silently truncates rather than erroring.
-- **The auth model**, which is the part that carries over cleanly:
-  three functions deploy with `verify_jwt: false` and resolve the
-  caller to a producer themselves, so a bearer token from any client
-  works identically. `signInWithIdToken` needs no redirect and no
-  custom scheme, which is why this half of
-  [`0029`](decisions/0029-ios-shell-and-native-sign-in.md) outlives the
-  shell it was written for.
-
-Two of these are obligations rather than shapes, and a client that
-misses either breaks a backend feature without failing:
+This section keeps only what is architecture rather than shape --- two
+obligations a client can miss while every request it makes still succeeds:
 
 - **The client writes conversation history; the server never does.**
   Per [`0011`](decisions/0011-conversation-history.md) the client

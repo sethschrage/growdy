@@ -155,3 +155,38 @@ to get an approximation of the thing the move is for.
 **Tokamak / SwiftWasm, to share one Swift UI codebase.** Covered above.
 SwiftUI does not run on SwiftWasm; plain Swift logic does. Worth
 remembering if business logic ever wants sharing; useless for interface.
+
+## Update (2026-09-22): the contract is written down
+
+This ADR said the API contract "should be paid before SwiftUI work starts."
+It is: [`api-contract.md`](../api-contract.md), covering 51 calls across the
+Edge Functions, PostgREST, storage and auth.
+
+Writing it found more than it recorded. Three things a Swift client would
+have got wrong by reading `app/src/data/` carefully and believing it:
+
+- **`postgrest-js` retries reads and not writes**, three attempts on 503/520,
+  on by default, and nothing in growdy turns it off. None of that is visible
+  in any growdy source file. A client written from the call sites alone has
+  no retry at all, which is a regression for a vineyard with one bar --- and
+  adding it to the write side to compensate would be wrong, because the
+  writes are single-shot on purpose.
+- **Storage has no UPDATE policy**, so `upsert: true` is a 403 rather than an
+  overwrite. The omission is deliberate: overwriting bytes would let the
+  evidence behind a confirmed observation change while the row still reads
+  the same path.
+- **`usage` arrives once per model turn, not once per request**, so a client
+  that assigns rather than sums under-reports cost on every answer that used
+  a tool.
+
+The last one is the shape of the problem this ADR predicted. Each was
+recoverable only by reading code that no client-side type system covers ---
+a vendored dependency, a migration, and a loop inside an Edge Function --- and
+each looks like a working implementation until it does not.
+
+One open item the contract names rather than solves: the stale-version check
+re-fetches `index.html` and scrapes a `<meta>` tag, which has no native
+analogue. It is the only thing that currently tells a producer their app is
+running old code, and it needs a deliberate replacement rather than a silent
+drop.
+
