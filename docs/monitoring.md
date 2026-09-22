@@ -302,8 +302,8 @@ catch it.
 - **Security/performance advisors** (`get_advisors`, or Dashboard ->
   Advisors). [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says to
   check these after every migration; nothing currently reminds anyone
-  outside of that moment. Real findings -- the security advisors read
-  live on 2026-09-21, the performance ones not re-read since 2026-09-17
+  outside of that moment. Real findings -- both sets read live on
+  2026-09-21 at the `0.16.0` release gate
   (re-check rather than trust this list): `pg_net` extension installed
   in `public` schema (should move to
   `extensions`); one `SECURITY DEFINER` function callable by `anon` --
@@ -311,10 +311,14 @@ catch it.
   at all (`pg_get_functiondef` shows it owned by `postgres`, not the
   migration-applying role) -- it's Supabase's own platform-injected event
   trigger that auto-enables RLS on any new `public` table, a
-  defense-in-depth default, not growdy's. Harmless if called directly
-  outside its event-trigger context (`pg_event_trigger_ddl_commands()`
-  only returns rows during a live DDL event), which is why the linter
-  still flags it as anon-callable; six `SECURITY DEFINER` functions
+  defense-in-depth default, not growdy's. It cannot be called at all,
+  for a stronger reason than this entry used to give: it
+  `RETURNS event_trigger`, and Postgres refuses to invoke a function of
+  that return type outside a real event, so the `EXECUTE` the lint
+  objects to buys `anon` nothing. Even past that, its body is a loop
+  over `pg_event_trigger_ddl_commands()`, which returns no rows outside
+  a live DDL event. The lint keys on the grant, not on either of those,
+  which is why it still flags it as anon-callable; six `SECURITY DEFINER` functions
   callable by `authenticated` (`add_data_source`,
   `confirm_observation_candidate`, `create_observation_candidate`,
   `create_producer_and_profile`, `get_decrypted_source_secret`, plus
@@ -323,8 +327,17 @@ catch it.
   `auth.uid()` or checks `private.user_can_access_producer` before doing
   anything privileged, which is the whole reason they are `DEFINER` and
   not `INVOKER`; leaked-password protection disabled in
-  Auth; 18 unused indexes (INFO-level, expected at this scale, not
-  urgent). The second anon-callable function this list used to carry was
+  Auth; 28 unused indexes and one unindexed foreign key
+  (`observation_candidates.planting_id`), both INFO-level and both
+  expected at this scale -- the index count rises with each migration
+  that adds one and nothing has yet run the queries that would use
+  them, so it is a statement about traffic, not about the schema; and
+  `public.artifacts_deprecated` carrying RLS with no policies, which is
+  the tombstone from `#254` in exactly the state it is meant to be in --
+  RLS on and no policy is a table that refuses everyone, which is the
+  point of a tombstone, and the lint has no way to tell that apart from
+  a table somebody forgot. It goes when the table does.
+  The second anon-callable function this list used to carry was
   growdy's own and deliberate -- `get_public_artifact`
   ([`0027`](decisions/0027-public-artifact-links.md)) -- and it went
   when the artifacts feature did.
