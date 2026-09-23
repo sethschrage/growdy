@@ -26,13 +26,21 @@ and `AGENTS.md` mentions it, both move in the same PR.
 One thing to know before reading the rest, because it changes what
 several of these rules cover: growdy has two clients. The iOS app is
 being rebuilt as a native SwiftUI client and becomes the full-featured
-one; the React app in `app/` is frozen as a desktop surface; everything
-below the user interface -- schema, RLS, Edge Functions, auth, prompts
--- is shared by both
+one; the React app in `app/` is frozen as a desktop surface, with two
+narrow exceptions recorded in `0038`'s 2026-09-22 update (keeping shared
+data correct, which means conversation saving, and review features that
+fit the desktop); everything below the user interface -- schema, RLS,
+Edge Functions, auth, prompts -- is shared by both, and conversation
+saving, which moves into a database function with its own ADR, is the one
+planned change to it
 ([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md), and
 `AGENTS.md` opens with the short version). Sections here that are the
-React client's say so. None of them has a native equivalent yet, and
-the honest state of that is "not decided", not "the same as `app/`".
+React client's say so. The native client's structure, testing and
+delivery are decided in
+[`0039`](docs/decisions/0039-how-the-native-client-is-built-tested-and-delivered.md);
+where a section below has a native equivalent it says what it is, and
+where it does not, the rule has not been extended to Swift -- it is not
+"the same as `app/`".
 
 ## Workflow
 
@@ -58,7 +66,12 @@ the honest state of that is "not decided", not "the same as `app/`".
    `README.md` (does the Stack table still describe what runs?),
    `docs/architecture.md` (does the diagram still show what talks to
    what? if not, move the old one to `## History` first -- see
-   "Diagrams"), `docs/data-model.md`, `docs/monitoring.md`, any ADR
+   "Diagrams"), `docs/data-model.md`, `docs/monitoring.md`,
+   [`docs/api-contract.md`](docs/api-contract.md) (did this change a
+   request or response shape, an SSE event, an RPC signature, a storage
+   policy or an error key a second client depends on? Where the contract
+   and the code disagree, the code is what runs and the contract is the
+   bug, fixed in the same PR), any ADR
    this change amends or contradicts, and [`AGENTS.md`](AGENTS.md) plus
    this file (did this change a rule, or the thing a rule describes?).
    The last two were on no staleness list until 2026-09-21, which is
@@ -300,9 +313,22 @@ see Releases step 2 for what exists today.
 Unlike a migration or Edge Function, the app (`app/`) has no manual deploy
 step. Vercel is connected directly to this GitHub repo (see
 `docs/decisions/0008`): every push to `main` builds and deploys it to
-production automatically, and every other branch or PR gets its own
-preview build. Merging a PR that touches `app/` *is* the deploy -- there's
+production automatically when it touches `app/`, and every other branch
+or PR that touches it gets its own preview build. Merging a PR that
+touches `app/` *is* the deploy -- there's
 nothing further to run.
+
+**A push that touches nothing under `app/` is not built at all.** The
+Vercel project's root directory is `app/`, and `app/vercel.json`'s
+`ignoreCommand` skips the build when `git diff` finds no change there
+since the last deployed commit (or, failing that, the previous one). This
+exists because every build stamps a new `VITE_APP_VERSION`, and an open
+desktop tab that sees a new version blocks on "A new version is
+available" within 30 seconds -- so without it, every docs-only and every
+native-only merge interrupted the frozen app for a rebuild of identical
+code. If the diff itself fails (a shallow clone without the base commit),
+the command exits non-zero and Vercel builds: the failure direction is a
+redundant build, never a skipped one.
 
 ## Diagrams
 
@@ -370,15 +396,11 @@ problems that are worth fixing structurally instead. Concretely:
 
 ## Tests
 
-Everything in this section is about the React client in `app/`. The
-native client has no testing story yet -- not a lax one, an absent one
--- and the rules below do not silently extend to it: they name
-TypeScript paths, a Vitest config and an `npm` script, none of which a
-Swift target has. The principles underneath them (test where a wrong
-answer is silent, a regression test that has never been red is a guess)
-are worth carrying over; the mechanics have to be decided and written
-down here, in the same session they are settled, like any other process
-rule.
+Two clients, two sets of mechanics, one set of principles: test where a
+wrong answer is silent, and a regression test that has never been red
+is a guess. The React client's rules come first; the native client's
+are under "The native client" at the end of this section, and neither
+set silently extends to the other.
 
 The React client is tested with [Vitest](https://vitest.dev) and
 Testing Library, configured inside `app/vite.config.ts` so tests
@@ -414,23 +436,74 @@ There is no coverage threshold, deliberately. A number rewards testing
 what is easy to reach rather than what is expensive to get wrong, and
 the rules above name the risky parts outright.
 
+### The native client
+
+Decided in
+[`0039`](docs/decisions/0039-how-the-native-client-is-built-tested-and-delivered.md);
+the commands below arrive with the native code, and until then there is
+nothing to run.
+
+- **Swift Testing, in the `GrowdyKit` package, on the Mac.** `swift test`
+  in `native/GrowdyKit` runs it in seconds with no simulator. That is why
+  logic lives in the package and screens in the app target: code that
+  needs a simulator to be tested mostly doesn't get tested.
+- **Every public function in `GrowdyKit` has tests.** It is the native
+  equivalent of `app/src/data/` and `app/src/lib/` -- the parser, the API
+  layer, the retry and session rules, the queue -- where a wrong answer is
+  silent.
+- **Every bug fix ships a test that fails without the fix.** No snapshot
+  tests. Touching an untested file in `GrowdyKit` brings it under test.
+  The same rules as above, for the same reasons.
+- **No scripted UI tests, for now.** Swift Testing cannot drive a UI;
+  that is XCTest's `XCUIApplication`, and on the phone a UI-test runner
+  takes one of the free Apple team's three app slots. Screens are checked
+  by using them, on both simulators and on the phone.
+- **Two simulators for checking screens: iOS 26.5 and iOS 27.** 26.5 is
+  the closest published runtime to the phone's 26.6.2 (Apple publishes no
+  26.6), and 27 is the newest; the 26.0 floor is enforced at compile time
+  by the deployment target, not by a simulator. The phone is still the
+  final check; the simulator has passed touch bugs the phone then failed
+  (`0038`).
+- **The Keychain is not reached from tests.** It needs a signing team even
+  in the simulator (`0029`). Session logic is tested against an in-memory
+  store; the one Keychain adapter is checked by signing in on the phone.
+- **Committed fixtures are synthetic.** This repo is public, and a
+  recorded chat stream carries the producer's data, the model's reasoning
+  and the tables it read. Fixtures are generated in the server's exact
+  byte format with invented text, and replayed split at every byte offset
+  and one byte at a time. One real recording lives in a
+  gitignored directory, is used only as a local check that the synthetic
+  ones still match the wire, and is taken from a bland question with the
+  token read from an environment variable -- never written to a file. CI
+  rejects any fixture containing `eyJ`, `Bearer ` or `refresh_token`.
+
 ## CI
 
-Two workflows, both running on every PR, both required:
+Two workflows and three jobs, all running on every PR, all required on
+`main` -- `lint`, `web` and `functions`. (`functions` ran from `#251`
+but gated nothing until it was added to branch protection on
+2026-09-22; before that this line said "both required" of the two
+workflows, while the `functions` job inside `web.yml` ran advisory. `docs/monitoring.md` §8 has the command that
+reads the live setting, which is the only way to know.)
 
-`.github/workflows/web.yml` typechecks (`tsc -b`), lints (`oxlint`) and
-runs the test suite for `app/`. None of those three ran in CI before it
-existed, so a PR touching only the client was auto-merged on the
-strength of a schema check that never looked at it.
+`.github/workflows/web.yml`'s `web` job typechecks (`tsc -b`), lints
+(`oxlint`) and runs the test suite for `app/`. None of those three ran
+in CI before it existed, so a PR touching only the client was
+auto-merged on the strength of a schema check that never looked at it.
+It runs with `working-directory: app`. The same file's `functions` job
+typechecks, lints and tests `supabase/functions/` with Deno, and runs
+`scripts/check-function-guards.mjs` (see "What a green board does not
+mean" below).
 
-It runs with `working-directory: app`, and that boundary is the thing to
-hold on to: nothing outside `app/` is typechecked, linted or tested by
-anything. `supabase/functions/` is not -- which now means the six
-self-authorization checks that are the whole access control on those
-functions are held in place by nothing but memory -- and neither is
-`scripts/`, nor a native client when one exists. A PR entirely outside
-`app/` still gets two green required checks; they just had nothing in
-the diff to look at.
+Nothing typechecks or lints `scripts/` (the checkers' own tests run in
+`lint`, below), and nothing yet checks the native client.
+[`0039`](docs/decisions/0039-how-the-native-client-is-built-tested-and-delivered.md)
+decides its job: `native`, on GitHub's `xcode-27` image so CI compiles
+with the same Xcode build that makes the phone's app, with no path
+filter -- it skips its own steps when nothing under `native/` changed,
+for the reason below -- and the owner adds it to `main`'s required
+checks once the PR that creates it has merged (a settings change, not
+something a PR can do); `docs/monitoring.md` §8 reads it back.
 
 `.github/workflows/db-lint.yml` starts a local Supabase stack, applying
 every migration from scratch, and runs five checks against the database
@@ -601,7 +674,8 @@ to pile up alongside it. When it's time to cut one:
 
 1. Check `README.md`, this file, [`AGENTS.md`](AGENTS.md),
    `docs/architecture.md`, `docs/data-model.md`, `docs/monitoring.md`,
-   and any ADR with a placeholder or "not yet decided" left in it
+   `docs/api-contract.md`, and any ADR with a placeholder or "not yet
+   decided" left in it
    against what actually shipped in the batch -- not just the CHANGELOG
    entry. That is step 4's list exactly, and it cannot be shorter:
    with no per-PR review this is the only pass that catches what step 4
@@ -633,10 +707,13 @@ to pile up alongside it. When it's time to cut one:
    npx cap sync ios
    xcodebuild -project ios/App/App.xcodeproj -scheme App \
      -configuration Debug -destination id=<device-udid> \
-     -allowProvisioningUpdates build
+     -derivedDataPath <dir> -allowProvisioningUpdates build
+   xcrun devicectl device install app --device <device-udid> \
+     <dir>/Build/Products/Debug-iphoneos/App.app
    ```
 
-   (`xcrun xctrace list devices` prints the connected phone's UDID.)
+   (`xcrun devicectl list devices` prints the phone's UDID and whether
+   it is reachable.)
 
    `npx cap sync` is the step that carries the release: the iOS bundle
    holds its own copy of `dist/`, so skipping it builds the previous
@@ -644,9 +721,48 @@ to pile up alongside it. When it's time to cut one:
    development team even for the simulator -- a free personal Apple ID
    is enough, and `DEVELOPMENT_TEAM` is committed
    ([`0029`](docs/decisions/0029-ios-shell-and-native-sign-in.md)).
-   Installing it means running that scheme onto the connected phone
-   from Xcode: there is no App Store listing and no TestFlight, so a
-   cable is the only way a build reaches the producer.
+   There is no App Store listing and no TestFlight. `devicectl` installs
+   over Wi-Fi while the phone is paired and on the Mac's network -- no
+   cable, but the phone has to be within reach of the Mac.
+
+   **A free-team build stops launching seven days after its
+   provisioning profile was created, not seven days after the build.**
+   Xcode reuses a cached profile while it is still valid, so rebuilding
+   mid-week produces a build that expires on the old date. For a fresh
+   week, move the cached profile out of
+   `~/Library/Developer/Xcode/UserData/Provisioning Profiles/` before
+   building; Xcode requests a new one. The expiry is readable from any
+   build: `security cms -D -i <App.app>/embedded.mobileprovision`, key
+   `ExpirationDate`.
+
+   **An expired or stale build is installed over the top, never
+   deleted first.** Installing over the top keeps the app's data
+   container, which was checked on 2026-09-22 by comparing the
+   container's file listing before and after. Deleting the
+   app deletes the container, and with it anything queued and not yet
+   sent. Before anything that could force a delete (a team change, a
+   bundle id change), confirm nothing is waiting to send, and copy the
+   app's own data off the phone:
+   `xcrun devicectl device copy from --device <device-udid> --domain-type appDataContainer --domain-identifier <bundle-id> --source <folder> --destination <dir>`,
+   where the folder is `Library/WebKit/WebsiteData` for the shell (its
+   IndexedDB queue and session) and `Library/Application Support/Outbox`
+   for the native client. Name the folder: copying all of `Library`
+   fails partway, on files iOS keeps for itself. `devicectl device info
+   files` with the same domain arguments lists the container, and
+   comparing that list before and after an install is how the
+   over-the-top claim above was checked.
+
+   **Pull crash logs while you are there.** A sideloaded build has no
+   crash feed, and a crash on launch in the field looks exactly like an
+   expired profile.
+   `xcrun devicectl device info files --device <device-udid> --domain-type systemCrashLogs`
+   lists what the phone kept; copy the app's own one at a time (the
+   shell's are `App-*.ips`) with
+   `xcrun devicectl device copy from --device <device-udid> --domain-type systemCrashLogs --source <path> --destination <file>`.
+   Copying the whole folder fails partway, on files the system protects.
+   The first one pulled this way, on 2026-09-22, had sat on the phone
+   unread for two days: a `0x8BADF00D` watchdog kill of the shell while
+   it was being brought back to the foreground.
 
    **Who does which half.** Whoever has the Mac produces the build; the
    producer exercises it, because an agent has neither the phone nor
@@ -665,11 +781,13 @@ to pile up alongside it. When it's time to cut one:
    two bullets came out of that release because nobody could exercise
    them -- but not for where the list was written.
 
-   All of that describes the shell. When the SwiftUI client
-   ([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md)) is
-   what the producer opens, the commands change and this step changes
-   with them in the same PR; the rule above them does not change at
-   all.
+   The build commands describe the shell. When the SwiftUI client
+   ([`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md),
+   [`0039`](docs/decisions/0039-how-the-native-client-is-built-tested-and-delivered.md))
+   is what the producer opens, they change, and this step changes with
+   them in the same PR; the expiry, install-over-the-top and crash-log
+   rules apply to both apps as written, and the rule above them does not
+   change at all.
 
    Say back what was observed rather than that it was tested -- not
    "streaming works" but "sent a question from the phone, the status

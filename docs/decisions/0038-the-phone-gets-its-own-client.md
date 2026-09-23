@@ -190,3 +190,33 @@ analogue. It is the only thing that currently tells a producer their app is
 running old code, and it needs a deliberate replacement rather than a silent
 drop.
 
+
+## Update (2026-09-22): the freeze bends, narrowly
+
+The React app is still frozen, with two exceptions, both decided with the
+producer while settling [`0039`](0039-how-the-native-client-is-built-tested-and-delivered.md):
+
+- **It changes where shared data would otherwise go wrong.** The web
+  client rewrites the whole of `conversations.transcript` on every save,
+  so two devices continuing one conversation (the desktop and the phone's
+  shell, today) silently erase each other's turns, and a native client
+  saving the same way would do the same.
+  Conversation saving moves to a database function that both clients call
+  --- the first exception to "everything that is not a user interface
+  stays exactly where it is" above, and it gets an ADR of its own before
+  it is built.
+- **It changes for review features that fit the job this ADR gave it.** The
+  desktop is where a producer reviews "vineyard data, history, the
+  producer tree on a real screen". The model's reasoning will be saved
+  with each answer, as a new optional key, by both clients -- so the web
+  app's chat writes it too -- and History will show it, collapsed.
+
+Everything else stays frozen: no new capture, chat or map features.
+
+**A correction to the update above.** It says the stale-version check "is
+the only thing that currently tells a producer their app is running old
+code". That is true of a desktop tab and was never true on the phone: the
+Capacitor shell serves a bundled copy of `dist/`, so the `index.html` the
+check re-fetches is always the running build's own, and the comparison
+cannot differ. The native client replaces it with the build and its expiry
+date on screen (`0039`), not with a port.

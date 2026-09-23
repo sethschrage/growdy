@@ -8,22 +8,21 @@ itself versus what has to be deployed on purpose.
 
 Two clients sit over one backend, and only one of them is written. See
 [`0038`](decisions/0038-the-phone-gets-its-own-client.md) for why, and
-["The API contract"](#the-api-contract-and-where-it-does-not-live-yet)
-below for what the second one will need that nothing currently writes
-down.
+["The API contract"](#the-api-contract) below for what the second one
+needs, which is now written down.
 
 ```mermaid
 flowchart TD
-    GH["GitHub: sethschrage/growdy<br/>main, PR-reviewed"]
-    CI["CI on every PR<br/>db-lint: fresh local Postgres + schema/doc checks<br/>web: tsc, oxlint, vitest"]
+    GH["GitHub: sethschrage/growdy<br/>main, auto-merged when required checks pass"]
+    CI["CI on every PR, all three required<br/>lint: docs checks; fresh local Postgres + schema checks when migrations change<br/>web: tsc, oxlint, vitest<br/>functions: deno check, lint, test + caller-guard check"]
     Vercel["Vercel<br/>app-blue-ten-25.vercel.app"]
     Browser["Producer's browser"]
-    iPhone["Producer's iPhone<br/>build installed from Xcode, no App Store listing"]
+    iPhone["Producer's iPhone<br/>free-team build, 7-day profile, no App Store listing"]
 
-    GH -->|every PR touching migrations| CI
-    GH -->|"push to main: auto-deploy"| Vercel
+    GH -->|every PR| CI
+    GH -->|"push to main that touches app/: auto-deploy"| Vercel
     Browser -->|loads| Vercel
-    GH -->|"npx cap sync + Xcode build, by hand, per release"| iPhone
+    GH -->|"npx cap sync + xcodebuild, installed over Wi-Fi with devicectl, by hand"| iPhone
 
     subgraph App["app/ -- React + Vite, no server of its own<br/>FROZEN as a desktop surface (0038)"]
         Features["Features<br/>chat, observations, producer, releases"]
@@ -89,10 +88,11 @@ flowchart TD
 ## Reading this diagram
 
 - **Two client boxes, and only one of them has folders yet.** The
-  SwiftUI box is empty on purpose: no Swift target exists in this repo,
-  and nothing is recorded about where one would live, how it would be
-  branched, or how it reaches the phone. That is real work nobody has
-  done, not an omission from this diagram. What is settled is the line
+  SwiftUI box is empty because no Swift code exists yet. Where it will
+  live (`native/`, an app target over a local `GrowdyKit` package), how
+  it is tested and how it reaches the phone are decided in
+  [`0039`](decisions/0039-how-the-native-client-is-built-tested-and-delivered.md);
+  the box gets folders in the PR that creates them. What is settled is the line
   the dotted arrow draws -- it goes to the same Supabase project, the
   same six functions, the same RLS, because
   [`0038`](decisions/0038-the-phone-gets-its-own-client.md) moves the
@@ -133,7 +133,8 @@ flowchart TD
   See [`0032`](decisions/0032-client-organised-by-feature.md).
 - **Four deploy paths, four different amounts of automation.** Vercel
   is connected straight to GitHub and deploys the app on every push to
-  `main` with no manual step -- see
+  `main` that changes something under `app/` (`app/vercel.json` skips
+  the rest), with no manual step -- see
   [`docs/decisions/0008`](decisions/0008-app-as-research-tool.md). A
   migration or an Edge Function change is the opposite: written and
   reviewed in a PR, then applied or deployed to Supabase by hand after
@@ -162,12 +163,14 @@ flowchart TD
   Apple alongside Google -- see
   [`0029`](decisions/0029-ios-shell-and-native-sign-in.md).
 
-  A fifth path arrives with the SwiftUI client and is not designed yet.
-  What is already known about it: no `npx cap sync`, because a native
-  client bundles no `dist/` and a web change can no longer reach the
-  phone by being copied into it; and App Store review sits inside the
-  path rather than beside it, which is the first deploy step in this
-  project that someone else can refuse.
+  A fifth path arrives with the SwiftUI client, decided in
+  [`0039`](decisions/0039-how-the-native-client-is-built-tested-and-delivered.md):
+  built with `xcodebuild`, installed over Wi-Fi with `devicectl`,
+  re-signed weekly on the free Apple team, and never deleted to fix an
+  expiry. There is no `npx cap sync`, because a native client bundles no
+  `dist/`, so a web change can no longer reach the phone by being copied
+  into it. App Store review joins the path only with the paid program,
+  which 0039 defers until a second producer needs the app.
 - **Six Edge Functions now, not one**, each scoped to exactly what it
   needs: `chat`, `ingest-weather`, and `add-weather-source` all build
   their own per-request Postgres client from the caller's forwarded JWT,
@@ -282,8 +285,11 @@ flowchart TD
   cannot see a photo the producer couldn't. Deferred since
   [`0009`](decisions/0009-chat-based-observation-submission.md) and
   built by [`0030`](decisions/0030-every-observation-through-one-queue.md).
-- **CI is independent of every deploy path.** Two workflows run on every
-  PR: `web` typechecks, lints and tests the client, and `db-lint` checks
+- **CI is independent of every deploy path.** Three jobs run on every
+  PR, all required: `web` typechecks, lints and tests the client,
+  `functions` does the same for the Edge Functions and checks that each
+  handler resolves its caller before spending anything, and `lint`
+  (the `db-lint` workflow) checks
   the docs against the repo -- links and anchors, ADR numbering, the Edge
   Functions this diagram draws -- and, when the PR touches migrations,
   builds a disposable local Postgres from all of them and checks the
@@ -314,8 +320,11 @@ flowchart TD
   deploy. It cannot work on a phone and does not today: inside the
   Capacitor shell `/` *is* the bundled `index.html`, so the check
   compares a build against itself and can never fire. In SwiftUI there
-  is no `/` at all, and the App Store's own version is what replaces
-  it.
+  is no `/` at all.
+  [`0039`](decisions/0039-how-the-native-client-is-built-tested-and-delivered.md)
+  replaces the check with the build (its git commit) and the date the
+  install stops working, shown in Settings with a banner before expiry;
+  the maintenance half is ported exactly.
 
 - **Where spatial data actually stands, since the map is what `0038`
   is aimed at.** PostGIS has been installed since the first week
