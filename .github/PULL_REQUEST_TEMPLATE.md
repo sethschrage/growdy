@@ -19,6 +19,7 @@ don't delete it. See CONTRIBUTING.md, Workflow step 4.
 - docs/architecture.md (diagram still right? old one moved to ## History?)
 - docs/data-model.md
 - docs/monitoring.md
+- docs/api-contract.md (did this change anything a second client depends on?)
 - docs/decisions/ (contradicts or amends an ADR?)
 -->
 

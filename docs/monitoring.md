@@ -425,16 +425,23 @@ catch it.
 
 ## 7. Vercel (`growdy`, team `seth-schrage`, hobby plan)
 
-- **Deployments** -- every push to `main` auto-deploys to production
+- **Deployments** -- every push to `main` that touches `app/` auto-deploys to production
   ([`docs/architecture.md`](architecture.md)); a failed build after a
   merge means `main` is now running *older* code with no separate
   alert. Check via `list_deployments` / the Vercel dashboard for
-  `state != READY`, or `get_deployment_build_logs` for a specific one.
+  `state == ERROR` (a `CANCELED` from the Ignored Build Step is expected;
+  see below), or `get_deployment_build_logs` for a specific one.
 - **Runtime errors** -- `get_runtime_errors` (grouped error clusters,
   last up to 7 days). Clean as of 2026-09-17, zero in the trailing 7
   days -- but nothing currently checks this on any cadence.
 - **Web analytics** -- available (`get_web_analytics`) but not reviewed
   here; likely not worth watching at current traffic.
+- **Skipped builds are deliberate.** `app/vercel.json`'s `ignoreCommand`
+  skips any push that changes nothing under `app/`, so a docs-only or
+  native-only merge shows as "Canceled by Ignored Build Step" in the
+  deployment list, not as a failure. A skipped build means production is
+  still serving the previous deployment, which is correct because
+  nothing it builds from changed.
 
 ## 8. GitHub repo settings -- silent, and nothing watches them
 
@@ -463,10 +470,16 @@ gh api repos/sethschrage/growdy/branches/main/protection/required_status_checks
 gh api repos/sethschrage/growdy --jq '{allow_auto_merge, allow_squash_merge, delete_branch_on_merge}'
 ```
 
-Confirmed 2026-09-19: `contexts: ["lint", "web"]`, `strict: false`, and
-all three repo flags true. (`web` became required when the client got CI
-of its own; before that a PR touching only `app/` was merged on the
-strength of a schema check that never looked at it.)
+Confirmed 2026-09-22: `contexts: ["lint", "web", "functions"]`,
+`strict: false`, and all three repo flags true. (`web` became required
+when the client got CI of its own; before that a PR touching only `app/`
+was merged on the strength of a schema check that never looked at it.
+`functions` ran on every PR from `#251` but was only added on
+2026-09-22 -- for a day the Edge Functions' checks were advisory while
+`CONTRIBUTING.md` called them required, which is exactly the kind of
+wrong this section exists for. The native client's `native` job is
+added by the owner once the PR that creates it has merged; update the
+Confirmed line only after reading it back.)
 
 **A `clean status` refusal is not always a bug.** If CI has already
 finished and passed, there is nothing left for auto-merge to wait on and
@@ -573,9 +586,11 @@ next scheduled run.
 Open weaknesses with no check behind them. Each entry says what is
 exposed and what is not, because "latent" and "live" deserve different
 urgency and flattening them is how a real one gets lost among the
-theoretical ones. All of these were verified against the live project on
-2026-09-21 by querying `pg_proc`, `pg_class`, `pg_policy` and
-`has_*_privilege` directly. Re-check before acting on one, and delete an
+theoretical ones. Each entry says how and when it was checked: the
+database ones were verified against the live project on 2026-09-21 by
+querying `pg_proc`, `pg_class`, `pg_policy` and `has_*_privilege`
+directly, and the later ones carry their own date and method. Re-check
+before acting on one, and delete an
 entry when it closes rather than leaving it to rot -- a stale hazard list
 is read once and then never trusted again.
 
@@ -638,6 +653,37 @@ the next one exists too.
   not measured in hours. The four coupled edits a drop has to make are
   listed in [`docs/data-model.md`](data-model.md), next to the diagram
   block that is one of them.
+
+- **The phone's build stops launching every seven days, and nothing says
+  so in advance.** Live. The producer's app is signed by a free Apple
+  team, whose provisioning profiles expire seven days after they are
+  *created*, not after the build (Xcode reuses a cached profile, so a
+  mid-week rebuild keeps the old date). The shell's current profile
+  expires 2026-09-30 00:59 UTC. Nothing in the shell reads its own
+  expiry; the native client will show it in Settings (`0039`). Read it from any build
+  with `security cms -D -i <App.app>/embedded.mobileprovision`, key
+  `ExpirationDate`. The fix for an expired build is in `CONTRIBUTING.md`,
+  Releases step 2 -- and it is never "delete the app and reinstall",
+  which deletes anything queued.
+- **Crash reports sit on the phone unread.** Live. A sideloaded build has
+  no crash feed; iOS keeps the logs and nothing collects them. The first
+  one pulled, on 2026-09-22, was two days old: a `0x8BADF00D` watchdog
+  kill of the shell while it was being brought back to the foreground.
+  They are pulled at each weekly re-sign (`CONTRIBUTING.md`, Releases
+  step 2); anything that uploads them automatically is a separate
+  decision, which this file already calls a bigger one.
+- **A merged Edge Function change can sit undeployed indefinitely.**
+  Found 2026-09-22: `chat` was live at v34, a deploy from before `#241`
+  and `#251`, so production ran a prompt `main` had removed --- including
+  a "don't describe this table" entry naming a table that no longer
+  existed, which meant the tombstone `artifacts_deprecated` *was* being
+  described to the model. Deploying is a manual step after merge
+  (`CONTRIBUTING.md`, step 7) and nothing compares what is live with
+  what is on `main`. `list_edge_functions` gives each function's live
+  version and `updated_at`; comparing that timestamp with
+  `git log -1 --format=%cI -- supabase/functions/<name> supabase/functions/_shared`
+  is the manual check. Redeployed from `main` as v35 the same day; the
+  other five were not behind.
 
 ### `authenticated` held TRUNCATE on every table (closed 2026-09-21)
 

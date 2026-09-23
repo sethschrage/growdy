@@ -145,3 +145,12 @@ That is the same move this ADR already makes for layout defects -- when
 the honest answer is "no unit test would have caught this", write down
 what would have, rather than writing a test that asserts the code back at
 itself. A checker is that written down and made to run.
+
+## Update (2026-09-22): the native client
+
+Everything above is the web client's. The native client is tested with
+Swift Testing in its own package, by rules adapted from these, and the
+mechanics are in `CONTRIBUTING.md` under "Tests"; the decision and its
+reasons are [`0039`](0039-how-the-native-client-is-built-tested-and-delivered.md).
+The map this ADR anticipated arrives in the native client, and its
+coordinate and geometry code lives in that tested package, not in a view.

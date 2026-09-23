@@ -18,30 +18,43 @@ around a native client, and which client you are working in decides
 which of these rules reach you.
 
 - **The iOS app is being rebuilt as a native SwiftUI client, and it is
-  the full-featured one. New feature work goes there.** It does not
-  exist in this repo yet -- what is on the producer's phone today is
-  the Capacitor shell in `app/ios/`, wrapping the same React build.
-  Where the SwiftUI project lives, how it is tested, how it reaches the
-  phone: none of that is decided. If you are the one deciding it, that
-  is an ADR, not a preference you act on quietly.
+  the full-featured one. New feature work goes there.** Its code does
+  not exist yet -- what is on the producer's phone today is the
+  Capacitor shell in `app/ios/`, wrapping the same React build. Where it
+  lives (`native/`, an app target over a local `GrowdyKit` package), how
+  it is tested (Swift Testing, on the Mac, no simulator) and how it
+  reaches the phone (built here, installed over Wi-Fi, re-signed weekly
+  on a free Apple team) are decided in
+  [`0039`](docs/decisions/0039-how-the-native-client-is-built-tested-and-delivered.md).
+  Read it before touching native code: it also lists every place the
+  native client deliberately does *not* behave like the web one, so
+  that nobody "fixes" it back.
 - **The React app in `app/` is frozen as a desktop surface.** It stays
   deployed and working -- reviewing vineyard data, history, the
   producer tree on a real screen -- and takes no new features. Keeping
-  it running is in scope; growing it is not.
+  it running is in scope; growing it is not. Two narrow exceptions,
+  recorded in `0038`'s update: it changes where shared data would
+  otherwise go wrong (conversation saving), and for review features
+  that fit that desktop job.
 - **Everything that is not a user interface is shared and stays where
   it is**: the Postgres schema and its RLS, the six Edge Functions, the
   auth model, the prompts. That is most of the system, and a change
-  there is a change to both clients at once.
+  there is a change to both clients at once. The one planned exception
+  is conversation saving, which moves into a database function both
+  clients call; it gets its own ADR before it is built.
 
 [`0038`](docs/decisions/0038-the-phone-gets-its-own-client.md) is the
 decision and the measurements behind it; read it before proposing
-anything that assumes a single client. It also names a debt nothing
-else has picked up: the API contract between the clients and the Edge
-Functions has never been written down, because with one client the
-client *was* the specification. `app/src/data/` is still the only
-description of the SSE event types, the RPC signatures and the error
-shapes a second client has to match, and reading TypeScript is not a
-specification anyone can hold Swift to.
+anything that assumes a single client. It also named a debt: the API
+contract between the clients and the backend had never been written
+down, because with one client the client *was* the specification. It
+is now [`docs/api-contract.md`](docs/api-contract.md). Where it speaks,
+trust it over `app/src`. Where it defers -- it points at
+`app/src/data/` for PostgREST column lists and filters, and jsonb
+shapes such as the stored transcript message are not in it yet -- read
+those modules, then write what you relied on back into the contract
+in the same PR. Where code and contract disagree, the code is what
+runs and the contract is the bug; fix it in that PR.
 
 ## The one that keeps getting missed
 
@@ -150,10 +163,10 @@ there is no per-PR review. Nobody is going to catch it after you.
   without it; a new function in `app/src/data/` or `app/src/lib/` ships
   unit tests; touching an untested file brings it under test in the
   same PR. `npm test` in `app/`, and CI runs it on every PR. Those
-  rules and that command are the React client's; the native client has
-  no testing story yet, and inventing one silently is the thing not to
-  do (see "Two clients, one backend"). The full rules, including what
-  deliberately isn't tested, are in `CONTRIBUTING.md` under "Tests".
+  rules and that command are the React client's; the native client's
+  are Swift Testing in `native/GrowdyKit` (`0039`), and they land with
+  its first code. The full rules for both, including what deliberately
+  isn't tested, are in `CONTRIBUTING.md` under "Tests".
 
 ## Verify, don't assume
 

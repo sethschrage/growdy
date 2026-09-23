@@ -129,3 +129,34 @@ for.
   that is acceptable: a phone with no bars never reaches it, so the only
   evidence is a queued item on the producer's own screen. Which is why
   the screen shows it.
+
+## Update (2026-09-22): what counts as an attempt, in the native client
+
+The queue above counts every failed flush against the head item, no-signal
+failures included, and after five marks it stuck. A stuck item is kept but
+never tried again: the manual "try sending now" runs the same flush, which
+skips it. The web app reaches five slowly because it flushes rarely. The
+native client flushes on launch, on returning to the foreground and on
+every regained connection, so in a dead zone it would mark real captures
+stuck within minutes, with nothing wrong with them.
+
+So the native client
+([`0039`](0039-how-the-native-client-is-built-tested-and-delivered.md))
+counts **only a server's rejection** as an attempt. A transport failure
+never does, and neither does an auth failure before the token has been
+refreshed and the request retried (a 401, or Storage's 400 whose body
+says statusCode 403). A flush is not attempted at all while the device
+reports no network. A stuck item shows why it failed, with **Try again**, which
+resets the count, beside a separate, deliberate **Delete**. Stopping at
+the first failure, delivering in capture order and idempotency by client
+id are unchanged. The web app keeps the rule above.
+
+Two facts found on the way, both about the web client. The chat's "Send
+for review" card never went through this queue: it calls
+`create_observation_candidate` directly, with no client id, so retrying
+after a failure whose request actually landed, or pressing the card again
+in a reopened conversation, files a duplicate. The native client sends
+it through the queue. And as of 2026-09-22 the queue, which shipped in
+`0.15.0`, had delivered nothing in production (no candidate carries a
+client id), so the native client is the first real run of the photo and
+offline paths this ADR specified.
