@@ -50,10 +50,9 @@ contract between the clients and the backend had never been written
 down, because with one client the client *was* the specification. It
 is now [`docs/api-contract.md`](docs/api-contract.md). Where it speaks,
 trust it over `app/src`. Where it defers -- it points at
-`app/src/data/` for PostgREST column lists and filters, and jsonb
-shapes such as the stored transcript message are not in it yet -- read
-those modules, then write what you relied on back into the contract
-in the same PR. Where code and contract disagree, the code is what
+`app/src/data/` for PostgREST column lists and filters -- read those
+modules, then write what you relied on back into the contract in the
+same PR. Where code and contract disagree, the code is what
 runs and the contract is the bug; fix it in that PR.
 
 ## The one that keeps getting missed
