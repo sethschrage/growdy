@@ -251,7 +251,11 @@ endpoint declares a retry policy:
 Session refresh follows rules that are written down and tested:
 - one refresh in flight at a time;
 - the rotated token is persisted before it is used;
-- any 4xx from the refresh grant means signed out;
+- a 400 naming the token (`refresh_token_not_found`,
+  `refresh_token_already_used`, `session_not_found`, `session_expired`,
+  `user_banned`, `validation_failed`) means signed out, while a 429 or
+  `bad_json`, a transport failure or a 5xx keeps the session
+  ([`api-contract.md`](../api-contract.md) §6 has the list);
 - a generation counter, so a refresh cannot outlive a sign-out.
 
 supabase-swift would hide exactly those rules. Its Auth client retries on
